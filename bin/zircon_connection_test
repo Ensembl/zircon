@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Tk;
+
+sub create_child {
+    my ($name, $local_selection, $remote_selection) = @_;
+    fork == 0 or return;
+    exec 'zircon_connection'
+        , '-name'             => $name
+        , '-local_selection'  => $local_selection
+        , '-remote_selection' => $remote_selection
+        ;
+}
+
+my $id;
+my $count = 0;
+
+sub run {
+    $count++;
+    my $name_a = "A (${count})";
+    my $name_b = "B (${count})";
+    my $selection_a = "Zircon_${id}_${count}_A";
+    my $selection_b = "Zircon_${id}_${count}_B";
+    create_child $name_a, $selection_a, $selection_b;
+    create_child $name_b, $selection_b, $selection_a;
+    return;
+}
+
+my $main_window = MainWindow->new;
+$id = $main_window->id;
+$main_window->geometry('300x50');
+$main_window->title('Zircon: Connection: Test');
+$main_window
+    ->Button(
+    '-text'    => 'Run',
+    '-command' => \&run)
+    ->pack(
+    '-expand' => 1,
+    '-fill'   => 'both');
+
+MainLoop();

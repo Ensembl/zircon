@@ -1,0 +1,104 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+
+use Tk;
+use Tk::Button;
+use Tk::Entry;
+use Tk::Label;
+
+use Zircon::Connection;
+
+my ($name, $local_selection, $remote_selection);
+
+GetOptions(
+    'name=s'             => \$name,
+    'local_selection=s'  => \$local_selection,
+    'remote_selection=s' => \$remote_selection,
+    ) or die 'command line error';
+
+my $main_window = MainWindow->new;
+$main_window->title(sprintf 'Zircon: Connection: %s', $name);
+
+my $handler = Handler->new;
+
+my $connection = Zircon::Connection->new(
+    '-handler' => $handler,
+    '-widget'  => $main_window,
+    );
+$connection->local_selection($local_selection);
+$connection->remote_selection($remote_selection);
+
+my (
+    $zircon_send,
+    $zircon_request,
+    $zircon_reply,
+    $zircon_receive,
+    );
+$zircon_send = $zircon_request = $zircon_reply = $zircon_receive = '';
+
+my $main_frame =
+    $main_window
+    ->Frame
+    ->pack(
+        '-side' => 'top',
+        '-fill' => 'both');
+
+$main_frame
+    ->Button(
+    '-text' => 'Send',
+    '-command' => sub { $connection->send($zircon_send); })
+    ->grid(
+    $main_frame->Entry(
+        '-textvariable' => \$zircon_send),
+    '-sticky' => 'nsew');
+
+for (
+    [ 'Request', \$zircon_request ],
+    [ 'Reply',   \$zircon_reply   ],
+    [ 'Receive', \$zircon_receive ],
+    ) {
+    my ($text, $text_variable) = @{$_};
+    $main_frame
+        ->Label(
+        '-text'   => $text,
+        '-anchor' => 'w')
+        ->grid(
+        $main_frame
+        ->Label(
+            '-textvariable' => $text_variable,
+            '-relief'       => 'sunken',
+            '-anchor'       => 'w'),
+        '-sticky' => 'nsew');
+}
+
+$main_frame->gridColumnconfigure(
+    1, '-weight' => 1);
+
+MainLoop();
+
+package Handler;
+
+sub new {
+    my ($pkg) = @_;
+    my $new = { };
+    bless $new, $pkg;
+    return $new;
+}
+
+sub zircon_connection_request {
+    my ($self, $request) = @_;
+    $zircon_request = $request;
+    my $reply = sprintf q(%s: received: '%s'), $name, $request;
+    $zircon_reply = $reply;
+    return $reply;
+}
+
+sub zircon_connection_reply {
+    my ($self, $reply) = @_;
+    $zircon_receive = $reply;
+    return;
+}
