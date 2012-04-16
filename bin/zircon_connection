@@ -7,6 +7,7 @@ use Getopt::Long;
 
 use Tk;
 use Tk::Button;
+use Tk::Checkbutton;
 use Tk::Entry;
 use Tk::Label;
 
@@ -33,26 +34,68 @@ $connection->local_selection($local_selection);
 $connection->remote_selection($remote_selection);
 
 my (
-    $zircon_send,
-    $zircon_request,
-    $zircon_reply,
-    $zircon_receive,
+    $zircon_server_die,
+    $zircon_server_death_rattle,
+    $zircon_client_die,
+    $zircon_client_death_rattle,
     );
-$zircon_send = $zircon_request = $zircon_reply = $zircon_receive = '';
+$zircon_server_die = 0;
+$zircon_server_death_rattle = 'Server says "Arrgh!"';
+$zircon_client_die = 0;
+$zircon_client_death_rattle = 'Client says "Arrgh!"';
 
-my $main_frame =
+my $death_frame =
     $main_window
     ->Frame
     ->pack(
         '-side' => 'top',
         '-fill' => 'both');
 
-$main_frame
+for (
+    [ 'Die (server)', \$zircon_server_die, \$zircon_server_death_rattle ],
+    [ 'Die (client)', \$zircon_client_die, \$zircon_client_death_rattle ],
+    ) {
+    my ($text, $variable, $text_variable) = @{$_};
+    $death_frame
+        ->Checkbutton(
+        '-text' => $text,
+        '-anchor' => 'w',
+        '-variable' => $variable)
+        ->grid(
+        $death_frame
+        ->Entry('-textvariable' => $text_variable),
+        '-sticky' => 'nsew');
+}
+
+$death_frame->gridColumnconfigure(
+    1, '-weight' => 1);
+
+my (
+    $zircon_send,
+    $zircon_request,
+    $zircon_reply,
+    $zircon_receive,
+    );
+my $_dummy = # layout hack
+    $zircon_send =
+    $zircon_request =
+    $zircon_reply =
+    $zircon_receive =
+    '';
+
+my $send_frame =
+    $main_window
+    ->Frame
+    ->pack(
+        '-side' => 'top',
+        '-fill' => 'both');
+
+$send_frame
     ->Button(
     '-text' => 'Send',
     '-command' => sub { $connection->send($zircon_send); })
     ->grid(
-    $main_frame->Entry(
+    $send_frame->Entry(
         '-textvariable' => \$zircon_send),
     '-sticky' => 'nsew');
 
@@ -62,12 +105,12 @@ for (
     [ 'Receive', \$zircon_receive ],
     ) {
     my ($text, $text_variable) = @{$_};
-    $main_frame
+    $send_frame
         ->Label(
         '-text'   => $text,
         '-anchor' => 'w')
         ->grid(
-        $main_frame
+        $send_frame
         ->Label(
             '-textvariable' => $text_variable,
             '-relief'       => 'sunken',
@@ -75,7 +118,7 @@ for (
         '-sticky' => 'nsew');
 }
 
-$main_frame->gridColumnconfigure(
+$send_frame->gridColumnconfigure(
     1, '-weight' => 1);
 
 MainLoop();
@@ -93,12 +136,14 @@ sub zircon_connection_request {
     my ($self, $request) = @_;
     $zircon_request = $request;
     my $reply = sprintf q(%s: received: '%s'), $name, $request;
+    die $zircon_server_death_rattle if $zircon_server_die;
     $zircon_reply = $reply;
     return $reply;
 }
 
 sub zircon_connection_reply {
     my ($self, $reply) = @_;
+    die $zircon_client_death_rattle if $zircon_client_die;
     $zircon_receive = $reply;
     return;
 }
