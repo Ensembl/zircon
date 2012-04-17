@@ -27,6 +27,13 @@ sub zircon_connection_reply {
         'zircon_connection_reply');
 }
 
+#  timeout: log a warning
+
+sub zircon_connection_timeout {
+    warn "zircon_connection_timeout()\n";
+    return;
+}
+
 # utilities
 
 sub _zircon_connection_callback_undefined {

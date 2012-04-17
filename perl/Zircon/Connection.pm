@@ -34,6 +34,7 @@ my @mandatory_args = qw(
     );
 
 my $optional_args = {
+    'timeout_interval' => 500, # 0.5 seconds
 };
 
 my @weak_args = qw(
@@ -69,6 +70,7 @@ sub init {
 
     $self->owns_local_selection(0);
     $self->owns_remote_selection(0);
+    $self->clear;
     $self->state('inactive');
 
     return;
@@ -84,11 +86,20 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
     $self->request($request);
-    $self->client_state('client_request');
+    $self->state('client_request');
+    $self->go_client;
+    $self->timeout_start;
     return;
 }
 
 sub client_callback {
+    my ($self) = @_;
+    $self->_callback_wrap(
+        sub { $self->_client_callback; });
+    return;
+}
+
+sub _client_callback {
     my ($self) = @_;
 
     $self->owns_remote_selection(0);
@@ -96,7 +107,7 @@ sub client_callback {
     given ($self->state) {
 
         when ('client_request') {
-            $self->client_state('client_waiting');
+            $self->state('client_waiting');
         }
 
         when ('client_waiting') {
@@ -104,18 +115,13 @@ sub client_callback {
                 $self->widget->SelectionGet(
                     '-selection' => $self->remote_selection);
             $self->reply($reply);
-            $self->client_state('client_reply');
+            $self->state('client_reply');
         }
 
         when ('client_reply') {
             my $reply = $self->reply;
-            try {
-                $self->handler->zircon_connection_reply($reply);
-            }
-            catch { die $::_; } # propagate any error
-            finally {
-                $self->server_state('inactive');
-            };
+            $self->handler->zircon_connection_reply($reply);
+            $self->state('inactive');
         }
 
     }
@@ -123,12 +129,8 @@ sub client_callback {
     return;
 }
 
-sub client_state {
-    my ($self, $state) = @_;
-    $DEBUG and warn sprintf
-        "Zircon client: %s -> %s\n"
-        , $self->state, $state;
-    $self->state($state);
+sub go_client {
+    my ($self) = @_;
     $self->local_selection_clear;
     $self->remote_selection_own;
     return;
@@ -137,6 +139,13 @@ sub client_state {
 # server
 
 sub server_callback {
+    my ($self) = @_;
+    $self->_callback_wrap(
+        sub { $self->_server_callback; });
+    return;
+}
+
+sub _server_callback {
     my ($self) = @_;
 
     $self->owns_local_selection(0);
@@ -148,24 +157,18 @@ sub server_callback {
                 $self->widget->SelectionGet(
                     '-selection' => $self->local_selection);
             $self->request($request);
-            $self->server_state('server_request');
+            $self->state('server_request');
         }
 
         when ('server_request') {
             my $request = $self->request;
-            my $reply = '';
-            try {
-                $reply = $self->handler->zircon_connection_request($request);
-            }
-            catch { die $::_; } # propagate any error
-            finally {
-                $self->reply($reply);
-                $self->server_state('server_reply');
-            };
+            my $reply = $self->handler->zircon_connection_request($request);
+            $self->reply($reply);
+            $self->state('server_reply');
         }
 
         when ('server_reply') {
-            $self->server_state('inactive');
+            $self->state('inactive');
         }
 
     }
@@ -173,12 +176,8 @@ sub server_callback {
     return;
 }
 
-sub server_state {
-    my ($self, $state) = @_;
-    $DEBUG and warn sprintf
-        "Zircon server: %s -> %s\n"
-        , $self->state, $state;
-    $self->state($state);
+sub go_server {
+    my ($self) = @_;
     $self->remote_selection_clear;
     $self->local_selection_own;
     return;
@@ -298,6 +297,48 @@ sub owns_remote_selection {
     return $self->{'owns_remote_selection'};
 }
 
+# timeouts
+
+sub timeout_start {
+    my ($self) = @_;
+    my $timeout_handle =
+        $self->widget->after(
+            $self->timeout_interval,
+            $self->callback('timeout_callback'));
+    $self->timeout_handle($timeout_handle);
+    return;
+}
+
+sub timeout_cancel {
+    my ($self) = @_;
+    my $timeout_handle = $self->timeout_handle;
+    if (defined $timeout_handle) {
+        $timeout_handle->cancel;
+        $self->timeout_handle(undef);
+    }
+    return;
+}
+
+sub timeout_callback {
+    my ($self) = @_;
+    $self->timeout_handle(undef);
+    $self->reset;
+    $self->handler->zircon_connection_timeout;
+    return;
+}
+
+sub timeout_interval {
+    my ($self, @args) = @_;
+    ($self->{'timeout_interval'}) = @args if @args;
+    return $self->{'timeout_interval'};
+}
+
+sub timeout_handle {
+    my ($self, @args) = @_;
+    ($self->{'timeout_handle'}) = @args if @args;
+    return $self->{'timeout_handle'};
+}
+
 # callbacks
 
 sub callback {
@@ -314,6 +355,46 @@ sub _callback {
         return $self->$method(@_);
     };
     return $callback;
+}
+
+sub _callback_wrap {
+    my ($self, $callback) = @_;
+    try {
+        $self->timeout_cancel;
+        $callback->();
+        given ($self->state) {
+            when ('inactive') { $self->go_inactive; }
+            when (/^client_/) { $self->go_client; }
+            when (/^server_/) { $self->go_server; }
+            default {
+                die sprintf
+                    "invalid connection state '%s'", $_;
+            }
+        }
+    }
+    catch {
+        $self->reset;
+        die $::_; # propagate any error
+    }
+    finally {
+        $self->timeout_start
+            unless $self->state eq 'inactive';
+    };
+    return;
+}
+
+sub reset { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
+    my ($self) = @_;
+    $self->state('inactive');
+    $self->go_inactive;
+    return;
+}
+
+sub go_inactive {
+    my ($self) = @_;
+    $self->clear;
+    $self->go_server;
+    return;
 }
 
 # attributes
@@ -338,6 +419,13 @@ sub reply {
     my ($self, @args) = @_;
     ($self->{'reply'}) = @args if @args;
     return $self->{'reply'};
+}
+
+sub clear {
+    my ($self) = @_;
+    $self->request('');
+    $self->reply('');
+    return;
 }
 
 sub state { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
