@@ -169,6 +169,8 @@ MainLoop();
 
 package Handler;
 
+use base qw( Zircon::Connection::Handler );
+
 sub new {
     my ($pkg) = @_;
     my $new = { };
