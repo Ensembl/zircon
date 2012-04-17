@@ -84,11 +84,6 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
     $self->request($request);
-    $self->widget->SelectionOwn(
-        '-selection' => $self->local_selection);
-    $self->widget->SelectionClear(
-        '-selection' => $self->local_selection);
-    $self->owns_local_selection(0);
     $self->client_state('client_request');
     return;
 }
@@ -134,6 +129,7 @@ sub client_state {
         "Zircon client: %s -> %s\n"
         , $self->state, $state;
     $self->state($state);
+    $self->local_selection_clear;
     $self->remote_selection_own;
     return;
 }
@@ -183,6 +179,7 @@ sub server_state {
         "Zircon server: %s -> %s\n"
         , $self->state, $state;
     $self->state($state);
+    $self->remote_selection_clear;
     $self->local_selection_own;
     return;
 }
@@ -217,6 +214,18 @@ sub local_selection_own {
     return;
 }
 
+sub local_selection_clear {
+    my ($self) = @_;
+    if ($self->owns_local_selection) {
+        $self->widget->SelectionOwn(
+            '-selection' => $self->local_selection);
+        $self->widget->SelectionClear(
+            '-selection' => $self->local_selection);
+        $self->owns_local_selection(0);
+    }
+    return;
+}
+
 sub local_selection_callback {
     my ($self, @args) = @_;
     return $self->selection_callback('reply', @args);
@@ -245,6 +254,18 @@ sub remote_selection_own {
             '-command' => $self->callback('client_callback'),
             );
         $self->owns_remote_selection(1);
+    }
+    return;
+}
+
+sub remote_selection_clear {
+    my ($self) = @_;
+    if ($self->owns_remote_selection) {
+        $self->widget->SelectionOwn(
+            '-selection' => $self->remote_selection);
+        $self->widget->SelectionClear(
+            '-selection' => $self->remote_selection);
+        $self->owns_remote_selection(0);
     }
     return;
 }
