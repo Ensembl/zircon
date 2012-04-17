@@ -67,6 +67,8 @@ sub init {
         weaken $self->{$key};
     }
 
+    $self->owns_local_selection(0);
+    $self->owns_remote_selection(0);
     $self->state('inactive');
 
     return;
@@ -86,12 +88,15 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
         '-selection' => $self->local_selection);
     $self->widget->SelectionClear(
         '-selection' => $self->local_selection);
+    $self->owns_local_selection(0);
     $self->client_state('client_request');
     return;
 }
 
 sub client_callback {
     my ($self) = @_;
+
+    $self->owns_remote_selection(0);
 
     given ($self->state) {
 
@@ -137,6 +142,9 @@ sub client_state {
 
 sub server_callback {
     my ($self) = @_;
+
+    $self->owns_local_selection(0);
+
     given ($self->state) {
 
         when ('inactive') {
@@ -204,6 +212,7 @@ sub local_selection_own {
             '-selection' => $local_selection,
             '-command' => $self->callback('server_callback'),
             );
+        $self->owns_local_selection(1);
     }
     return;
 }
@@ -235,6 +244,7 @@ sub remote_selection_own {
             '-selection' => $remote_selection,
             '-command' => $self->callback('client_callback'),
             );
+        $self->owns_remote_selection(1);
     }
     return;
 }
@@ -253,6 +263,18 @@ sub selection_callback {
         ? substr $content, $offset
         : substr $content, $offset, $bytes
         ;
+}
+
+sub owns_local_selection {
+    my ($self, @args) = @_;
+    ($self->{'owns_local_selection'}) = @args if @args;
+    return $self->{'owns_local_selection'};
+}
+
+sub owns_remote_selection {
+    my ($self, @args) = @_;
+    ($self->{'owns_remote_selection'}) = @args if @args;
+    return $self->{'owns_remote_selection'};
 }
 
 # callbacks
