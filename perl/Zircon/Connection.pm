@@ -22,11 +22,8 @@ use warnings;
 use feature qw( switch );
 
 use Carp;
-use Readonly;
 use Scalar::Util qw( weaken );
 use Try::Tiny;
-
-Readonly::Scalar my $DEBUG => 0;
 
 my @mandatory_args = qw(
     widget
@@ -80,9 +77,6 @@ sub init {
 
 sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms) 
     my ($self, $request) = @_;
-    $DEBUG and warn sprintf
-        "\nZircon::Connection::send()\n>>>\n%s\n<<<\n"
-        , $request;
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
     $self->request($request);
