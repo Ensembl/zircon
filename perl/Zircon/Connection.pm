@@ -28,6 +28,18 @@ use Try::Tiny;
 
 Readonly::Scalar my $DEBUG => 0;
 
+my @mandatory_args = qw(
+    widget
+    handler
+    );
+
+my $optional_args = {
+};
+
+my @weak_args = qw(
+    handler
+    );
+
 sub new {
     my ($pkg, %args) = @_;
     my $new = { };
@@ -39,14 +51,21 @@ sub new {
 sub init {
     my ($self, $args) = @_;
 
-    my $widget = $args->{'-widget'};
-    defined $widget or die 'missing -widget parameter';
-    $self->{'widget'} = $widget;
+    for my $key (@mandatory_args) {
+        my $value = $args->{"-${key}"};
+        defined $value or die "missing -${key} parameter";
+        $self->{$key} = $value;
+    }
 
-    my $handler = $args->{'-handler'};
-    defined $handler or die 'missing -handler parameter';
-    $self->{'handler'} = $handler;
-    weaken $self->{'handler'};
+    while (my ($key, $default) = each %{$optional_args}) {
+        my $value = $args->{"-${key}"};
+        defined $value or $value = $default;
+        $self->$key($value);
+    }
+
+    for my $key (@weak_args) {
+        weaken $self->{$key};
+    }
 
     $self->state('inactive');
 
