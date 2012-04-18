@@ -13,16 +13,24 @@ use Tk::Label;
 
 use Zircon::Connection;
 
-my ($name, $local_selection, $remote_selection);
+my (
+    $tag,
+    $name,
+    $local_selection,
+    $remote_selection,
+    );
 
 GetOptions(
+    'tag=s'              => \$tag,
     'name=s'             => \$name,
     'local_selection=s'  => \$local_selection,
     'remote_selection=s' => \$remote_selection,
     ) or die 'command line error';
 
 my $main_window = MainWindow->new;
-$main_window->title(sprintf 'Zircon: Connection: %s', $name);
+$main_window->title(
+    sprintf 'Zircon: Connection: %s: %s'
+    , $name, $tag);
 
 my $handler = Handler->new;
 

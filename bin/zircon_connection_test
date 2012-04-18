@@ -6,9 +6,10 @@ use warnings;
 use Tk;
 
 sub create_child {
-    my ($name, $local_selection, $remote_selection) = @_;
+    my ($tag, $name, $local_selection, $remote_selection) = @_;
     fork == 0 or return;
     exec 'zircon_connection'
+        , '-tag'              => $tag
         , '-name'             => $name
         , '-local_selection'  => $local_selection
         , '-remote_selection' => $remote_selection
@@ -20,12 +21,11 @@ my $count = 0;
 
 sub run {
     $count++;
-    my $name_a = "A (${count})";
-    my $name_b = "B (${count})";
+    my $name = $count;
     my $selection_a = "Zircon_${id}_${count}_A";
     my $selection_b = "Zircon_${id}_${count}_B";
-    create_child $name_a, $selection_a, $selection_b;
-    create_child $name_b, $selection_b, $selection_a;
+    create_child 'A', $name, $selection_a, $selection_b;
+    create_child 'B', $name, $selection_b, $selection_a;
     return;
 }
 
