@@ -90,10 +90,16 @@ my $send_frame =
         '-side' => 'top',
         '-fill' => 'both');
 
+sub zircon_send {
+    $zircon_receive = '';
+    $connection->send($zircon_send);
+    return;
+}
+
 $send_frame
     ->Button(
     '-text' => 'Send',
-    '-command' => sub { $connection->send($zircon_send); })
+    '-command' => \&zircon_send)
     ->grid(
     $send_frame->Entry(
         '-textvariable' => \$zircon_send),
