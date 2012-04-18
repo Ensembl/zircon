@@ -135,6 +135,36 @@ for (
 $send_frame->gridColumnconfigure(
     1, '-weight' => 1);
 
+my $peer_tag_hash = {
+    'A' => 'B',
+    'B' => 'A',
+};
+
+sub run_peer {
+    my $pid = fork;
+    defined $pid
+        or die "run_peer(): fork() failed\n";
+    if ($pid == 0) {
+        my $peer_tag = $peer_tag_hash->{$tag};
+        defined $peer_tag or die sprintf
+            "run_peer(): bogus tag '%s'\n", $tag;
+        exec "$0"
+            , '-tag'              => $peer_tag
+            , '-name'             => $name
+            , '-local_selection'  => $remote_selection
+            , '-remote_selection' => $local_selection
+            ;
+        die "run_peer(): exec() failed\n";
+    }
+    return;
+}
+
+$main_window
+    ->Button(
+    '-text'    => 'Peer',
+    '-command' => \&run_peer)
+    ->pack;
+
 MainLoop();
 
 package Handler;
