@@ -37,6 +37,7 @@ my $handler = Handler->new;
 my $connection = Zircon::Connection->new(
     '-handler' => $handler,
     '-widget'  => $main_window,
+    '-debug'   => 1,
     );
 $connection->local_selection($local_selection);
 $connection->remote_selection($remote_selection);

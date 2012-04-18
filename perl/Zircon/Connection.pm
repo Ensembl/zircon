@@ -31,6 +31,7 @@ my @mandatory_args = qw(
     );
 
 my $optional_args = {
+    'debug'            => 0,   # no debugging
     'timeout_interval' => 500, # 0.5 seconds
 };
 
@@ -98,6 +99,9 @@ sub _client_callback {
 
     $self->owns_remote_selection(0);
 
+    $self->handler->zircon_connection_debug
+        if $self->debug;
+
     given ($self->state) {
 
         when ('client_request') {
@@ -143,6 +147,9 @@ sub _server_callback {
     my ($self) = @_;
 
     $self->owns_local_selection(0);
+
+    $self->handler->zircon_connection_debug
+        if $self->debug;
 
     given ($self->state) {
 
@@ -401,6 +408,12 @@ sub handler {
 sub widget {
     my ($self) = @_;
     return $self->{'widget'};
+}
+
+sub debug {
+    my ($self, @args) = @_;
+    ($self->{'debug'}) = @args if @args;
+    return $self->{'debug'};
 }
 
 sub request {
