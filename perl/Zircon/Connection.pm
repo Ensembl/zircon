@@ -116,7 +116,7 @@ sub client_state {
 
 # server
 
-sub server_callback { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
+sub server_callback {
     my ($self) = @_;
     given ($self->state) {
 
