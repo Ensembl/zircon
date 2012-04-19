@@ -6,6 +6,7 @@ use warnings;
 use Getopt::Long;
 
 use Tk;
+use Tk::Frame;
 use Tk::Button;
 use Tk::Checkbutton;
 use Tk::Entry;
