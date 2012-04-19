@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use feature qw( switch );
 
 use Getopt::Long;
 
@@ -9,6 +10,7 @@ use Tk;
 use Tk::Frame;
 use Tk::Button;
 use Tk::Checkbutton;
+use Tk::Optionmenu;
 use Tk::Entry;
 use Tk::Label;
 
@@ -43,42 +45,71 @@ my $connection = Zircon::Connection->new(
 $connection->local_selection($local_selection);
 $connection->remote_selection($remote_selection);
 
-my (
-    $zircon_server_die,
-    $zircon_server_death_rattle,
-    $zircon_client_die,
-    $zircon_client_death_rattle,
-    );
-$zircon_server_die = 0;
-$zircon_server_death_rattle = 'Server says "Arrgh!"';
-$zircon_client_die = 0;
-$zircon_client_death_rattle = 'Client says "Arrgh!"';
-
-my $death_frame =
+my $test_frame =
     $main_window
     ->Frame
     ->pack(
         '-side' => 'top',
         '-fill' => 'both');
 
-for (
-    [ 'Die (server)', \$zircon_server_die, \$zircon_server_death_rattle ],
-    [ 'Die (client)', \$zircon_client_die, \$zircon_client_death_rattle ],
-    ) {
-    my ($text, $variable, $text_variable) = @{$_};
-    $death_frame
-        ->Checkbutton(
-        '-text' => $text,
-        '-anchor' => 'w',
-        '-variable' => $variable)
-        ->grid(
-        $death_frame
-        ->Entry('-textvariable' => $text_variable),
-        '-sticky' => 'nsew');
+sub control_label {
+    my ($text, $option_list, $variable) = @_;
+    my $label = $test_frame->Label('-text' => $text);
+    return $label;
 }
 
-$death_frame->gridColumnconfigure(
-    1, '-weight' => 1);
+sub control_button_set {
+    my ($text, $option_list, $variable) = @_;
+    my $frame = $test_frame->Frame;
+    for (@{$option_list}) {
+        my ($text2, $key) = @{$_};
+        $frame->Radiobutton(
+            '-text'     => $text2,
+            '-anchor'   => 'w',
+            '-variable' => $variable,
+            '-value'    => $key,
+            )
+            ->pack(
+            '-side' => 'top',
+            '-fill' => 'both',
+            );
+    }
+    return $frame;
+}
+
+my $when;
+my $when_list = [ 
+    [ 'Client: request',    'client_request'    ],
+    [ 'Client: waiting',    'client_waiting'    ],
+    [ 'Client: reply',      'client_reply'      ],
+    [ 'Client: processing', 'client_processing' ],
+    [ 'Server: inactive',   'inactive'          ],
+    [ 'Server: request',    'server_request'    ],
+    [ 'Server: processing', 'server_processing' ],
+    [ 'Server: reply',      'server_reply'      ],
+    ];
+
+my $action = 'ok';
+my $action_list = [
+    [ qw( OK     ok   ) ],
+    [ qw( Hang   hang ) ],
+    [ qw( die()  die  ) ],
+    [ qw( exit() exit ) ],
+    ];
+
+my $control_list = [
+    [ 'when',   $when_list,   \$when   ],
+    [ 'action', $action_list, \$action ],
+    ];
+
+Tk::grid(
+    ( map { control_label(@{$_}); }
+      @{$control_list} ),
+    '-sticky' => 'nesw');
+Tk::grid(
+    ( map { control_button_set(@{$_}); }
+      @{$control_list}),
+    '-sticky' => 'nesw');
 
 my (
     $zircon_send,
@@ -184,14 +215,32 @@ sub zircon_connection_request {
     my ($self, $request) = @_;
     $zircon_request = $request;
     my $reply = sprintf q(%s: received: '%s'), $name, $request;
-    die $zircon_server_death_rattle if $zircon_server_die;
+    _process('server_processing');
     $zircon_reply = $reply;
     return $reply;
 }
 
 sub zircon_connection_reply {
     my ($self, $reply) = @_;
-    die $zircon_client_death_rattle if $zircon_client_die;
+    _process('client_processing');
     $zircon_receive = $reply;
     return;
 }
+
+sub zircon_connection_debug {
+    my ($key) = @_;
+    _process($connection->state);
+    return
+}
+
+sub _process {
+    my ($state) = @_;
+    if (defined $when && $state eq $when) {
+        given ($action) {
+            when ('hang') { $main_window->after(5000); }
+            when ('die')  { die "die: as requested\n" }
+            when ('exit') { exit }
+        }
+    }
+    return;
+};
