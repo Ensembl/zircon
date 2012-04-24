@@ -68,8 +68,8 @@ sub init {
         weaken $self->{$key};
     }
 
-    $self->clear;
     $self->state('inactive');
+    $self->update;
 
     return;
 }
@@ -99,7 +99,7 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
         or die 'Zircon: busy connection';
     $self->remote_selection->content($request);
     $self->state('client_request');
-    $self->go_client;
+    $self->update;
     $self->timeout_start;
     return;
 }
@@ -189,7 +189,7 @@ sub local_selection_id {
         my $local_selection =
             $self->selection_new('local', $id);
         $self->local_selection($local_selection);
-        $local_selection->own;
+        $self->update;
     }
     my $local_selection = $self->local_selection;
     my $id = defined $local_selection ? $local_selection->id : undef;
@@ -231,6 +231,7 @@ sub remote_selection_id {
         my $remote_selection =
             $self->selection_new('remote', $id);
         $self->remote_selection($remote_selection);
+        $self->update;
     }
     my $remote_selection = $self->remote_selection;
     my $id = defined $remote_selection ? $remote_selection->id : undef;
