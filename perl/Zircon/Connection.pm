@@ -378,7 +378,8 @@ sub reset { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
 
 sub go_inactive {
     my ($self) = @_;
-    $self->clear;
+    $self->request('');
+    $self->reply('');
     my $local_selection = $self->local_selection;
     $local_selection->empty if defined $local_selection;
     my $remote_selection = $self->remote_selection;
@@ -415,13 +416,6 @@ sub reply {
     my ($self, @args) = @_;
     ($self->{'reply'}) = @args if @args;
     return $self->{'reply'};
-}
-
-sub clear {
-    my ($self) = @_;
-    $self->request('');
-    $self->reply('');
-    return;
 }
 
 sub state { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
