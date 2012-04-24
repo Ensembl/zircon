@@ -42,8 +42,8 @@ my $connection = Zircon::Connection->new(
     '-widget'  => $main_window,
     '-debug'   => 1,
     );
-$connection->local_selection($local_selection);
-$connection->remote_selection($remote_selection);
+$connection->local_selection_id($local_selection);
+$connection->remote_selection_id($remote_selection);
 
 my $test_frame =
     $main_window

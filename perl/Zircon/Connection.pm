@@ -25,6 +25,8 @@ use Carp;
 use Scalar::Util qw( weaken );
 use Try::Tiny;
 
+use Zircon::Context::Tk::Selection;
+
 my @mandatory_args = qw(
     widget
     handler
@@ -66,11 +68,26 @@ sub init {
         weaken $self->{$key};
     }
 
-    $self->owns_local_selection(0);
-    $self->owns_remote_selection(0);
     $self->clear;
     $self->state('inactive');
 
+    return;
+}
+
+sub selection_owner_callback {
+    my ($self, $key) = @_;
+    $self->_callback_wrap(
+        sub {
+            given ($key) {
+                when ('local')  { $self->_server_callback; }
+                when ('remote') { $self->_client_callback; }
+                default {
+                    die sprintf
+                        "invalid selection owner callback key: '%s'"
+                        , $key;
+                }
+            }
+        });
     return;
 }
 
@@ -80,24 +97,15 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
     my ($self, $request) = @_;
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
-    $self->request($request);
+    $self->remote_selection->content($request);
     $self->state('client_request');
     $self->go_client;
     $self->timeout_start;
     return;
 }
 
-sub client_callback {
-    my ($self) = @_;
-    $self->_callback_wrap(
-        sub { $self->_client_callback; });
-    return;
-}
-
 sub _client_callback {
     my ($self) = @_;
-
-    $self->owns_remote_selection(0);
 
     $self->handler->zircon_connection_debug
         if $self->debug;
@@ -109,9 +117,7 @@ sub _client_callback {
         }
 
         when ('client_waiting') {
-            my $reply =
-                $self->widget->SelectionGet(
-                    '-selection' => $self->remote_selection);
+            my $reply = $self->remote_selection->get;
             $self->reply($reply);
             $self->state('client_reply');
         }
@@ -136,17 +142,8 @@ sub go_client {
 
 # server
 
-sub server_callback {
-    my ($self) = @_;
-    $self->_callback_wrap(
-        sub { $self->_server_callback; });
-    return;
-}
-
 sub _server_callback {
     my ($self) = @_;
-
-    $self->owns_local_selection(0);
 
     $self->handler->zircon_connection_debug
         if $self->debug;
@@ -154,9 +151,7 @@ sub _server_callback {
     given ($self->state) {
 
         when ('inactive') {
-            my $request =
-                $self->widget->SelectionGet(
-                    '-selection' => $self->local_selection);
+            my $request = $self->local_selection->get;
             $self->request($request);
             $self->state('server_request');
         }
@@ -164,7 +159,7 @@ sub _server_callback {
         when ('server_request') {
             my $request = $self->request;
             my $reply = $self->handler->zircon_connection_request($request);
-            $self->reply($reply);
+            $self->local_selection->content($reply);
             $self->state('server_reply');
         }
 
@@ -186,17 +181,26 @@ sub go_server {
 
 # selections
 
+sub local_selection_id {
+    my ($self, @args) = @_;
+    if (@args) {
+        my ($id) = @args;
+        defined $id or die 'undefined selection ID';
+        my $local_selection =
+            $self->selection_new('local', $id);
+        $self->local_selection($local_selection);
+        $local_selection->own;
+    }
+    my $local_selection = $self->local_selection;
+    my $id = defined $local_selection ? $local_selection->id : undef;
+    return $id;
+}
+
 sub local_selection {
     my ($self, @args) = @_;
     if (@args) {
         my ($local_selection) = @args;
         $self->{'local_selection'} = $local_selection;
-        if (defined $local_selection) {
-            $self->widget->SelectionHandle(
-                -selection => $local_selection,
-                $self->callback('local_selection_callback'));
-            $self->local_selection_own;
-        }
     }
     return $self->{'local_selection'};
 }
@@ -205,30 +209,32 @@ sub local_selection_own {
     my ($self) = @_;
     my $local_selection = $self->local_selection;
     if (defined $local_selection) {
-        $self->widget->SelectionOwn(
-            '-selection' => $local_selection,
-            '-command' => $self->callback('server_callback'),
-            );
-        $self->owns_local_selection(1);
+        $local_selection->own;
     }
     return;
 }
 
 sub local_selection_clear {
     my ($self) = @_;
-    if ($self->owns_local_selection) {
-        $self->widget->SelectionOwn(
-            '-selection' => $self->local_selection);
-        $self->widget->SelectionClear(
-            '-selection' => $self->local_selection);
-        $self->owns_local_selection(0);
+    my $local_selection = $self->local_selection;
+    if (defined $local_selection) {
+        $local_selection->clear;
     }
     return;
 }
 
-sub local_selection_callback {
+sub remote_selection_id {
     my ($self, @args) = @_;
-    return $self->selection_callback('reply', @args);
+    if (@args) {
+        my ($id) = @args;
+        defined $id or die 'undefined selection ID';
+        my $remote_selection =
+            $self->selection_new('remote', $id);
+        $self->remote_selection($remote_selection);
+    }
+    my $remote_selection = $self->remote_selection;
+    my $id = defined $remote_selection ? $remote_selection->id : undef;
+    return $id;
 }
 
 sub remote_selection {
@@ -236,11 +242,6 @@ sub remote_selection {
     if (@args) {
         my ($remote_selection) = @args;
         $self->{'remote_selection'} = $remote_selection;
-        if (defined $remote_selection) {
-            $self->widget->SelectionHandle(
-                -selection => $remote_selection,
-                $self->callback('remote_selection_callback'));
-        }
     }
     return $self->{'remote_selection'};
 }
@@ -249,53 +250,30 @@ sub remote_selection_own {
     my ($self) = @_;
     my $remote_selection = $self->remote_selection;
     if (defined $remote_selection) {
-        $self->widget->SelectionOwn(
-            '-selection' => $remote_selection,
-            '-command' => $self->callback('client_callback'),
-            );
-        $self->owns_remote_selection(1);
+        $remote_selection->own;
     }
     return;
 }
 
 sub remote_selection_clear {
     my ($self) = @_;
-    if ($self->owns_remote_selection) {
-        $self->widget->SelectionOwn(
-            '-selection' => $self->remote_selection);
-        $self->widget->SelectionClear(
-            '-selection' => $self->remote_selection);
-        $self->owns_remote_selection(0);
+    my $remote_selection = $self->remote_selection;
+    if (defined $remote_selection) {
+        $remote_selection->clear;
     }
     return;
 }
 
-sub remote_selection_callback {
-    my ($self, @args) = @_;
-    return $self->selection_callback('request', @args);
-}
-
-sub selection_callback {
-    my ($self, $method, $offset, $bytes) = @_;
-    my $content = $self->$method;
-    my $size = (length $content) - $offset;
-    return
-        $size < $bytes
-        ? substr $content, $offset
-        : substr $content, $offset, $bytes
-        ;
-}
-
-sub owns_local_selection {
-    my ($self, @args) = @_;
-    ($self->{'owns_local_selection'}) = @args if @args;
-    return $self->{'owns_local_selection'};
-}
-
-sub owns_remote_selection {
-    my ($self, @args) = @_;
-    ($self->{'owns_remote_selection'}) = @args if @args;
-    return $self->{'owns_remote_selection'};
+sub selection_new {
+    my ($self, $key, $id) = @_;
+    my $selection =
+      Zircon::Context::Tk::Selection->new(
+          '-widget'       => $self->widget,
+          '-id'           => $id,
+          '-handler'      => $self,
+          '-handler_data' => $key,
+      );
+    return $selection;
 }
 
 # timeouts
@@ -394,6 +372,10 @@ sub reset { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
 sub go_inactive {
     my ($self) = @_;
     $self->clear;
+    my $local_selection = $self->local_selection;
+    $local_selection->empty if defined $local_selection;
+    my $remote_selection = $self->remote_selection;
+    $remote_selection->empty if defined $remote_selection;
     $self->go_server;
     return;
 }
