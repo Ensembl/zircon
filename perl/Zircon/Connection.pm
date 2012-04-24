@@ -77,17 +77,21 @@ sub init {
 sub selection_owner_callback {
     my ($self, $key) = @_;
     $self->_callback_wrap(
-        sub {
-            given ($key) {
-                when ('local')  { $self->_server_callback; }
-                when ('remote') { $self->_client_callback; }
-                default {
-                    die sprintf
-                        "invalid selection owner callback key: '%s'"
-                        , $key;
-                }
-            }
-        });
+        sub { $self->_selection_owner_callback($key); });
+    return;
+}
+
+sub _selection_owner_callback {
+    my ($self, $key) = @_;
+    given ($key) {
+        when ('local')  { $self->_server_callback; }
+        when ('remote') { $self->_client_callback; }
+        default {
+            die sprintf
+                "invalid selection owner callback key: '%s'"
+                , $key;
+        }
+    }
     return;
 }
 
