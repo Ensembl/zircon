@@ -341,15 +341,7 @@ sub _callback_wrap {
     try {
         $self->timeout_cancel;
         $callback->();
-        given ($self->state) {
-            when ('inactive') { $self->go_inactive; }
-            when (/^client_/) { $self->go_client; }
-            when (/^server_/) { $self->go_server; }
-            default {
-                die sprintf
-                    "invalid connection state '%s'", $_;
-            }
-        }
+        $self->update;
     }
     catch {
         $self->reset;
@@ -359,6 +351,20 @@ sub _callback_wrap {
         $self->timeout_start
             unless $self->state eq 'inactive';
     };
+    return;
+}
+
+sub update {
+    my ($self) = @_;
+    given ($self->state) {
+        when ('inactive') { $self->go_inactive; }
+        when (/^client_/) { $self->go_client; }
+        when (/^server_/) { $self->go_server; }
+        default {
+            die sprintf
+                "invalid connection state '%s'", $_;
+        }
+    }
     return;
 }
 
