@@ -76,7 +76,7 @@ sub init {
 
 sub selection_owner_callback {
     my ($self, $key) = @_;
-    $self->_callback_wrap(
+    $self->_do_safely(
         sub { $self->_selection_owner_callback($key); });
     return;
 }
@@ -341,7 +341,7 @@ sub _callback {
     return $callback;
 }
 
-sub _callback_wrap {
+sub _do_safely {
     my ($self, $callback) = @_;
     try {
         $self->timeout_cancel;
