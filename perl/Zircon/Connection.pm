@@ -132,6 +132,11 @@ sub _client_callback {
             $self->state('inactive');
         }
 
+        default {
+            die sprintf
+                "invalid connection state '%s'", $_;
+        }
+
     }
 
     return;
@@ -169,6 +174,11 @@ sub _server_callback {
 
         when ('server_reply') {
             $self->state('inactive');
+        }
+
+        default {
+            die sprintf
+                "invalid connection state '%s'", $_;
         }
 
     }
