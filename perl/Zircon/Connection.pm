@@ -101,10 +101,7 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
     my ($self, $request) = @_;
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
-    my $selection = $self->remote_selection;
-    defined $selection
-        or die 'Zircon: no remote selection';
-    $selection->content($request);
+    $self->selection('remote')->content($request);
     $self->state('client_request');
     $self->update;
     $self->timeout_start;
@@ -124,7 +121,7 @@ sub _client_callback {
         }
 
         when ('client_waiting') {
-            my $reply = $self->remote_selection->get;
+            my $reply = $self->selection('remote')->get;
             $self->reply($reply);
             $self->state('client_reply');
         }
@@ -142,8 +139,8 @@ sub _client_callback {
 
 sub go_client {
     my ($self) = @_;
-    $self->local_selection_clear;
-    $self->remote_selection_own;
+    $self->selection_call('local', 'clear');
+    $self->selection_call('remote', 'own');
     return;
 }
 
@@ -158,7 +155,7 @@ sub _server_callback {
     given ($self->state) {
 
         when ('inactive') {
-            my $request = $self->local_selection->get;
+            my $request = $self->selection('local')->get;
             $self->request($request);
             $self->state('server_request');
         }
@@ -166,7 +163,7 @@ sub _server_callback {
         when ('server_request') {
             my $request = $self->request;
             my $reply = $self->handler->zircon_connection_request($request);
-            $self->local_selection->content($reply);
+            $self->selection('local')->content($reply);
             $self->state('server_reply');
         }
 
@@ -181,8 +178,8 @@ sub _server_callback {
 
 sub go_server {
     my ($self) = @_;
-    $self->remote_selection_clear;
-    $self->local_selection_own;
+    $self->selection_call('remote', 'clear');
+    $self->selection_call('local', 'own');
     return;
 }
 
@@ -190,98 +187,46 @@ sub go_server {
 
 sub local_selection_id {
     my ($self, @args) = @_;
-    if (@args) {
-        my ($id) = @args;
-        defined $id or die 'undefined selection ID';
-        my $local_selection =
-            $self->selection_new('local', $id);
-        $self->local_selection($local_selection);
-        $self->update;
-    }
-    my $local_selection = $self->local_selection;
-    my $id = defined $local_selection ? $local_selection->id : undef;
-    return $id;
-}
-
-sub local_selection {
-    my ($self, @args) = @_;
-    if (@args) {
-        my ($local_selection) = @args;
-        $self->{'local_selection'} = $local_selection;
-    }
-    return $self->{'local_selection'};
-}
-
-sub local_selection_own {
-    my ($self) = @_;
-    my $local_selection = $self->local_selection;
-    if (defined $local_selection) {
-        $local_selection->own;
-    }
-    return;
-}
-
-sub local_selection_clear {
-    my ($self) = @_;
-    my $local_selection = $self->local_selection;
-    if (defined $local_selection) {
-        $local_selection->clear;
-    }
-    return;
+    return $self->selection_id('local', @args);
 }
 
 sub remote_selection_id {
     my ($self, @args) = @_;
+    return $self->selection_id('remote', @args);
+}
+
+sub selection_id {
+    my ($self, $key, @args) = @_;
     if (@args) {
         my ($id) = @args;
         defined $id or die 'undefined selection ID';
-        my $remote_selection =
-            $self->selection_new('remote', $id);
-        $self->remote_selection($remote_selection);
+        $self->{'selection'}{$key} =
+            Zircon::Context::Tk::Selection->new(
+                '-widget'       => $self->widget,
+                '-id'           => $id,
+                '-handler'      => $self,
+                '-handler_data' => $key,
+            );
         $self->update;
     }
-    my $remote_selection = $self->remote_selection;
-    my $id = defined $remote_selection ? $remote_selection->id : undef;
+    my $selection = $self->{'selection'}{$key};
+    my $id = defined $selection ? $selection->id : undef;
     return $id;
 }
 
-sub remote_selection {
-    my ($self, @args) = @_;
-    if (@args) {
-        my ($remote_selection) = @args;
-        $self->{'remote_selection'} = $remote_selection;
-    }
-    return $self->{'remote_selection'};
-}
-
-sub remote_selection_own {
-    my ($self) = @_;
-    my $remote_selection = $self->remote_selection;
-    if (defined $remote_selection) {
-        $remote_selection->own;
-    }
-    return;
-}
-
-sub remote_selection_clear {
-    my ($self) = @_;
-    my $remote_selection = $self->remote_selection;
-    if (defined $remote_selection) {
-        $remote_selection->clear;
-    }
-    return;
-}
-
-sub selection_new {
-    my ($self, $key, $id) = @_;
-    my $selection =
-      Zircon::Context::Tk::Selection->new(
-          '-widget'       => $self->widget,
-          '-id'           => $id,
-          '-handler'      => $self,
-          '-handler_data' => $key,
-      );
+sub selection {
+    my ($self, $key) = @_;
+    my $selection = $self->{'selection'}{$key};
+    defined $selection
+        or die sprintf "Zircon: no selection for key '%s'", $key;
     return $selection;
+}
+
+sub selection_call {
+    my ($self, $key, $method, @args) = @_;
+    my $selection = $self->{'selection'}{$key};
+    return unless defined $selection;
+    return $selection->$method(@args);
 }
 
 # timeouts
@@ -387,10 +332,8 @@ sub go_inactive {
     my ($self) = @_;
     $self->request('');
     $self->reply('');
-    my $local_selection = $self->local_selection;
-    $local_selection->empty if defined $local_selection;
-    my $remote_selection = $self->remote_selection;
-    $remote_selection->empty if defined $remote_selection;
+    $self->selection_call('local',  'empty');
+    $self->selection_call('remote', 'empty');
     $self->go_server;
     return;
 }
