@@ -101,7 +101,10 @@ sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
     my ($self, $request) = @_;
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
-    $self->remote_selection->content($request);
+    my $selection = $self->remote_selection;
+    defined $selection
+        or die 'Zircon: no remote selection';
+    $selection->content($request);
     $self->state('client_request');
     $self->update;
     $self->timeout_start;
