@@ -47,7 +47,9 @@ $connection->remote_selection_id($remote_selection);
 
 my $test_frame =
     $main_window
-    ->Frame
+    ->Frame(
+        '-borderwidth' => 2,
+        '-relief'      => 'sunken')
     ->pack(
         '-side' => 'top',
         '-fill' => 'both');
@@ -131,38 +133,73 @@ my $send_frame =
         '-side' => 'top',
         '-fill' => 'both');
 
+{
+    my $rowspan = 2;
+    my $row = 0;
+    for my $text (qw(
+        Client Server ) ) {
+        Tk::grid(
+            $send_frame->Label(
+                '-text'   => $text,
+                '-anchor' => 'w',
+                '-relief' => 'sunken'),
+            '-row'     => $row,
+            '-rowspan' => $rowspan,
+            '-sticky'  => 'nsew');
+        $row += $rowspan;
+    }
+}
+
 sub zircon_send {
     $zircon_receive = '';
     $connection->send($zircon_send);
     return;
 }
 
-$send_frame
-    ->Button(
-    '-text' => 'Send',
-    '-command' => \&zircon_send)
-    ->grid(
-    $send_frame->Entry(
-        '-textvariable' => \$zircon_send),
-    '-sticky' => 'nsew');
-
-for (
-    [ 'Request', \$zircon_request ],
-    [ 'Reply',   \$zircon_reply   ],
-    [ 'Receive', \$zircon_receive ],
-    ) {
+sub widget_row {
     my ($text, $text_variable) = @{$_};
-    $send_frame
-        ->Label(
-        '-text'   => $text,
-        '-anchor' => 'w')
-        ->grid(
-        $send_frame
-        ->Label(
+    my $row = [
+        $send_frame->Label(
+            '-text'   => $text,
+            '-relief' => 'sunken',
+            '-anchor' => 'w'),
+        $send_frame->Label(
             '-textvariable' => $text_variable,
             '-relief'       => 'sunken',
             '-anchor'       => 'w'),
-        '-sticky' => 'nsew');
+        ];
+    return $row;
+}
+
+my $widget_array = [
+    [
+     $send_frame->Button(
+         '-text' => 'Send',
+         '-command' => \&zircon_send),
+     $send_frame->Entry(
+         '-textvariable' => \$zircon_send),
+    ],
+    ( map { widget_row @{$_}; }
+      [ 'Receive', \$zircon_receive ],
+      [ 'Request', \$zircon_request ],
+      [ 'Reply',   \$zircon_reply   ],
+    ),
+    ];
+
+{
+    my $row = 0;
+    for my $widget_row (@{$widget_array}) {
+        my $column = 1;
+        for my $widget (@{$widget_row}) {
+            Tk::grid(
+                $widget,
+                '-row'    => $row,
+                '-column' => $column,
+                '-sticky' => 'nsew');
+            $column++;
+        }
+        $row++;
+    }
 }
 
 $send_frame->gridColumnconfigure(
