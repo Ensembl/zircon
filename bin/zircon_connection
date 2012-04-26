@@ -251,7 +251,9 @@ sub new {
 sub zircon_connection_request {
     my ($self, $request) = @_;
     $zircon_request = $request;
-    my $reply = sprintf q(%s: received: '%s'), $name, $request;
+    my $reply = sprintf
+        q(%s: %s: received: '%s')
+        , $name, $tag, $request;
     _process('server_processing');
     $zircon_reply = $reply;
     return $reply;
