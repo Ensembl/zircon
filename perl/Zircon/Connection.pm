@@ -264,8 +264,9 @@ sub timeout_cancel {
 sub timeout_callback {
     my ($self) = @_;
     $self->timeout_handle(undef);
-    $self->reset;
-    $self->handler->zircon_connection_timeout;
+    try { $self->handler->zircon_connection_timeout; }
+    catch { die $::_; } # propagate any error
+    finally { $self->reset; };
     return;
 }
 
