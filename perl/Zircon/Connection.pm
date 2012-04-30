@@ -209,7 +209,8 @@ sub selection_id {
     my ($self, $key, @args) = @_;
     if (@args) {
         my ($id) = @args;
-        defined $id or die 'undefined selection ID';
+        ( defined $id && $id ne '' )
+            or die 'undefined/empty selection ID';
         $self->{'selection'}{$key} =
             Zircon::Context::Tk::Selection->new(
                 '-widget'       => $self->widget,
