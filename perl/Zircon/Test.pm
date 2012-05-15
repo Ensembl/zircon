@@ -53,7 +53,15 @@ The parent announces that as a server it received a ping.
 
 =back
 
-=item * Close both windows.
+=item * Click the "Exit" button in both windows.
+
+=over
+
+=item * Check
+
+Each window closes when clicked.
+
+=back
 
 =back
 
@@ -61,7 +69,15 @@ The parent announces that as a server it received a ping.
 
 =over
 
-=item * Close the child window.
+=item * Click the "Exit" button in the child window.
+
+=over
+
+=item * Check
+
+The child window closes.
+
+=back
 
 =item * Click the "Ping" button in the parent window.
 
@@ -73,7 +89,15 @@ The parent window announces that as a client the ping timed out.
 
 =back
 
-=item * Close the parent window.
+=item * Click the "Exit" button in the parent window.
+
+=over
+
+=item * Check
+
+The parent window closes.
+
+=back
 
 =back
 
@@ -81,7 +105,15 @@ The parent window announces that as a client the ping timed out.
 
 =over
 
-=item * Close the parent window.
+=item * Click the "Exit" button in the parent window.
+
+=over
+
+=item * Check
+
+The parent window closes.
+
+=back
 
 =item * Click the "Ping" button in the child window.
 
@@ -93,7 +125,15 @@ The child window announces that as a client the ping timed out.
 
 =back
 
-=item * Close the child window.
+=item * Click the "Exit" button in the child window.
+
+=over
+
+=item * Check
+
+The child window closes.
+
+=back
 
 =back
 

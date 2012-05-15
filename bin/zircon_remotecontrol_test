@@ -37,6 +37,9 @@ my $zircon = Zircon->new(
 
 my $zircon_message = '';
 
+my $button_frame =
+    $main_window->Frame->pack('-fill' => 'both');
+
 sub send_ping {
     $zircon_message = '';
     $zircon->send_ping(
@@ -48,11 +51,16 @@ sub send_ping {
     return;
 }
 
-$main_window
-    ->Button(
-    '-text'    => 'Ping',
-    '-command' => \&send_ping)
-    ->pack('-fill' => 'both');
+Tk::grid(
+    $button_frame->Button(
+        '-text'    => 'Ping',
+        '-command' => \&send_ping),
+    $button_frame->Button(
+        '-text'    => 'Exit',
+        '-command' => \&exit),
+    '-sticky' => 'nsew');
+
+$button_frame->gridColumnconfigure($_, '-weight' => 1) for 0..1;
 
 $main_window
     ->Label(
