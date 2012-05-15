@@ -40,7 +40,7 @@ my $zircon_message = '';
 my $button_frame =
     $main_window->Frame->pack('-fill' => 'both');
 
-sub send_ping {
+sub ping {
     $zircon_message = '';
     $zircon->send_ping(
         sub {
@@ -54,7 +54,7 @@ sub send_ping {
 Tk::grid(
     $button_frame->Button(
         '-text'    => 'Ping',
-        '-command' => \&send_ping),
+        '-command' => \&ping),
     $button_frame->Button(
         '-text'    => 'Exit',
         '-command' => \&exit),
