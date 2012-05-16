@@ -65,10 +65,22 @@ sub ping {
     return;
 }
 
+sub goodbye {
+    wrap(
+        sub {
+            $zircon->send_goodbye_exit(
+                sub { CORE::exit; }); # because Perl/Tk overrides exit()
+        });
+    return;
+}
+
 Tk::grid(
     $button_frame->Button(
         '-text'    => 'Ping',
         '-command' => \&ping),
+    $button_frame->Button(
+        '-text'    => 'Goodbye',
+        '-command' => \&goodbye),
     $button_frame->Button(
         '-text'    => 'Exit',
         '-command' => \&exit),
