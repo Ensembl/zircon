@@ -27,6 +27,7 @@ sub new {
 sub _init {
     my ($self, $arg_hash) = @_;
 
+    $self->{'is_open'} = 1;
     $self->{'request_id'} = 0;
 
     for (qw( app_id widget server )) {
@@ -67,8 +68,16 @@ sub send_ping {
     return;
 }
 
+sub send_goodbye_exit {
+    my ($self, $callback) = @_;
+    $self->send_command(
+        'goodbye', undef, 'exit', $callback);
+    return;
+}
+
 sub send_command {
     my ($self, $command, $view, @args) = @_;
+    $self->is_open or die "the connection is closed\n";
     my $command_method = sprintf 'command_request_%s', $command;
     $self->can($command_method)
         or die sprintf "invalid command '%s'", $command;
@@ -141,6 +150,12 @@ sub selection_id {
     return $selection_id;
 }
 
+sub close {
+    my ($self) = @_;
+    $self->{'is_open'} = 0;
+    return;
+}
+
 # attributes
 
 sub app_id {
@@ -159,6 +174,12 @@ sub connection {
     my ($self) = @_;
     my $connection = $self->{'connection'};
     return $connection;
+}
+
+sub is_open {
+    my ($self) = @_;
+    my $is_open = $self->{'is_open'};
+    return $is_open;
 }
 
 sub callback {

@@ -63,6 +63,29 @@ sub command_reply_ping {
     return $self->command_message_ok($message);
 }
 
+# goodbye
+
+sub command_request_goodbye {
+    my ($self, $type) = @_;
+
+    my $request =
+        defined $type
+        ? [ 'goodbye', { 'type' => $type } ]
+        : undef;
+
+    return $request;
+}
+
+sub command_reply_goodbye {
+    my ($self) = @_;
+
+    $self->server->zircon_server_goodbye;
+    $self->close;
+    my $message = "goodbye received, goodbye";
+
+    return $self->command_message_ok($message);
+}
+
 # utilities
 
 sub command_message_ok {
