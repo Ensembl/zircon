@@ -53,12 +53,14 @@ sub wrap {
 }
 
 sub ping {
-    $zircon_message = '';
-    $zircon->send_ping(
+    wrap(
         sub {
-            my ($result) = @_;
-            $zircon_message =
-                sprintf 'Client: ping: %s', _message($result);
+            $zircon->send_ping(
+                sub {
+                    my ($result) = @_;
+                    $zircon_message =
+                        sprintf 'Client: ping: %s', _message($result);
+                });
         });
     return;
 }
