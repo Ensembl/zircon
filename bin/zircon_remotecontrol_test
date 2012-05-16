@@ -5,6 +5,7 @@ use warnings;
 use feature qw( switch );
 
 use Getopt::Long;
+use Try::Tiny;
 use Tk;
 use Zircon;
 
@@ -39,6 +40,17 @@ my $zircon_message = '';
 
 my $button_frame =
     $main_window->Frame->pack('-fill' => 'both');
+
+sub wrap {
+    my ($callback) = @_;
+    $zircon_message = '';
+    try { $callback->(); }
+    catch {
+        chomp $_;
+        $zircon_message = "Error: $_";
+    };
+    return;
+}
 
 sub ping {
     $zircon_message = '';
