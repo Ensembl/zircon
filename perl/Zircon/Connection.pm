@@ -307,12 +307,20 @@ sub _do_safely {
         $self->timeout_cancel;
         $callback->();
         $self->update;
+        if ($self->state eq 'inactive'
+            and my $after = $self->after
+            ) {
+            $self->widget->after(
+                0, sub { $after->(); });
+        }
     }
     catch {
         $self->reset;
         die $::_; # propagate any error
     }
     finally {
+        $self->after(undef)
+            if $self->state eq 'inactive';
         $self->timeout_start
             unless $self->state eq 'inactive';
     };
@@ -378,6 +386,12 @@ sub reply {
     my ($self, @args) = @_;
     ($self->{'reply'}) = @args if @args;
     return $self->{'reply'};
+}
+
+sub after {
+    my ($self, @args) = @_;
+    ($self->{'after'}) = @args if @args;
+    return $self->{'after'};
 }
 
 sub state { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
