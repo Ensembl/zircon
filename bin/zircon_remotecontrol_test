@@ -65,6 +65,19 @@ sub ping {
     return;
 }
 
+sub shutdown {
+    wrap(
+        sub {
+            $zircon->send_shutdown_clean(
+                sub {
+                    my ($result) = @_;
+                    $zircon_message =
+                        sprintf 'Client: shutdown: %s', _message($result);
+                });
+        });
+    return;
+}
+
 sub goodbye {
     wrap(
         sub {
@@ -81,6 +94,9 @@ Tk::grid(
     $button_frame->Button(
         '-text'    => 'Goodbye',
         '-command' => \&goodbye),
+    $button_frame->Button(
+        '-text'    => 'Shutdown',
+        '-command' => \&shutdown),
     $button_frame->Button(
         '-text'    => 'Exit',
         '-command' => \&exit),
