@@ -18,6 +18,13 @@ sub zircon_server_ping {
     return;
 }
 
+sub zircon_server_shutdown {
+    my ($self, $id) = @_;
+    my $message = 'shutdown';
+    $self->zircon_server_log($message);
+    return;
+}
+
 sub zircon_server_goodbye {
     my ($self, $id) = @_;
     my $message = 'goodbye';

@@ -68,6 +68,20 @@ sub send_ping {
     return;
 }
 
+sub send_shutdown_clean {
+    my ($self, $callback) = @_;
+    $self->send_command(
+        'shutdown', undef, 'clean',
+        sub {
+            my ($result) = @_;
+            $self->close if
+                $result->isa('Zircon::Result::Reply')
+                && $result->success;
+            $callback->($result);
+        });
+    return;
+}
+
 sub send_goodbye_exit {
     my ($self, $callback) = @_;
     $self->send_command(

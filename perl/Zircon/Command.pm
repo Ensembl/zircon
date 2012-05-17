@@ -63,6 +63,30 @@ sub command_reply_ping {
     return $self->command_message_ok($message);
 }
 
+# shutdown
+
+sub command_request_shutdown {
+    my ($self, $type) = @_;
+
+    my $request =
+        defined $type
+        ? [ 'shutdown', { 'type' => $type } ]
+        : undef;
+
+    return $request;
+}
+
+sub command_reply_shutdown {
+    my ($self) = @_;
+
+    $self->server->zircon_server_shutdown;
+    my $message = "shutting down now!";
+
+    return (
+        $self->command_message_ok($message),
+        'after' => sub { CORE::exit; } );
+}
+
 # goodbye
 
 sub command_request_goodbye {
