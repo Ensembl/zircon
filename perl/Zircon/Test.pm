@@ -57,7 +57,7 @@ The parent announces that as a server it received a ping.
 
 =over
 
-=item * Check
+=item * Check:
 
 Each window closes when clicked.
 
@@ -73,7 +73,7 @@ Each window closes when clicked.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
@@ -93,7 +93,7 @@ The parent window announces that as a client the ping timed out.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
@@ -109,7 +109,7 @@ The parent window closes.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
@@ -129,7 +129,7 @@ The child window announces that as a client the ping timed out.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
@@ -145,11 +145,11 @@ The child window closes.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
-=item * Check
+=item * Check:
 
 The parent window announces that as a server it has received a goodbye.
 
@@ -159,7 +159,7 @@ The parent window announces that as a server it has received a goodbye.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window announces an error as the connection is closed.
 
@@ -169,7 +169,7 @@ The parent window announces an error as the connection is closed.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
@@ -185,11 +185,11 @@ The parent window closes.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
-=item * Check
+=item * Check:
 
 The child window announces that as a server it has received a goodbye.
 
@@ -199,7 +199,7 @@ The child window announces that as a server it has received a goodbye.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window announces an error as the connection is closed.
 
@@ -209,7 +209,7 @@ The child window announces an error as the connection is closed.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
@@ -225,11 +225,11 @@ The child window closes.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
-=item * Check
+=item * Check:
 
 The parent window announces that as a client the shutdown succeeded.
 
@@ -239,7 +239,7 @@ The parent window announces that as a client the shutdown succeeded.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window announces an error as the connection is closed.
 
@@ -249,7 +249,7 @@ The parent window announces an error as the connection is closed.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
@@ -265,11 +265,11 @@ The parent window closes.
 
 =over
 
-=item * Check
+=item * Check:
 
 The parent window closes.
 
-=item * Check
+=item * Check:
 
 The child window announces that as a client the shutdown succeeded.
 
@@ -279,7 +279,7 @@ The child window announces that as a client the shutdown succeeded.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window announces an error as the connection is closed.
 
@@ -289,7 +289,7 @@ The child window announces an error as the connection is closed.
 
 =over
 
-=item * Check
+=item * Check:
 
 The child window closes.
 
