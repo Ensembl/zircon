@@ -217,6 +217,86 @@ The child window closes.
 
 =back
 
+=item * Run "zircon_remotecontrol_test".
+
+=over
+
+=item * Click the "Shutdown" button in the parent window.
+
+=over
+
+=item * Check
+
+The child window closes.
+
+=item * Check
+
+The parent window announces that as a client the shutdown succeeded.
+
+=back
+
+=item * Click the "Ping" button in the parent window.
+
+=over
+
+=item * Check
+
+The parent window announces an error as the connection is closed.
+
+=back
+
+=item * Click the "Exit" button in the parent window.
+
+=over
+
+=item * Check
+
+The parent window closes.
+
+=back
+
+=back
+
+=item * Run "zircon_remotecontrol_test".
+
+=over
+
+=item * Click the "Shutdown" button in the child window.
+
+=over
+
+=item * Check
+
+The parent window closes.
+
+=item * Check
+
+The child window announces that as a client the shutdown succeeded.
+
+=back
+
+=item * Click the "Ping" button in the child window.
+
+=over
+
+=item * Check
+
+The child window announces an error as the connection is closed.
+
+=back
+
+=item * Click the "Exit" button in the child window.
+
+=over
+
+=item * Check
+
+The child window closes.
+
+=back
+
+=back
+
 =back
 
 =back
