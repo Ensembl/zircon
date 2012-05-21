@@ -407,3 +407,9 @@ sub state { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
 }
 
 1;
+
+=head1 NAME - Zircon::Connection
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk
