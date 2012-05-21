@@ -8,7 +8,7 @@ use Getopt::Long;
 use Try::Tiny;
 use Tk;
 use Zircon;
-use Zircon::Context::Tk;
+use Zircon::Tk::Context;
 
 # parse the command line
 my $remote_selection_id;
@@ -29,7 +29,7 @@ $main_window->title($app_id);
 
 # create the Zircon connection
 my $server = Server->new;
-my $context = Zircon::Context::Tk->new(
+my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
 my $zircon = Zircon->new(
     '-app_id'  => $app_id,

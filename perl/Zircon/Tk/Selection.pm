@@ -1,5 +1,5 @@
 
-package Zircon::Context::Tk::Selection;
+package Zircon::Tk::Selection;
 
 use strict;
 use warnings;

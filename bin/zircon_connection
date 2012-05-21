@@ -14,7 +14,7 @@ use Tk::Optionmenu;
 use Tk::Entry;
 use Tk::Label;
 
-use Zircon::Context::Tk;
+use Zircon::Tk::Context;
 use Zircon::Connection;
 
 my (
@@ -38,7 +38,7 @@ $main_window->title(
 
 my $handler = Handler->new;
 
-my $context = Zircon::Context::Tk->new(
+my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
 
 my $connection = Zircon::Connection->new(

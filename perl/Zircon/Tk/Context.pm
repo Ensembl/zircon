@@ -1,10 +1,10 @@
 
-package Zircon::Context::Tk;
+package Zircon::Tk::Context;
 
 use strict;
 use warnings;
 
-use Zircon::Context::Tk::Selection;
+use Zircon::Tk::Selection;
 
 sub new {
     my ($pkg, %args) = @_;
@@ -27,7 +27,7 @@ sub init {
 sub selection_new {
     my ($self, @args) = @_;
     my $selection =
-      Zircon::Context::Tk::Selection->new(
+      Zircon::Tk::Selection->new(
           '-widget' => $self->widget, @args);
     return $selection;
 }
