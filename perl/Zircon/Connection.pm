@@ -95,7 +95,7 @@ sub _selection_owner_callback {
 
 # client
 
-sub send { ## no critic (Subroutines::ProhibitBuiltinHomonyms) 
+sub send {
     my ($self, $request) = @_;
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
@@ -338,7 +338,7 @@ sub update {
     return;
 }
 
-sub reset { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
+sub reset {
     my ($self) = @_;
     $self->state('inactive');
     $self->go_inactive;
@@ -400,7 +400,7 @@ sub after {
     return $self->{'after'};
 }
 
-sub state { ## no critic (Subroutines::ProhibitBuiltinHomonyms)
+sub state {
     my ($self, @args) = @_;
     ($self->{'state'}) = @args if @args;
     return $self->{'state'};
