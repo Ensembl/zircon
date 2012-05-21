@@ -30,7 +30,7 @@ sub _init {
     $self->{'is_open'} = 1;
     $self->{'request_id'} = 0;
 
-    for (qw( app_id widget server )) {
+    for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
         defined $attribute
             or die "missing -$_ parameter";
@@ -40,11 +40,11 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my $widget = $arg_hash->{'-widget'};
+    my $context = $arg_hash->{'-context'};
     my $local_selection_id =
-        sprintf '%s_%s', $self->app_id, $widget->id;
+        sprintf '%s_%s', $self->app_id, $context->id;
     my $connection = Zircon::Connection->new(
-        '-widget'  => $widget,
+        '-context' => $context,
         '-handler' => $self,
         );
     $self->{'connection'} = $connection;

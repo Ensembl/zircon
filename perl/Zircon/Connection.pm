@@ -25,10 +25,8 @@ use Carp;
 use Scalar::Util qw( weaken );
 use Try::Tiny;
 
-use Zircon::Context::Tk::Selection;
-
 my @mandatory_args = qw(
-    widget
+    context
     handler
     );
 
@@ -212,8 +210,7 @@ sub selection_id {
         ( defined $id && $id ne '' )
             or die 'undefined/empty selection ID';
         $self->{'selection'}{$key} =
-            Zircon::Context::Tk::Selection->new(
-                '-widget'       => $self->widget,
+            $self->context->selection_new(
                 '-id'           => $id,
                 '-handler'      => $self,
                 '-handler_data' => $key,
@@ -245,7 +242,7 @@ sub selection_call {
 sub timeout_start {
     my ($self) = @_;
     my $timeout_handle =
-        $self->widget->after(
+        $self->timeout(
             $self->timeout_interval,
             $self->callback('timeout_callback'));
     $self->timeout_handle($timeout_handle);
@@ -310,7 +307,7 @@ sub _do_safely {
         if ($self->state eq 'inactive'
             and my $after = $self->after
             ) {
-            $self->widget->after(
+            $self->timeout(
                 0, sub { $after->(); });
         }
     }
@@ -358,6 +355,15 @@ sub go_inactive {
     return;
 }
 
+# timeouts
+
+sub timeout {
+    my ($self, @args) = @_;
+    my $timeout_handle =
+        $self->context->timeout(@args);
+    return $timeout_handle;
+}
+
 # attributes
 
 sub handler {
@@ -365,9 +371,9 @@ sub handler {
     return $self->{'handler'};
 }
 
-sub widget {
+sub context {
     my ($self) = @_;
-    return $self->{'widget'};
+    return $self->{'context'};
 }
 
 sub debug {
