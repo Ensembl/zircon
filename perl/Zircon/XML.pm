@@ -33,7 +33,7 @@ sub reply_xml {
     my ($self, $request_id, $command, $reply) = @_;
     my ($status, $reply_body) = @{$reply};
     my ($return_code, $reason) =
-        defined $status ? @{$status} : ( 'ok');
+        defined $status ? @{$status} : ( 'ok' );
     my $reply_body_xml = _element_xml(@{$reply_body});
     my $reply_element_xml = _element_xml(
         'reply', {
