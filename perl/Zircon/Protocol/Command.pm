@@ -1,5 +1,5 @@
 
-package Zircon::Command;
+package Zircon::Protocol::Command;
 
 use strict;
 use warnings;

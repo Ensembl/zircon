@@ -1,5 +1,5 @@
 
-package Zircon;
+package Zircon::Protocol;
 
 use strict;
 use warnings;
@@ -7,12 +7,12 @@ use warnings;
 use Scalar::Util qw( weaken );
 
 use Zircon::Connection;
-use Zircon::Result::Reply;
-use Zircon::Result::Timeout;
+use Zircon::Protocol::Result::Reply;
+use Zircon::Protocol::Result::Timeout;
 
 use base qw(
-    Zircon::Command
-    Zircon::XML
+    Zircon::Protocol::Command
+    Zircon::Protocol::XML
     Zircon::Connection::Handler
     );
 
@@ -75,7 +75,7 @@ sub send_shutdown_clean {
         sub {
             my ($result) = @_;
             $self->close if
-                $result->isa('Zircon::Result::Reply')
+                $result->isa('Zircon::Protocol::Result::Reply')
                 && $result->success;
             $callback->($result);
         });
@@ -129,7 +129,7 @@ sub zircon_connection_reply {
         my $success =
             defined $return_code
             && $return_code eq 'ok';
-        my $result = Zircon::Result::Reply->new(
+        my $result = Zircon::Protocol::Result::Reply->new(
             '-success' => $success);
         $callback->($result);
         $self->callback(undef);
@@ -144,7 +144,7 @@ sub zircon_connection_reply {
 sub zircon_connection_timeout {
     my ($self) = @_;
     if (my $callback = $self->callback) {
-        my $result = Zircon::Result::Timeout->new;
+        my $result = Zircon::Protocol::Result::Timeout->new;
         $callback->($result);
         $self->callback(undef);
     }

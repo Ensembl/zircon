@@ -7,7 +7,7 @@ use feature qw( switch );
 use Getopt::Long;
 use Try::Tiny;
 use Tk;
-use Zircon;
+use Zircon::Protocol;
 use Zircon::Tk::Context;
 
 # parse the command line
@@ -20,7 +20,7 @@ my $is_child =
     && $remote_selection_id ne '';
 
 my $app_id =
-    sprintf 'Zircon RemoteControl (%s)'
+    sprintf 'Zircon Protocol (%s)'
     , $is_child ? 'child' : 'parent';
 
 # create the main window
@@ -31,7 +31,7 @@ $main_window->title($app_id);
 my $server = Server->new;
 my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
-my $zircon = Zircon->new(
+my $protocol = Zircon::Protocol->new(
     '-app_id'  => $app_id,
     '-context' => $context,
     '-server'  => $server,
@@ -58,7 +58,7 @@ sub wrap {
 sub ping {
     wrap(
         sub {
-            $zircon->send_ping(
+            $protocol->send_ping(
                 sub {
                     my ($result) = @_;
                     $zircon_message =
@@ -71,7 +71,7 @@ sub ping {
 sub shutdown {
     wrap(
         sub {
-            $zircon->send_shutdown_clean(
+            $protocol->send_shutdown_clean(
                 sub {
                     my ($result) = @_;
                     $zircon_message =
@@ -84,7 +84,7 @@ sub shutdown {
 sub goodbye {
     wrap(
         sub {
-            $zircon->send_goodbye_exit(
+            $protocol->send_goodbye_exit(
                 sub { CORE::exit; }); # because Perl/Tk overrides exit()
         });
     return;
@@ -117,7 +117,7 @@ $main_window
 # parent forks child, child sends handshake back to parent
 if ($is_child) {
     $zircon_message = '';
-    $zircon->send_handshake(
+    $protocol->send_handshake(
         $remote_selection_id,
         sub {
             my ($result) = @_;
@@ -132,7 +132,7 @@ else {
         or die 'fork() failed';
     if ($pid) {
         # child, so exec()
-        exec $0, @ARGV, '-remote_selection' => $zircon->connection->local_selection_id;
+        exec $0, @ARGV, '-remote_selection' => $protocol->connection->local_selection_id;
         die 'exec() failed';
     }
 }
@@ -144,10 +144,10 @@ exit;
 sub _message {
     my ($result) = @_;
     given ($result) {
-        when ($_->isa('Zircon::Result::Reply')) {
+        when ($_->isa('Zircon::Protocol::Result::Reply')) {
             return $result->success ? 'succeeded' : 'failed';
         }
-        when ($_->isa('Zircon::Result::Timeout')) {
+        when ($_->isa('Zircon::Protocol::Result::Timeout')) {
             return 'timeout';
         }
         when (ref) {
@@ -161,7 +161,7 @@ sub _message {
 
 package Server;
 
-use base qw( Zircon::Server );
+use base qw( Zircon::Protocol::Server );
 
 sub new {
     my ($pkg) = @_;

@@ -9,7 +9,7 @@ This is the Zircon test suite.
 
 =over
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -65,7 +65,7 @@ Each window closes when clicked.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -101,7 +101,7 @@ The parent window closes.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -137,7 +137,7 @@ The child window closes.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -177,7 +177,7 @@ The parent window closes.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -217,7 +217,7 @@ The child window closes.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 
@@ -257,7 +257,7 @@ The parent window closes.
 
 =back
 
-=item * Run "zircon_remotecontrol_test".
+=item * Run "zircon_protocol_test".
 
 =over
 

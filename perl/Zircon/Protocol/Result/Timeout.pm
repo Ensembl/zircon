@@ -1,5 +1,5 @@
 
-package Zircon::Result::Reply;
+package Zircon::Protocol::Result::Timeout;
 
 use strict;
 use warnings;
@@ -14,17 +14,9 @@ sub new {
 
 sub init {
     my ($self, $args) = @_;
-    my $success = $args->{'-success'} ? 1 : 0;
-    $self->{'success'} = $success;
     return;
 }
 
 # attributes
-
-sub success {
-    my ($self) = @_;
-    my $success = $self->{'success'};
-    return $success;
-}
 
 1;

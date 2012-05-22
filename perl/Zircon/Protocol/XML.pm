@@ -1,5 +1,5 @@
 
-package Zircon::XML;
+package Zircon::Protocol::XML;
 
 use strict;
 use warnings;

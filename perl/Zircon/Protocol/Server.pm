@@ -1,5 +1,5 @@
 
-package Zircon::Server;
+package Zircon::Protocol::Server;
 
 use strict;
 use warnings;
