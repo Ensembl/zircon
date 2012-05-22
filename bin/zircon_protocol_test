@@ -132,7 +132,9 @@ else {
         or die 'fork() failed';
     if ($pid) {
         # child, so exec()
-        exec $0, @ARGV, '-remote_selection' => $protocol->connection->local_selection_id;
+        my $selection_id =
+            $protocol->connection->local_selection_id;
+        exec $0, @ARGV, '-remote_selection' => $selection_id;
         die 'exec() failed';
     }
 }
