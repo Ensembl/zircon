@@ -280,6 +280,13 @@ sub timeout_handle {
     return $self->{'timeout_handle'};
 }
 
+sub timeout {
+    my ($self, @args) = @_;
+    my $timeout_handle =
+        $self->context->timeout(@args);
+    return $timeout_handle;
+}
+
 # callbacks
 
 sub callback {
@@ -353,15 +360,6 @@ sub go_inactive {
     $self->selection_call('remote', 'empty');
     $self->go_server;
     return;
-}
-
-# timeouts
-
-sub timeout {
-    my ($self, @args) = @_;
-    my $timeout_handle =
-        $self->context->timeout(@args);
-    return $timeout_handle;
 }
 
 # attributes
