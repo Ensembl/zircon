@@ -114,6 +114,29 @@ sub command_reply_goodbye {
     return $self->command_message_ok($message);
 }
 
+# features_loaded
+
+sub command_reply_features_loaded {
+    my ($self, $view, $request_body) = @_;
+
+    my $request_hash = { };
+    for (@{$request_body}) {
+        my ($name, $attribute_hash) = @{$_};
+        $request_hash->{$name} = $attribute_hash;
+    }
+
+    my $status = $request_hash->{'status'}{'value'};
+    my $client_message = $request_hash->{'status'}{'message'};
+    my @feature_list = split /;/, $request_hash->{'featureset'}{'names'};
+
+    $self->server->zircon_zmap_view_features_loaded(
+        $status, $client_message, @feature_list);
+
+    my $message = "feature list received";
+
+    return $self->command_message_ok($message);
+}
+
 # utilities
 
 sub command_message_ok {

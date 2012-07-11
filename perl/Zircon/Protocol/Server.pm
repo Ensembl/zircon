@@ -32,6 +32,15 @@ sub zircon_server_goodbye {
     return;
 }
 
+sub zircon_zmap_view_features_loaded {
+    my ($self, $status, $client_message, @feature_list) = @_;
+    my $message =
+        sprintf "features loaded: %s\n%s"
+        , $client_message, (join ', ', @feature_list);
+    $self->zircon_server_log($message);
+    return;
+}
+
 sub zircon_server_log {
     my ($self, $message) = @_;
     warn sprintf "%s: %s\n", $self, $message;
