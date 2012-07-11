@@ -4,6 +4,8 @@ package Zircon::Protocol::XML;
 use strict;
 use warnings;
 
+use feature qw( switch );
+
 # XML creation
 
 sub request_xml {
@@ -207,6 +209,24 @@ my $attributes_xml_pattern = qr!
     ([[:alpha:]_]+)="([^"]*)"
     !xms;
 
+# this *is* used in _xml_unescape but perlcritic cannot see code in s///e
+sub _xml_entity { ## no critic(Subroutines::ProhibitUnusedPrivateSubroutines)
+    my ($name) = @_;
+    given ($name) {
+        when ('lt')   { return '<'; }
+        when ('gt')   { return '>'; }
+        when ('quot') { return '"'; }
+        when ('amp')  { return '&'; }
+    }
+    die sprintf "unknown XML entity: '%s'", $name;
+}
+
+sub _xml_unescape {
+    s/&#([[:digit:]]+);/chr $1/eg;
+    s/&([[:alpha:]]+);/_xml_entity $1/eg;
+    return;
+}
+
 sub _each_element {
     my ($element_list_xml, $callback) = @_;
     while ( $element_list_xml =~ /$element_list_xml_pattern/gc ) {
@@ -219,6 +239,7 @@ sub _each_element {
         my $attributes = {
             $attributes_xml =~ /$attributes_xml_pattern/g,
         };
+        _xml_unescape for values %{$attributes};
         my $element = [ $tag, $attributes, $body_xml ];
         $callback->($element);
     }
