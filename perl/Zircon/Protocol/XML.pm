@@ -106,7 +106,7 @@ sub request_xml_parse {
         , $content_tag, $content_tag_expected;
 
     my $request =
-        defined $body_xml ? _unique_element($body_xml) : undef;
+        defined $body_xml ? _element_list($body_xml) : undef;
 
     my $command =
         $content_attribute_hash->{'command'};
@@ -184,6 +184,15 @@ sub _unique_element {
         });
     defined $element or die 'missing element';
     return $element;
+}
+
+sub _element_list {
+    my ($element_xml) = @_;
+    my $element_list = [ ];
+    _each_element(
+        $element_xml,
+        sub { push @{$element_list}, @_; });
+    return $element_list;
 }
 
 my $element_list_xml_pattern = qr!

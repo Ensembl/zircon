@@ -23,7 +23,11 @@ sub command_request_handshake {
 sub command_reply_handshake {
     my ($self, $view, $request_body) = @_;
 
-    my ($tag, $attribute_hash) = @{$request_body};
+    my ($request_element, @rest) = @{$request_body};
+    die "missing request element" unless defined $request_element;
+    die "multiple request elements" if @rest;
+
+    my ($tag, $attribute_hash) = @{$request_element};
 
     my $tag_expected = 'peer';
     $tag eq $tag_expected
