@@ -190,7 +190,7 @@ my $element_list_xml_pattern = qr!
     \G
     (?:[[:space:]]*)                                        # leading space
     (?: # alternative #1 - element 
-        < [[:space:]]* ([[:alpha:]]+)                       # begin open tag
+        < [[:space:]]* ([[:alpha:]_]+)                      # begin open tag
         ((?:[[:space:]]*[[:alpha:]_]+="[^"]*")*)            # attributes
         [[:space:]]*
         (?:
