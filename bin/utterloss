@@ -303,7 +303,7 @@ sub _zmap_config_new {
     or die "failed to locate the ZMap configuration stanza";
 
     my ($source_list) =
-        $zmap_stanza =~ /^sources=(.*)$/m
+        $zmap_stanza =~ /^sources[[:blank:]]*=[[:blank:]]*(.*)$/m
         or die "failed to locate the source list";
 
     my ($sequence) = split /[[:blank:]]*;[[:blank:]]*/, $source_list;
