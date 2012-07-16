@@ -1,0 +1,364 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Tk;
+
+my $app = Utterloss::Application->new;
+MainLoop();
+$app->finish;
+exit;
+
+
+package Utterloss::Application;
+
+use POSIX();
+
+use Tk;
+use Tk::Toplevel;
+use Tk::Button;
+
+sub new {
+    my ($pkg) = @_;
+    my $new = { };
+    bless $new, $pkg;
+    $new->_init;
+    return $new;
+}
+
+sub _init {
+    my ($self) = @_;
+    $self->{'session_hash'} = { };
+    $self->window_create;
+    for my $session_dir (glob '/var/tmp/lace_*.done') {
+        $self->session_button_create($session_dir);
+    }
+    $self->exit_button_create;
+    return;
+}
+
+sub window_create {
+    my ($self) = @_;
+    my $window = $self->{'window'} = MainWindow->new;
+    $window->title('Utterloss');
+    return;
+}
+
+sub exit_button_create {
+    my ($self) = @_;
+
+    $self->window->Button(
+        '-text'    => 'Exit',
+        '-command' => sub { $self->_exit; },
+        )
+        ->pack(
+        '-side'   => 'left',
+        '-expand' => 1,
+        );
+
+    return;
+}
+
+sub finish {
+    my ($self) = @_;
+    $_->finish for values %{$self->session_hash};
+    return;
+}
+
+sub _exit {
+    my ($self) = @_;
+    $self->finish;
+    POSIX::exit(0);
+    return;
+}
+
+sub session_button_create {
+    my ($self, $session_dir) = @_;
+
+    my ($session_name) =
+        $session_dir =~ m|/lace_(.*)\.done\z|
+        or die "BUG!!!\n";
+
+    $self->window->Button(
+        '-text'    => $session_name,
+        '-command' => sub { $self->session_new($session_dir); },
+        )
+        ->pack(
+        '-side'   => 'top',
+        '-fill'   => 'both',
+        );
+
+    return;
+}
+
+sub session_new {
+    my ($self, $session_dir) = @_;
+    my $session =
+        Utterloss::Session->new(
+            $self, {
+                '-session_dir' => $session_dir,
+            });
+    $self->session_hash->{$session} = $session;
+    return;
+}
+
+# attributes
+
+sub session_hash {
+    my ($self) = @_;
+    my $session_hash = $self->{'session_hash'};
+    return $session_hash;
+}
+
+sub window {
+    my ($self) = @_;
+    my $window = $self->{'window'};
+    return $window;
+}
+
+
+package Utterloss::Session; ## no critic(Modules::ProhibitMultiplePackages)
+
+use Tk;
+use Tk::Toplevel;
+use Tk::Button;
+
+use Scalar::Util qw( weaken );
+use File::Copy qw( move );
+use File::Basename qw( basename );
+use Try::Tiny;
+
+use POSIX();
+
+use Hum::Ace::LocalServer;
+
+use Zircon::Tk::Context;
+use Zircon::ZMap::View;
+
+use base qw( Zircon::ZMap::View::Handler );
+
+sub new {
+    my ($pkg, @args) = @_;
+    my $new = { };
+    bless $new, $pkg;
+    $new->_init(@args);
+    return $new;
+}
+
+sub _init {
+    my ($self, $utterloss, $args) = @_;
+
+    $self->{'utterloss'} = $utterloss;
+    weaken $self->{'utterloss'};
+    ($self->{'session_dir_orig'}) =
+        @{$args}{qw( -session_dir )};
+    ($self->{'session_dir'}) =
+        $self->session_dir_orig =~ /\A(.*)\.done\z/
+        or die "BUG!!!\n";
+
+    $self->window_create;
+    $self->zircon_context_create;
+    $self->feature_frame_create;
+    $self->close_button_create;
+    $self->zmap_view_create;
+
+    return;
+}
+
+sub window_create {
+    my ($self) = @_;
+    my $window = $self->{'window'} =
+        $self->utterloss->window->Toplevel;
+    my ($session_name) = basename $self->session_dir;
+    my $title = "Session: ${session_name}";
+    $window->title($title);
+    return;
+}
+
+sub zircon_context_create {
+    my ($self) = @_;
+    $self->{'zircon_context'} =
+        Zircon::Tk::Context->new(
+            '-widget' => $self->window,
+        );
+    return;
+}
+
+sub feature_frame_create {
+    my ($self) = @_;
+    my $feature_frame =
+        $self->{'feature_frame'} =
+        $self->window->Frame;
+    $feature_frame->pack(
+        '-side'   => 'top',
+        '-expand' => 1,
+        '-fill'   => 'both',
+        );
+    return;
+}
+
+sub close_button_create {
+    my ($self) = @_;
+    $self->window->Button(
+        '-text' => 'Close',
+        '-command' => sub { $self->_close; },
+        )
+        ->pack(
+        '-side' => 'top',
+        '-fill' => 'both');
+    return;
+}
+
+sub _close {
+    my ($self) = @_;
+    $self->window->destroy;
+    return;
+}
+
+sub zmap_view_create {
+    my ($self) = @_;
+    my $session_dir = $self->session_dir;
+    move $self->session_dir_orig, $session_dir;
+    try {
+        my $zmap_dir = "${session_dir}/ZMap";
+        my $ace = Hum::Ace::LocalServer->new($session_dir);
+        $ace->server_executable('sgifaceserver');
+        my $ace_url = sprintf
+            'acedb://%s:%s@%s:%d'
+            , $ace->user, $ace->pass, $ace->host, $ace->port;
+        _zmap_config_fix($zmap_dir, $ace_url);
+        $ace->start_server()
+            or die "the ace server failed to start\n";
+        $ace->ace_handle(1)
+            or die "the ace server failed to connect\n";
+        my $context =
+          Zircon::Tk::Context->new(
+              '-widget' => $self->window);
+        $self->{'zmap_view'} =
+            Zircon::ZMap::View->new(
+                '-handler'  => $self,
+                '-context'  => $context,
+                '-conf_dir' => $zmap_dir,
+            );
+    }
+    catch {
+        $self->finish;
+        die $::_;
+    };
+    return;
+}
+
+sub zircon_zmap_view_features_loaded {
+    my ($self, $status, $message, @featureset_list) = @_;
+    for my $featureset (@featureset_list) {
+        $self->featureset_add($featureset);
+    }
+    return;
+}
+
+sub featureset_add {
+    my ($self, $featureset) = @_;
+    $self->feature_frame->Label(
+        '-text' => $featureset)
+        ->pack(
+        '-side' => 'top',
+        '-fill' => 'both');
+    return;
+}
+
+sub finish {
+    my ($self) = @_;
+    move $self->session_dir, $self->session_dir_orig
+        if -d $self->session_dir;
+    return;
+}
+
+sub _zmap_config_fix {
+    my ($dir, $ace_url) = @_;
+    local $/ = undef;
+    my $config_path = "${dir}/ZMap";
+    open my $config_read_h, '<', $config_path
+        or die "open() failed: $!\n";
+    my $config = <$config_read_h>;
+    close $config_read_h
+        or die "close() failed: $!\n";
+    my $config_new = _zmap_config_new($config, $ace_url);
+    open my $config_write_h, '>', $config_path
+        or die "open() failed: $!\n";
+    print $config_write_h $config_new;
+    close $config_write_h
+        or die "close() failed: $!\n";
+    return;
+}
+
+sub _zmap_config_new {
+    my ($config, $ace_url) = @_;
+
+    my ($zmap_stanza) = $config =~ /
+    ^\[ZMap\]$
+    (.*?)
+    (?:^\[|\z)
+    /xms
+    or die "failed to locate the ZMap configuration stanza";
+
+    my ($source_list) =
+        $zmap_stanza =~ /^sources=(.*)$/m
+        or die "failed to locate the source list";
+
+    my ($sequence) = split /[[:blank:]]*;[[:blank:]]*/, $source_list;
+    printf "sequence: %s\n", $sequence;
+
+    $config =~ s/(
+    ^\[${sequence}\]$
+    .*?
+    (?=^\[|\z)
+    )/_zmap_sequence_stanza_new($1, $ace_url)/xmse;
+
+    return $config;
+}
+
+sub _zmap_sequence_stanza_new { ## no critic(Subroutines::ProhibitUnusedPrivateSubroutines)
+    my ($stanza, $ace_url) = @_;
+    $stanza =~ s/^(url=).*/$1${ace_url}/m;
+    return $stanza;
+}
+
+# attributes
+
+sub utterloss {
+    my ($self) = @_;
+    my $utterloss = $self->{'utterloss'};
+    return $utterloss;
+}
+
+sub window {
+    my ($self) = @_;
+    my $window = $self->{'window'};
+    return $window;
+}
+
+sub feature_frame {
+    my ($self) = @_;
+    my $feature_frame = $self->{'feature_frame'};
+    return $feature_frame;
+}
+
+sub zircon_context {
+    my ($self) = @_;
+    my $zircon_context = $self->{'zircon_context'};
+    return $zircon_context;
+}
+
+sub session_dir_orig {
+    my ($self) = @_;
+    my $session_dir_orig = $self->{'session_dir_orig'};
+    return $session_dir_orig;
+}
+
+sub session_dir {
+    my ($self) = @_;
+    my $session_dir = $self->{'session_dir'};
+    return $session_dir;
+}
+
