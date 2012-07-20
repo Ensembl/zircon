@@ -54,4 +54,18 @@ sub _init {
     return;
 }
 
+sub shutdown_clean {
+    my ($self, @args) = @_;
+    $self->protocol->send_shutdown_clean(@args);
+    return;
+}
+
+# attributes
+
+sub protocol {
+    my ($self) = @_;
+    my $protocol = $self->{'protocol'};
+    return $protocol;
+}
+
 1;
