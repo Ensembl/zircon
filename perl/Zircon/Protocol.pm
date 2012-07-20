@@ -77,7 +77,7 @@ sub send_shutdown_clean {
             $self->close if
                 $result->isa('Zircon::Protocol::Result::Reply')
                 && $result->success;
-            $callback->($result);
+            $callback->($result) if $callback;
         });
     return;
 }
