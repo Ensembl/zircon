@@ -20,8 +20,8 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
 
-    my ($handler, $context, $conf_dir) =
-        @{$args}{qw( -handler -context -conf_dir )};
+    my ($handler, $context, $conf_dir, $program) =
+        @{$args}{qw( -handler -context -conf_dir -program )};
 
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
@@ -34,8 +34,9 @@ sub _init {
         );
     my $peer_clipboard =
         $protocol->connection->local_selection_id;
+    $program ||= 'zmap';
     my @zmap_command = (
-        'zmap'
+        $program
         , "--conf_dir=${conf_dir}"
         , "--peer-name=ZMap"
         , "--peer-clipboard=${peer_clipboard}"
