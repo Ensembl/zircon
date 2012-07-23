@@ -17,6 +17,7 @@ use POSIX();
 
 use Tk;
 use Tk::Toplevel;
+use Tk::Pane;
 use Tk::Button;
 
 sub new {
@@ -31,10 +32,11 @@ sub _init {
     my ($self) = @_;
     $self->{'session_hash'} = { };
     $self->window_create;
+    $self->session_pane_create;
+    $self->exit_button_create;
     for my $session_dir (glob '/var/tmp/lace_*.done') {
         $self->session_button_create($session_dir);
     }
-    $self->exit_button_create;
     return;
 }
 
@@ -42,6 +44,22 @@ sub window_create {
     my ($self) = @_;
     my $window = $self->{'window'} = MainWindow->new;
     $window->title('Utterloss');
+    return;
+}
+
+sub session_pane_create {
+    my ($self) = @_;
+    $self->{'session_pane'} =
+        $self->window->Scrolled(
+            'Pane',
+            '-scrollbars' => 'e',
+            '-sticky'     => 'nswe',
+        )
+        ->pack(
+            '-side'   => 'top',
+            '-expand' => 1,
+            '-fill'   => 'both',
+        );
     return;
 }
 
@@ -53,8 +71,8 @@ sub exit_button_create {
         '-command' => sub { $self->_exit; },
         )
         ->pack(
-        '-side'   => 'left',
-        '-expand' => 1,
+        '-side' => 'bottom',
+        '-fill' => 'both',
         );
 
     return;
@@ -80,7 +98,7 @@ sub session_button_create {
         $session_dir =~ m|/lace_(.*)\.done\z|
         or die "BUG!!!\n";
 
-    $self->window->Button(
+    $self->session_pane->Button(
         '-text'    => $session_name,
         '-command' => sub { $self->session_new($session_dir); },
         )
@@ -115,6 +133,12 @@ sub window {
     my ($self) = @_;
     my $window = $self->{'window'};
     return $window;
+}
+
+sub session_pane {
+    my ($self) = @_;
+    my $session_pane = $self->{'session_pane'};
+    return $session_pane;
 }
 
 
