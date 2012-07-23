@@ -19,6 +19,7 @@ use Tk;
 use Tk::Toplevel;
 use Tk::Pane;
 use Tk::Button;
+use Tk::Radiobutton;
 
 sub new {
     my ($pkg) = @_;
@@ -33,6 +34,7 @@ sub _init {
     $self->{'session_hash'} = { };
     $self->window_create;
     $self->session_pane_create;
+    $self->program_frame_create;
     $self->exit_button_create;
     for my $session_dir (glob '/var/tmp/lace_*.done') {
         $self->session_button_create($session_dir);
@@ -60,6 +62,40 @@ sub session_pane_create {
             '-expand' => 1,
             '-fill'   => 'both',
         );
+    return;
+}
+
+sub program_frame_create {
+    my ($self) = @_;
+
+    my $program_frame =
+        $self->window->Frame
+        ->pack(
+            '-side' => 'top',
+            '-fill' => 'both',
+        );
+
+    my ($zmap_program) = glob '~edgrif/TEST/JEREMY/zmap';
+    my $zapmop_program = 'zapmop';
+    $self->{'program'} = $zmap_program;
+    my $variable = \($self->{'program'});
+
+    for (
+        [ 'zmap',   $zmap_program   ],
+        [ 'zapmop', $zapmop_program ],
+        ) {
+        my ($text, $value) = @{$_};
+        $program_frame->Radiobutton(
+            '-text'     => $text,
+            '-value'    => $value,
+            '-variable' => $variable,
+            )
+            ->pack(
+            '-side' => 'top',
+            '-fill' => 'both',
+            );
+    }
+
     return;
 }
 
@@ -127,6 +163,12 @@ sub session_hash {
     my ($self) = @_;
     my $session_hash = $self->{'session_hash'};
     return $session_hash;
+}
+
+sub program {
+    my ($self) = @_;
+    my $program = $self->{'program'};
+    return $program;
 }
 
 sub window {
@@ -267,6 +309,7 @@ sub zmap_view_create {
             Zircon::ZMap::View->new(
                 '-handler'  => $self,
                 '-context'  => $context,
+                '-program'  => $self->utterloss->program,
                 '-conf_dir' => $zmap_dir,
             );
     }
