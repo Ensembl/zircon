@@ -146,6 +146,7 @@ package Utterloss::Session; ## no critic(Modules::ProhibitMultiplePackages)
 
 use Tk;
 use Tk::Toplevel;
+use Tk::Pane;
 use Tk::Button;
 
 use Scalar::Util qw( weaken );
@@ -183,7 +184,7 @@ sub _init {
 
     $self->window_create;
     $self->zircon_context_create;
-    $self->feature_frame_create;
+    $self->feature_pane_create;
     $self->close_button_create;
     $self->zmap_view_create;
 
@@ -209,15 +210,18 @@ sub zircon_context_create {
     return;
 }
 
-sub feature_frame_create {
+sub feature_pane_create {
     my ($self) = @_;
-    my $feature_frame =
-        $self->{'feature_frame'} =
-        $self->window->Frame;
-    $feature_frame->pack(
-        '-side'   => 'top',
-        '-expand' => 1,
-        '-fill'   => 'both',
+    $self->{'feature_pane'} =
+        $self->window->Scrolled(
+            'Pane',
+            '-scrollbars' => 'e',
+            '-sticky'     => 'nswe',
+        )
+        ->pack(
+            '-side'   => 'top',
+            '-expand' => 1,
+            '-fill'   => 'both',
         );
     return;
 }
@@ -283,7 +287,7 @@ sub zircon_zmap_view_features_loaded {
 
 sub featureset_add {
     my ($self, $featureset) = @_;
-    $self->feature_frame->Label(
+    $self->feature_pane->Label(
         '-text' => $featureset)
         ->pack(
         '-side' => 'top',
@@ -362,10 +366,10 @@ sub window {
     return $window;
 }
 
-sub feature_frame {
+sub feature_pane {
     my ($self) = @_;
-    my $feature_frame = $self->{'feature_frame'};
-    return $feature_frame;
+    my $feature_pane = $self->{'feature_pane'};
+    return $feature_pane;
 }
 
 sub zircon_context {
