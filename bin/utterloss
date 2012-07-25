@@ -282,7 +282,10 @@ sub close_button_create {
 
 sub _close {
     my ($self) = @_;
-    $self->window->destroy;
+    $self->zmap_view->shutdown_clean(
+        sub {
+            $self->window->destroy;
+        });
     return;
 }
 
@@ -419,6 +422,12 @@ sub zircon_context {
     my ($self) = @_;
     my $zircon_context = $self->{'zircon_context'};
     return $zircon_context;
+}
+
+sub zmap_view {
+    my ($self) = @_;
+    my $zmap_view = $self->{'zmap_view'};
+    return $zmap_view;
 }
 
 sub session_dir_orig {
