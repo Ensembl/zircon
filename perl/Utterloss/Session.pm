@@ -120,13 +120,10 @@ sub zmap_view_create {
             or die "the ace server failed to start\n";
         $ace->ace_handle(1)
             or die "the ace server failed to connect\n";
-        my $context =
-          Zircon::Tk::Context->new(
-              '-widget' => $self->window);
         $self->{'zmap_view'} =
             Zircon::ZMap::View->new(
                 '-handler'  => $self,
-                '-context'  => $context,
+                '-context'  => $self->zircon_context,
                 '-program'  => $self->utterloss->program,
                 '-conf_dir' => $zmap_dir,
             );
