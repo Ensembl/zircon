@@ -15,7 +15,6 @@ use Tk::Button;
 
 use Hum::Ace::LocalServer;
 
-use Zircon::Tk::Context;
 use Zircon::ZMap::View;
 
 use base qw( Zircon::ZMap::View::Handler );
@@ -40,7 +39,6 @@ sub _init {
         or die "BUG!!!\n";
 
     $self->window_create;
-    $self->zircon_context_create;
     $self->feature_pane_create;
     $self->close_button_create;
     $self->zmap_view_create;
@@ -55,15 +53,6 @@ sub window_create {
     my ($session_name) = basename $self->session_dir;
     my $title = "Session: ${session_name}";
     $window->title($title);
-    return;
-}
-
-sub zircon_context_create {
-    my ($self) = @_;
-    $self->{'zircon_context'} =
-        Zircon::Tk::Context->new(
-            '-widget' => $self->window,
-        );
     return;
 }
 
@@ -123,7 +112,7 @@ sub zmap_view_create {
         $self->{'zmap_view'} =
             Zircon::ZMap::View->new(
                 '-handler'  => $self,
-                '-context'  => $self->zircon_context,
+                '-context'  => $self->utterloss->zircon_context,
                 '-program'  => $self->utterloss->program,
                 '-conf_dir' => $zmap_dir,
             );
@@ -228,12 +217,6 @@ sub feature_pane {
     my ($self) = @_;
     my $feature_pane = $self->{'feature_pane'};
     return $feature_pane;
-}
-
-sub zircon_context {
-    my ($self) = @_;
-    my $zircon_context = $self->{'zircon_context'};
-    return $zircon_context;
 }
 
 sub zmap_view {

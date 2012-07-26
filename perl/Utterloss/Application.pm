@@ -11,6 +11,8 @@ use Tk::Pane;
 use Tk::Button;
 use Tk::Radiobutton;
 
+use Zircon::Tk::Context;
+
 use Utterloss::Session;
 
 sub new {
@@ -25,6 +27,7 @@ sub _init {
     my ($self) = @_;
     $self->{'session_hash'} = { };
     $self->window_create;
+    $self->zircon_context_create;
     $self->session_pane_create;
     $self->program_frame_create;
     $self->exit_button_create;
@@ -38,6 +41,15 @@ sub window_create {
     my ($self) = @_;
     my $window = $self->{'window'} = MainWindow->new;
     $window->title('Utterloss');
+    return;
+}
+
+sub zircon_context_create {
+    my ($self) = @_;
+    $self->{'zircon_context'} =
+        Zircon::Tk::Context->new(
+            '-widget' => $self->window,
+        );
     return;
 }
 
@@ -167,6 +179,12 @@ sub window {
     my ($self) = @_;
     my $window = $self->{'window'};
     return $window;
+}
+
+sub zircon_context {
+    my ($self) = @_;
+    my $zircon_context = $self->{'zircon_context'};
+    return $zircon_context;
 }
 
 sub session_pane {
