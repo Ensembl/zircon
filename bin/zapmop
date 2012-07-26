@@ -1,0 +1,73 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use feature qw( switch );
+use Getopt::Long;
+use Tk;
+use Zircon::Protocol;
+use Zircon::Tk::Context;
+
+# parse the command line
+my ($conf_dir, $peer_name, $peer_clipboard);
+GetOptions(
+    'conf_dir=s'       => \$conf_dir,
+    'peer-name=s'      => \$peer_name,
+    'peer-clipboard=s' => \$peer_clipboard,
+    ) or die 'command line error';
+
+# create the main window
+my $main_window = Tk::MainWindow->new;
+$main_window->title($peer_name);
+
+# create the Zircon connection
+my $server = Server->new;
+my $context = Zircon::Tk::Context->new(
+    '-widget' => $main_window);
+my $protocol = Zircon::Protocol->new(
+    '-app_id'  => $peer_name,
+    '-context' => $context,
+    '-server'  => $server,
+    );
+
+$protocol->send_handshake(
+    $peer_clipboard,
+    sub {
+        my ($result) = @_;
+        printf "Zapmop: handshake: %s\n"
+            , _message($result);
+    });
+
+MainLoop();
+
+exit;
+
+sub _message {
+    my ($result) = @_;
+    given ($result) {
+        when ($_->isa('Zircon::Protocol::Result::Reply')) {
+            return $result->success ? 'succeeded' : 'failed';
+        }
+        when ($_->isa('Zircon::Protocol::Result::Timeout')) {
+            return 'timeout';
+        }
+        when (ref) {
+            return sprintf 'unknown result: class: %s', ref;
+        }
+        default {
+            return 'unknown result';
+        }
+    }
+}
+
+package Server;
+
+use base qw( Zircon::Protocol::Server );
+
+sub new {
+    my ($pkg) = @_;
+    my $new = { };
+    bless $new, $pkg;
+    return $new;
+}
