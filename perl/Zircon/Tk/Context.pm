@@ -41,14 +41,6 @@ sub timeout {
     return $timeout_handle;
 }
 
-# id
-
-sub id {
-    my ($self) = @_;
-    my $id = $self->widget->id;
-    return $id;
-}
-
 # attributes
 
 sub widget {
