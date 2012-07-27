@@ -114,11 +114,11 @@ sub zmap_view_create {
             or die "the ace server failed to connect\n";
         $self->{'zmap_view'} =
             Zircon::ZMap::View->new(
-                '-handler'  => $self,
-                '-context'  => $self->utterloss->zircon_context,
+                '-handler'      => $self,
+                '-context'      => $self->utterloss->zircon_context,
                 '-selection_id' => $selection_id,
-                '-program'  => $self->utterloss->program,
-                '-conf_dir' => $zmap_dir,
+                '-program'      => $self->utterloss->program,
+                '-conf_dir'     => $zmap_dir,
             );
     }
     catch {

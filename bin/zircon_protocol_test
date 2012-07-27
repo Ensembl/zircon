@@ -35,10 +35,10 @@ my $server = Server->new;
 my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
 my $protocol = Zircon::Protocol->new(
-    '-app_id'  => $app_id,
-    '-context' => $context,
+    '-app_id'       => $app_id,
+    '-context'      => $context,
     '-selection_id' => $selection_id,
-    '-server'  => $server,
+    '-server'       => $server,
     );
 
 # create the GUI
