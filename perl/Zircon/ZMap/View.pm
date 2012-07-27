@@ -20,8 +20,8 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
 
-    my ($handler, $context, $conf_dir, $program) =
-        @{$args}{qw( -handler -context -conf_dir -program )};
+    my ($handler, $context, $selection_id, $conf_dir, $program) =
+        @{$args}{qw( -handler -context -selection_id -conf_dir -program )};
 
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
@@ -29,17 +29,16 @@ sub _init {
     my $protocol = $self->{'protocol'} =
         Zircon::Protocol->new(
             '-context' => $context,
+            '-selection_id' => $selection_id,
             '-app_id'  => 'Utterloss',
             '-server'  => $handler,
         );
-    my $peer_clipboard =
-        $protocol->connection->local_selection_id;
     $program ||= 'zmap';
     my @zmap_command = (
         $program
         , "--conf_dir=${conf_dir}"
         , "--peer-name=ZMap"
-        , "--peer-clipboard=${peer_clipboard}"
+        , "--peer-clipboard=${selection_id}"
         );
 
     printf "%s\n", join ' ', map { "'$_'" } @zmap_command;

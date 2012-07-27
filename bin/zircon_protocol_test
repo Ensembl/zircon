@@ -28,12 +28,16 @@ my $main_window = Tk::MainWindow->new;
 $main_window->title($app_id);
 
 # create the Zircon connection
+my $selection_id =
+    sprintf 'zircon_protocol_test_%s_%06d'
+    , $main_window->id, int(rand(1_000_000));
 my $server = Server->new;
 my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
 my $protocol = Zircon::Protocol->new(
     '-app_id'  => $app_id,
     '-context' => $context,
+    '-selection_id' => $selection_id,
     '-server'  => $server,
     );
 
@@ -132,8 +136,6 @@ else {
         or die 'fork() failed';
     if ($pid) {
         # child, so exec()
-        my $selection_id =
-            $protocol->connection->local_selection_id;
         exec $0, @ARGV, '-remote_selection' => $selection_id;
         die 'exec() failed';
     }

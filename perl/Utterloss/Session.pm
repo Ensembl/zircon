@@ -98,6 +98,9 @@ sub zmap_view_create {
     my $session_dir = $self->session_dir;
     move $self->session_dir_orig, $session_dir;
     try {
+        my $selection_id =
+            sprintf 'utterloss_%s_%06d'
+            , $self->window->id, int(rand(1_000_000));
         my $zmap_dir = "${session_dir}/ZMap";
         my $ace = Hum::Ace::LocalServer->new($session_dir);
         $ace->server_executable('sgifaceserver');
@@ -113,6 +116,7 @@ sub zmap_view_create {
             Zircon::ZMap::View->new(
                 '-handler'  => $self,
                 '-context'  => $self->utterloss->zircon_context,
+                '-selection_id' => $selection_id,
                 '-program'  => $self->utterloss->program,
                 '-conf_dir' => $zmap_dir,
             );
