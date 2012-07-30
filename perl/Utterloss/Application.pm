@@ -86,7 +86,7 @@ sub program_frame_create {
         $self->window->Frame
         ->pack(
             '-side' => 'top',
-            '-fill' => 'both',
+            '-fill' => 'y',
         );
 
     my ($zmap_program) = glob '~edgrif/TEST/JEREMY/zmap';
@@ -101,6 +101,7 @@ sub program_frame_create {
         my ($text, $value) = @{$_};
         $program_frame->Radiobutton(
             '-text'     => $text,
+            '-anchor'   => 'w',
             '-value'    => $value,
             '-variable' => $variable,
             )
