@@ -56,7 +56,17 @@ sub zircon_context_create {
 sub session_pane_create {
     my ($self) = @_;
     $self->{'session_pane'} =
-        $self->window->Scrolled(
+        $self->window
+        ->Frame(
+            '-borderwidth' => 2,
+            '-relief'      => 'sunken',
+        )
+        ->pack(
+            '-side'   => 'top',
+            '-expand' => 1,
+            '-fill'   => 'both',
+        )
+        ->Scrolled(
             'Pane',
             '-scrollbars' => 'e',
             '-sticky'     => 'nswe',
