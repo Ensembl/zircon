@@ -112,7 +112,7 @@ sub zmap_view_create {
             or die "the ace server failed to start\n";
         $ace->ace_handle(1)
             or die "the ace server failed to connect\n";
-        $self->{'zmap_view'} =
+        my $zmap_view =
             Zircon::ZMap::View->new(
                 '-handler'      => $self,
                 '-context'      => $self->utterloss->zircon_context,
@@ -120,6 +120,9 @@ sub zmap_view_create {
                 '-program'      => $self->utterloss->program,
                 '-conf_dir'     => $zmap_dir,
             );
+
+        $self->{'ace'} = $ace;
+        $self->{'zmap_view'} = $zmap_view;
     }
     catch {
         $self->finish;
@@ -148,6 +151,8 @@ sub featureset_add {
 
 sub finish {
     my ($self) = @_;
+    delete $self->{'zmap_view'};
+    delete $self->{'ace'};
     move $self->session_dir, $self->session_dir_orig
         if -d $self->session_dir;
     return;
