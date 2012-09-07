@@ -37,7 +37,7 @@ sub _init {
     my @zmap_command = (
         $program
         , "--conf_dir=${conf_dir}"
-        , "--peer-name=ZMap"
+        , "--peer-name=utterloss"
         , "--peer-clipboard=${selection_id}"
         );
 
