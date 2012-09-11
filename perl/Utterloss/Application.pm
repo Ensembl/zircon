@@ -16,15 +16,19 @@ use Zircon::Tk::Context;
 use Utterloss::Session;
 
 sub new {
-    my ($pkg) = @_;
+    my ($pkg, %args) = @_;
     my $new = { };
     bless $new, $pkg;
-    $new->_init;
+    $new->_init(\%args);
     return $new;
 }
 
 sub _init {
-    my ($self) = @_;
+    my ($self, $arg_hash) = @_;
+    my $program_args = $arg_hash->{'-zmap_args'};
+    $self->{'program_args'} =
+        [ split ' ', $program_args ]
+        if $program_args;
     $self->{'session_hash'} = { };
     $self->window_create;
     $self->zircon_context_create;
@@ -184,6 +188,12 @@ sub program {
     my ($self) = @_;
     my $program = $self->{'program'};
     return $program;
+}
+
+sub program_args {
+    my ($self) = @_;
+    my $program_args = $self->{'program_args'};
+    return $program_args;
 }
 
 sub window {

@@ -7,6 +7,6 @@ use Tk;
 
 use Utterloss::Application;
 
-my $app = Utterloss::Application->new;
+my $app = Utterloss::Application->new(@ARGV);
 MainLoop();
 $app->finish;

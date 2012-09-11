@@ -20,8 +20,8 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
 
-    my ($handler, $context, $selection_id, $conf_dir, $program) =
-        @{$args}{qw( -handler -context -selection_id -conf_dir -program )};
+    my ($handler, $context, $selection_id, $conf_dir, $program, $program_args) =
+        @{$args}{qw( -handler -context -selection_id -conf_dir -program -program_args )};
 
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
@@ -40,6 +40,7 @@ sub _init {
         , "--peer-name=utterloss"
         , "--peer-clipboard=${selection_id}"
         );
+    push @zmap_command, @{$program_args} if $program_args;
 
     printf "%s\n", join ' ', map { "'$_'" } @zmap_command;
 

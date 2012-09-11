@@ -118,6 +118,7 @@ sub zmap_view_create {
                 '-context'      => $self->utterloss->zircon_context,
                 '-selection_id' => $selection_id,
                 '-program'      => $self->utterloss->program,
+                '-program_args' => $self->utterloss->program_args,
                 '-conf_dir'     => $zmap_dir,
             );
 
