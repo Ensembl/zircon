@@ -42,7 +42,7 @@ sub _init {
         );
     push @zmap_command, @{$program_args} if $program_args;
 
-    printf "%s\n", join ' ', map { "'$_'" } @zmap_command;
+    warn sprintf "%s\n", join ' ', map { "'$_'" } @zmap_command;
 
     my $pid = fork;
     defined $pid or die 'fork() failed';
