@@ -23,6 +23,8 @@ sub _init {
     my ($handler, $context, $selection_id, $conf_dir, $program, $program_args) =
         @{$args}{qw( -handler -context -selection_id -conf_dir -program -program_args )};
 
+    my $app_id = 'Utterloss';
+
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
 
@@ -30,14 +32,14 @@ sub _init {
         Zircon::Protocol->new(
             '-context' => $context,
             '-selection_id' => $selection_id,
-            '-app_id'  => 'Utterloss',
+            '-app_id'  => $app_id,
             '-server'  => $handler,
         );
     $program ||= 'zmap';
     my @zmap_command = (
         $program
         , "--conf_dir=${conf_dir}"
-        , "--peer-name=utterloss"
+        , "--peer-name=${app_id}"
         , "--peer-clipboard=${selection_id}"
         );
     push @zmap_command, @{$program_args} if $program_args;
