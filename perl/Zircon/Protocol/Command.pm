@@ -10,7 +10,7 @@ sub command_request_handshake {
     my ($self) = @_;
 
     my $app_id = $self->app_id;
-    my $unique_id = $self->selection_id;
+    my $unique_id = $self->connection->local_selection_id;
 
     return
         [ 'peer',

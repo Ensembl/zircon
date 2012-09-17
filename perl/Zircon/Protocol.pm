@@ -157,13 +157,6 @@ sub zircon_connection_timeout {
 
 # utilities
 
-sub selection_id {
-    my ($self) = @_;
-    my $selection_id =
-        $self->connection->local_selection_id;
-    return $selection_id;
-}
-
 sub close {
     my ($self) = @_;
     $self->{'is_open'} = 0;
