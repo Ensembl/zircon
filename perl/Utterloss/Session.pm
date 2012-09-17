@@ -19,6 +19,8 @@ use Zircon::ZMap::View;
 
 use base qw( Zircon::ZMap::View::Handler );
 
+my $utterloss_app_id = 'Utterloss';
+
 sub new {
     my ($pkg, @args) = @_;
     my $new = { };
@@ -116,6 +118,7 @@ sub zmap_view_create {
             Zircon::ZMap::View->new(
                 '-handler'      => $self,
                 '-context'      => $self->utterloss->zircon_context,
+                '-app_id'       => $utterloss_app_id,
                 '-selection_id' => $selection_id,
                 '-program'      => $self->utterloss->program,
                 '-program_args' => $self->utterloss->program_args,

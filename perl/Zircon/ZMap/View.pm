@@ -20,10 +20,13 @@ sub new {
 sub _init {
     my ($self, $args) = @_;
 
-    my ($handler, $context, $selection_id, $conf_dir, $program, $program_args) =
-        @{$args}{qw( -handler -context -selection_id -conf_dir -program -program_args )};
-
-    my $app_id = 'Utterloss';
+    my (
+        $handler, $context, $app_id, $selection_id,
+        $conf_dir, $program, $program_args,
+        ) = @{$args}{qw(
+        -handler  -context  -app_id  -selection_id
+        -conf_dir  -program  -program_args
+        )};
 
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
