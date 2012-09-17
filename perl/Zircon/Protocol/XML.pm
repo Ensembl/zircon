@@ -18,7 +18,7 @@ sub request_xml {
             'view'    => $view,
         }, $request_body_xml);
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->selection_id;
+    my $clipboard_id = $self->connection->remote_selection_id;
     my $request_id = $self->{'request_id'}++;
     my $zmap_element_xml = _element_xml(
         'zmap', {
@@ -44,7 +44,7 @@ sub reply_xml {
             'reason'      => $reason,
         }, $reply_body_xml);
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->selection_id;
+    my $clipboard_id = $self->connection->local_selection_id;
     my $zmap_element_xml = _element_xml(
         'zmap', {
             'version'      => '2.0',
