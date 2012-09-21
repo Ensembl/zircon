@@ -221,7 +221,7 @@ my $attributes_xml_pattern = qr!
 # this *is* used in _xml_unescape but perlcritic cannot see code in s///e
 sub _xml_entity { ## no critic(Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($name) = @_;
-    given ($name) {
+    for ($name) {
         when ('lt')   { return '<'; }
         when ('gt')   { return '>'; }
         when ('quot') { return '"'; }

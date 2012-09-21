@@ -81,7 +81,7 @@ sub selection_owner_callback {
 
 sub _selection_owner_callback {
     my ($self, $key) = @_;
-    given ($key) {
+    for ($key) {
         when ('local')  { $self->_server_callback; }
         when ('remote') { $self->_client_callback; }
         default {
@@ -112,7 +112,7 @@ sub _client_callback {
     $self->handler->zircon_connection_debug
         if $self->debug;
 
-    given ($self->state) {
+    for ($self->state) {
 
         when ('client_request') {
             $self->state('client_waiting');
@@ -155,7 +155,7 @@ sub _server_callback {
     $self->handler->zircon_connection_debug
         if $self->debug;
 
-    given ($self->state) {
+    for ($self->state) {
 
         when ('inactive') {
             my $request = $self->selection('local')->get;
@@ -333,7 +333,7 @@ sub _do_safely {
 
 sub update {
     my ($self) = @_;
-    given ($self->state) {
+    for ($self->state) {
         when ('inactive') { $self->go_inactive; }
         when (/^client_/) { $self->go_client; }
         when (/^server_/) { $self->go_server; }

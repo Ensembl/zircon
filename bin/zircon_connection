@@ -295,7 +295,7 @@ sub zircon_connection_timeout {
 sub _process {
     my ($state) = @_;
     if (defined $when && $state eq $when) {
-        given ($action) {
+        for ($action) {
             when ('hang') { $main_window->after(5000); }
             when ('die')  { die "die: as requested\n" }
             when ('exit') { exit }

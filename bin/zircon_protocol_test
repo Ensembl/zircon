@@ -147,7 +147,7 @@ exit;
 
 sub _message {
     my ($result) = @_;
-    given ($result) {
+    for ($result) {
         when ($_->isa('Zircon::Protocol::Result::Reply')) {
             return $result->success ? 'succeeded' : 'failed';
         }
