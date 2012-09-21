@@ -157,10 +157,8 @@ sub _message {
         when (ref) {
             return sprintf 'unknown result: class: %s', ref;
         }
-        default {
-            return 'unknown result';
-        }
     }
+    return 'unknown result';
 }
 
 package Server;
