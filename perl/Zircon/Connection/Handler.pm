@@ -51,3 +51,7 @@ sub _zircon_connection_callback_undefined {
 }
 
 1;
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

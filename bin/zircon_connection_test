@@ -42,3 +42,7 @@ $main_window
     '-fill'   => 'both');
 
 MainLoop();
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

@@ -148,3 +148,7 @@ sub command_message_ok {
 }
 
 1;
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

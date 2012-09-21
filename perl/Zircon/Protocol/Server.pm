@@ -48,3 +48,7 @@ sub zircon_server_log {
 }
 
 1;
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

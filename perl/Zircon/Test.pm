@@ -302,3 +302,7 @@ The child window closes.
 =back
 
 =cut
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

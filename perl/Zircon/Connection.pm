@@ -411,3 +411,7 @@ sub state {
 =head1 AUTHOR
 
 Ana Code B<email> anacode@sanger.ac.uk
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

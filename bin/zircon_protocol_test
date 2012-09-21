@@ -180,3 +180,7 @@ sub zircon_server_log {
         sprintf 'Server: %s', $message;
     return;
 }
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

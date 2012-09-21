@@ -75,3 +75,7 @@ sub new {
     bless $new, $pkg;
     return $new;
 }
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk

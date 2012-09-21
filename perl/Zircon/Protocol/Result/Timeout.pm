@@ -20,3 +20,7 @@ sub init {
 # attributes
 
 1;
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk
