@@ -130,7 +130,7 @@ sub zmap_view_create {
     }
     catch {
         $self->finish;
-        die $::_;
+        die $_;
     };
     return;
 }

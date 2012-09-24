@@ -263,7 +263,7 @@ sub timeout_callback {
     my ($self) = @_;
     $self->timeout_handle(undef);
     try { $self->handler->zircon_connection_timeout; }
-    catch { die $::_; } # propagate any error
+    catch { die $_; } # propagate any error
     finally { $self->reset; };
     return;
 }
@@ -320,7 +320,7 @@ sub _do_safely {
     }
     catch {
         $self->reset;
-        die $::_; # propagate any error
+        die $_; # propagate any error
     }
     finally {
         $self->after(undef)
