@@ -96,17 +96,25 @@ sub _selection_owner_callback {
 
 sub send {
     my ($self, $request) = @_;
+
+    $self->trace("start");
+
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
     $self->selection('remote')->content($request);
     $self->state('client_request');
     $self->update;
     $self->timeout_start;
+
+    $self->trace("finish");
+
     return;
 }
 
 sub _client_callback {
     my ($self) = @_;
+
+    $self->trace("state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -147,6 +155,8 @@ sub go_client {
 
 sub _server_callback {
     my ($self) = @_;
+
+    $self->trace("state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -226,6 +236,9 @@ sub selection {
 sub selection_call {
     my ($self, $key, $method, @args) = @_;
     my $selection = $self->{'selection'}{$key};
+    $self->trace(
+        "key = '%s', selection = '%s', method = '%s'",
+        $key, ($selection || '<undef>'), $method);
     return unless defined $selection;
     return $selection->$method(@args);
 }
@@ -352,6 +365,18 @@ sub go_inactive {
     $self->selection_call('local',  'empty');
     $self->selection_call('remote', 'empty');
     $self->go_server;
+    return;
+}
+
+# tracing
+
+my $trace = $ENV{'ZIRCON_CONNECTION_TRACE'};
+
+sub trace {
+    my ($self, $format, @args) = @_;
+    return unless $trace;
+    my ($sub_name) = (caller(1))[3];
+    warn sprintf "%s(): ${format}\n", $sub_name, @args;
     return;
 }
 
