@@ -44,7 +44,6 @@ my $context = Zircon::Tk::Context->new(
 my $connection = Zircon::Connection->new(
     '-handler' => $handler,
     '-context' => $context,
-    '-debug'   => 1,
     );
 $connection->local_selection_id($local_selection);
 $connection->remote_selection_id($remote_selection);

@@ -34,13 +34,6 @@ sub zircon_connection_timeout {
     return;
 }
 
-#  debug: log a warning
-
-sub zircon_connection_debug {
-    warn "zircon_connection_debug()\n";
-    return;
-}
-
 # utilities
 
 sub _zircon_connection_callback_undefined {
