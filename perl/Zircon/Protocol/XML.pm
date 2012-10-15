@@ -81,19 +81,8 @@ sub _attribute_xml {
 sub request_xml_parse {
     my ($self, $request_xml) = @_;
 
-    my $protocol_tag_expected = 'zmap';
-    my ($protocol_tag,
-        $protocol_attribute_hash,
-        $content_xml,
-        ) = @{ _unique_element($request_xml) };
-    $protocol_tag eq $protocol_tag_expected
-        or die sprintf
-        "invalid protocol tag: '%s': expected: '%s'"
-        , $protocol_tag, $protocol_tag_expected;
-
-    my $request_id = $protocol_attribute_hash->{'request_id'};
-    defined $request_id
-        or die "missing protocol attribute: 'request_id'";
+    my ($request_id, $protocol_attribute_hash, $content_xml) =
+        @{_protocol_xml_parse($request_xml)};
 
     my $content_tag_expected = 'request';
     my ($content_tag,
@@ -124,19 +113,8 @@ sub request_xml_parse {
 sub reply_xml_parse {
     my ($self, $reply_xml) = @_;
 
-    my $protocol_tag_expected = 'zmap';
-    my ($protocol_tag,
-        $protocol_attribute_hash,
-        $content_xml,
-        ) = @{ _unique_element($reply_xml) };
-    $protocol_tag eq $protocol_tag_expected
-        or die sprintf
-        "invalid protocol tag: '%s': expected: '%s'"
-        , $protocol_tag, $protocol_tag_expected;
-
-    my $request_id = $protocol_attribute_hash->{'request_id'};
-    defined $request_id
-        or die "missing protocol attribute: 'request_id'";
+    my ($request_id, $protocol_attribute_hash, $content_xml) =
+        @{_protocol_xml_parse($reply_xml)};
 
     my $content_tag_expected = 'reply';
     my ($content_tag,
@@ -169,6 +147,25 @@ sub reply_xml_parse {
         $request_id,
         $command, $return_code, $reason,
         $view, $reply ];
+
+    return $parse;
+}
+
+sub _protocol_xml_parse {
+    my ($xml) = @_;
+
+    my ($tag, $attribute_hash, $content_xml) = @{_unique_element($xml)};
+    my $tag_expected = 'zmap';
+    $tag eq $tag_expected
+        or die sprintf
+        "invalid protocol tag: '%s': expected: '%s'"
+        , $tag, $tag_expected;
+
+    my $request_id = $attribute_hash->{'request_id'};
+    defined $request_id
+        or die "missing protocol attribute: 'request_id'";
+
+    my $parse = [ $request_id, $attribute_hash, $content_xml ];
 
     return $parse;
 }
