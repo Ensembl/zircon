@@ -168,7 +168,7 @@ sub _content_xml_parse {
             , $tag, $attribute;
     }
 
-    my $body = defined $body_xml ? _element_list($body_xml) : undef;
+    my $body = defined $body_xml ? _xml_parse($body_xml) : undef;
     my $parse = [ @{$attribute_hash}{@{$attribute_used}}, $body ];
 
     return $parse;
@@ -187,13 +187,31 @@ sub _unique_element {
     return $element;
 }
 
-sub _element_list {
-    my ($element_xml) = @_;
+sub _xml_parse {
+    my ($xml) = @_;
+    return $xml =~ /[<>]/ ? _xml_element_set_parse($xml) : _xml_string_parse($xml);
+}
+
+sub _xml_element_set_parse {
+    my ($xml) = @_;
     my $element_list = [ ];
     _each_element(
-        $element_xml,
-        sub { push @{$element_list}, @_; });
+        $xml,
+        sub {
+            my ($element) = @_;
+            my $body_xml = pop @{$element};
+            my $body = defined $body_xml ? _xml_parse($body_xml) : undef;
+            push @{$element}, $body;
+            push @{$element_list}, $element;
+        });
     return $element_list;
+}
+
+sub _xml_string_parse {
+    my ($xml) = @_;
+    local $_ = $xml;
+    _xml_unescape();
+    return $_;
 }
 
 my $element_list_xml_pattern = qr!
