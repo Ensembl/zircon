@@ -78,76 +78,48 @@ sub _attribute_xml {
 
 # XML parsing
 
+my @request_parse_parameter_list = (
+    'tag_expected' => 'request',
+    'attribute_required' => [ qw(
+        command
+        ) ],
+    'attribute_used' => [ qw(
+        command
+        view
+        ) ],
+    );
+
 sub request_xml_parse {
     my ($self, $request_xml) = @_;
-
     my ($request_id, $protocol_attribute_hash, $content_xml) =
         @{_protocol_xml_parse($request_xml)};
-
-    my $content_tag_expected = 'request';
-    my ($content_tag,
-        $content_attribute_hash,
-        $body_xml,
-        ) = @{ _unique_element($content_xml) };
-    $content_tag eq $content_tag_expected
-        or die sprintf
-        "invalid content tag: '%s': expected: '%s'"
-        , $content_tag, $content_tag_expected;
-
-    my $request =
-        defined $body_xml ? _element_list($body_xml) : undef;
-
-    my $command =
-        $content_attribute_hash->{'command'};
-    defined $command
-        or die "missing request attribute: 'command'";
-
-    my $view =
-        $content_attribute_hash->{'view'};
-
-    my $parse = [ $request_id, $command, $view, $request ];
-
+    my $content_parse =
+        _content_xml_parse($content_xml, @request_parse_parameter_list);
+    my $parse = [ $request_id, @{$content_parse} ];
     return $parse;
 }
 
+my @reply_parse_parameter_list = (
+    'tag_expected' => 'reply',
+    'attribute_required' => [ qw(
+        command
+        return_code
+        ) ],
+    'attribute_used' => [ qw(
+        command
+        return_code
+        reason
+        view
+        ) ],
+    );
+
 sub reply_xml_parse {
     my ($self, $reply_xml) = @_;
-
     my ($request_id, $protocol_attribute_hash, $content_xml) =
         @{_protocol_xml_parse($reply_xml)};
-
-    my $content_tag_expected = 'reply';
-    my ($content_tag,
-        $content_attribute_hash,
-        $body_xml,
-        ) = @{ _unique_element($content_xml) };
-    $content_tag eq $content_tag_expected
-        or die sprintf
-        "invalid content tag: '%s': expected: '%s'"
-        , $content_tag, $content_tag_expected;
-
-    my $reply =
-        defined $body_xml ? _unique_element($body_xml) : undef;
-
-    for (qw( command return_code )) {
-        my $attribute = $content_attribute_hash->{$_};
-        defined $attribute
-            or die sprintf
-            "missing reply attribute: '%s'"
-            , $attribute;
-    }
-    my ($command, $return_code, $reason) =
-        @{$content_attribute_hash}{qw(
-            command return_code reason)};
-
-    my $view =
-        $content_attribute_hash->{'view'};
-
-    my $parse = [
-        $request_id,
-        $command, $return_code, $reason,
-        $view, $reply ];
-
+    my $content_parse =
+        _content_xml_parse($content_xml, @reply_parse_parameter_list);
+    my $parse = [ $request_id, @{$content_parse} ];
     return $parse;
 }
 
@@ -166,6 +138,38 @@ sub _protocol_xml_parse {
         or die "missing protocol attribute: 'request_id'";
 
     my $parse = [ $request_id, $attribute_hash, $content_xml ];
+
+    return $parse;
+}
+
+sub _content_xml_parse {
+    my ($xml, %parameter_hash) = @_;
+
+    my (
+        $tag_expected,
+        $attribute_required,
+        $attribute_used,
+        ) =
+        @parameter_hash{qw(
+        tag_expected
+        attribute_required
+        attribute_used
+        )};
+
+    my ($tag, $attribute_hash, $body_xml) = @{ _unique_element($xml) };
+    $tag eq $tag_expected
+        or die sprintf
+        "invalid content tag: '%s': expected: '%s'"
+        , $tag, $tag_expected;
+
+    for my $attribute (@{$attribute_required}) {
+        (defined $attribute_hash->{$attribute})
+            or die sprintf "missing attribute in %s tag: '%s'"
+            , $tag, $attribute;
+    }
+
+    my $body = defined $body_xml ? _element_list($body_xml) : undef;
+    my $parse = [ @{$attribute_hash}{@{$attribute_used}}, $body ];
 
     return $parse;
 }
