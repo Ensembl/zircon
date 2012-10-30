@@ -1,22 +1,6 @@
 
 package Zircon::Connection;
 
-
-=pod
-
-SEQUENCE OF EVENTS
-
-- client : sets request
-- server : reads request
-- client :
-- server : sets reply
-- client : reads reply
-- server :
-- client : processes reply
-
-=cut
-
-
 use strict;
 use warnings;
 use feature qw( switch );
@@ -423,3 +407,13 @@ sub state {
 =head1 AUTHOR
 
 Ana Code B<email> anacode@sanger.ac.uk
+
+=head1 SEQUENCE OF EVENTS
+
+    - client : sets request
+    - server : reads request
+    - client :
+    - server : sets reply
+    - client : reads reply
+    - server :
+    - client : processes reply
