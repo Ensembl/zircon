@@ -404,9 +404,125 @@ sub state {
 
 =head1 NAME - Zircon::Connection
 
-=head1 AUTHOR
+=head1 METHODS
 
-Ana Code B<email> anacode@sanger.ac.uk
+=head2 C<new()>
+
+Create a Zircon connection.
+
+    my $connection = Zircon::Connection->new(
+        -context => $context, # mandatory
+        -handler => $handler, # mandatory
+        -timeout_interval => $timeout, # optional
+        );
+
+=over 4
+
+=item C<$context> (mandatory)
+
+An opaque object that provides an interface to X selections and the
+application's event loop.
+
+Perl/Tk applications create this object by calling
+C<Zircon::Tk::Context-E<gt>new()>.
+
+=item C<$handler> (mandatory)
+
+An object that processes client requests, server replies and
+connection timeouts.
+
+NB: the caller must keep a reference to the handler.  This is because
+the connection keeps only a weak reference to the handler to prevent
+circular references, since the handler will generally keep a reference
+to the connection.
+
+=item C<$timeout> (optional)
+
+The timeout interval in milliseconds.
+
+If at any time the other end of the connection does not respond within
+the timeout interval, then the connection calls the handler's timeout
+method and then resets.
+
+This value defaults to 500 if not supplied.
+
+=back
+
+=head2 C<local_selection_id()>, C<remote_selection_id()>
+
+Get/set selection IDs.
+
+    my $id = $connection->local_selection_id;
+    $connection->local_selection_id($id);
+    my $id = $connection->remote_selection_id;
+    $connection->remote_selection_id($id);
+
+Setting the local selection ID makes the connection respond to
+requests from clients using that selection.
+
+Setting the remote selection ID allows the connection to send requests
+to a server using that selection.
+
+=head2 C<send()>
+
+Send a request to the server.
+
+    $connection->send($request);
+
+This requires the remote selection ID to be set.
+
+$request is a string.
+
+=head2 C<after()>
+
+Defer an action until after the client/server exchange completes
+successfully.
+
+    $connection->after(sub { ... });
+
+The subroutine argument will be called once after the current
+client/server exchange completes, provided that the connection did not
+reset.
+
+Only the handler's zircon_connection_request method should call this
+method.  If it is called several times then only the last call has any
+effect.
+
+=head2 C<$handler-E<gt>zircon_connection_request()>
+
+    my $reply = $handler->zircon_connection_request($request);
+
+Process a request from the client and return a reply to be sent to the
+client.
+
+This method can call C<$connection-E<gt>after()> to schedule code to
+be run after the client acknowledges receiving the reply.
+
+If this raises a Perl error then the connection resets.  The error is
+propagated to the application's main loop.
+
+This will only be called if the local selection ID is set.
+
+$request and $reply are strings.
+
+=head2 C<$handler-E<gt>zircon_connection_reply()>
+
+    $handler->zircon_connection_reply($reply);
+
+Process a reply from the server (when acting as a client).
+
+If this raises a Perl error then the connection resets.  The error is
+propagated to the application's main loop.
+
+This will only be called if the local selection ID is set.
+
+$reply is a string.
+
+=head2 C<$handler-E<gt>zircon_connection_timeout()>
+
+    $handler->zircon_connection_timeout();
+
+Process a connection timeout.
 
 =head1 SEQUENCE OF EVENTS
 
@@ -417,3 +533,7 @@ Ana Code B<email> anacode@sanger.ac.uk
     - client : reads reply
     - server :
     - client : processes reply
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk
