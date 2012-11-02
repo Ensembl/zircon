@@ -118,8 +118,7 @@ sub zircon_connection_request {
     my ($self, $request_xml) = @_;
     my ($request_id, $command, $view, $request) =
         @{$self->request_xml_parse($request_xml)};
-    my ($reply, %args) = $self->_request($command, $view, $request);
-    $self->connection->after($args{'after'});
+    my $reply = $self->_request($command, $view, $request);
     my $reply_xml = $self->reply_xml($request_id, $command, $reply);
     return $reply_xml;
 }
@@ -168,12 +167,11 @@ sub _request {
 
         when ('shutdown') {
 
+            $self->connection->after(sub { CORE::exit; });
             $self->server->zircon_server_shutdown;
             my $message = "shutting down now!";
 
-            return (
-                $self->message_ok($message),
-                'after' => sub { CORE::exit; } );
+            return $self->message_ok($message);
         }
 
         when ('goodbye') {
