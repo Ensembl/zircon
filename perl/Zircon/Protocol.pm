@@ -4,6 +4,7 @@ package Zircon::Protocol;
 use strict;
 use warnings;
 
+use feature qw( switch );
 use Scalar::Util qw( weaken );
 
 use Zircon::Connection;
@@ -11,7 +12,6 @@ use Zircon::Protocol::Result::Reply;
 use Zircon::Protocol::Result::Timeout;
 
 use base qw(
-    Zircon::Protocol::Command
     Zircon::Protocol::XML
     Zircon::Connection::Handler
     );
@@ -118,10 +118,82 @@ sub zircon_connection_request {
     my ($self, $request_xml) = @_;
     my ($request_id, $command, $view, $request) =
         @{$self->request_xml_parse($request_xml)};
-    my ($reply, %args) = $self->command_request($command, $view, $request);
+    my ($reply, %args) = $self->_request($command, $view, $request);
     $self->connection->after($args{'after'});
     my $reply_xml = $self->reply_xml($request_id, $command, $reply);
     return $reply_xml;
+}
+
+sub _request {
+    my ($self, $command, $view, $request_body) = @_;
+
+    for ($command) {
+
+        when ('handshake') {
+
+            my ($request_element, @rest) = @{$request_body};
+            die "missing request element" unless defined $request_element;
+            die "multiple request elements" if @rest;
+
+            my ($tag, $attribute_hash) = @{$request_element};
+
+            my $tag_expected = 'peer';
+            $tag eq $tag_expected
+                or die sprintf
+                "unexpected body tag: '%s': expected: '%s'"
+                , $tag, $tag_expected;
+
+            my ($app_id, $unique_id) =
+                @{$attribute_hash}{qw( app_id unique_id )};
+            defined $app_id    or die 'missing attribute: app_id';
+            defined $unique_id or die 'missing attribute: unique_id';
+
+            $self->connection->remote_selection_id($unique_id);
+            $self->server->zircon_server_handshake($unique_id);
+
+            my $message = sprintf
+                "Handshake successful with peer '%s', id '%s'"
+                , $app_id, $unique_id;
+
+            return $self->message_ok($message);
+        }
+
+        when ('ping') {
+
+            $self->server->zircon_server_ping;
+            my $message = "ping ok!";
+
+            return $self->message_ok($message);
+        }
+
+        when ('shutdown') {
+
+            $self->server->zircon_server_shutdown;
+            my $message = "shutting down now!";
+
+            return (
+                $self->message_ok($message),
+                'after' => sub { CORE::exit; } );
+        }
+
+        when ('goodbye') {
+
+            $self->server->zircon_server_goodbye;
+            $self->close;
+            my $message = "goodbye received, goodbye";
+
+            return $self->message_ok($message);
+        }
+
+        default {
+            return
+                $self->server->zircon_server_protocol_command(
+                    $command, $view, $request_body);
+        }
+
+    }
+
+    return; # unreached, quietens perlcritic
 }
 
 sub zircon_connection_reply {
@@ -162,6 +234,14 @@ sub zircon_connection_timeout {
 }
 
 # utilities
+
+sub message_ok {
+    my ($self, $message) = @_;
+
+    return
+        [ undef, # ok
+          [ 'message', { }, $message ] ];
+}
 
 sub close {
     my ($self) = @_;

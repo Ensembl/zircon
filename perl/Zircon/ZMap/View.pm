@@ -92,7 +92,7 @@ sub zircon_server_protocol_command {
 
             my $message = "feature list received";
 
-            return $self->protocol->command_message_ok($message);
+            return $self->protocol->message_ok($message);
         }
 
         default {
