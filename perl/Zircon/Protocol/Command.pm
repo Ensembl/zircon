@@ -4,6 +4,8 @@ package Zircon::Protocol::Command;
 use strict;
 use warnings;
 
+use feature qw( switch );
+
 # handshake
 
 sub command_request_handshake {
@@ -20,51 +22,12 @@ sub command_request_handshake {
           }, ];
 }
 
-sub command_reply_handshake {
-    my ($self, $view, $request_body) = @_;
-
-    my ($request_element, @rest) = @{$request_body};
-    die "missing request element" unless defined $request_element;
-    die "multiple request elements" if @rest;
-
-    my ($tag, $attribute_hash) = @{$request_element};
-
-    my $tag_expected = 'peer';
-    $tag eq $tag_expected
-        or die sprintf
-        "unexpected body tag: '%s': expected: '%s'"
-        , $tag, $tag_expected;
-
-    my ($app_id, $unique_id) =
-        @{$attribute_hash}{qw( app_id unique_id )};
-    defined $app_id    or die 'missing attribute: app_id';
-    defined $unique_id or die 'missing attribute: unique_id';
-
-    $self->connection->remote_selection_id($unique_id);
-    $self->server->zircon_server_handshake($unique_id);
-
-    my $message = sprintf
-        "Handshake successful with peer '%s', id '%s'"
-        , $app_id, $unique_id;
-
-    return $self->command_message_ok($message);
-}
-
 # ping
 
 sub command_request_ping {
     my ($self) = @_;
 
     return undef; ## no critic (Subroutines::ProhibitExplicitReturnUndef)
-}
-
-sub command_reply_ping {
-    my ($self) = @_;
-
-    $self->server->zircon_server_ping;
-    my $message = "ping ok!";
-
-    return $self->command_message_ok($message);
 }
 
 # shutdown
@@ -80,17 +43,6 @@ sub command_request_shutdown {
     return $request;
 }
 
-sub command_reply_shutdown {
-    my ($self) = @_;
-
-    $self->server->zircon_server_shutdown;
-    my $message = "shutting down now!";
-
-    return (
-        $self->command_message_ok($message),
-        'after' => sub { CORE::exit; } );
-}
-
 # goodbye
 
 sub command_request_goodbye {
@@ -104,37 +56,78 @@ sub command_request_goodbye {
     return $request;
 }
 
-sub command_reply_goodbye {
-    my ($self) = @_;
+# request handler
 
-    $self->server->zircon_server_goodbye;
-    $self->close;
-    my $message = "goodbye received, goodbye";
+sub command_request {
+    my ($self, $command, $view, $request_body) = @_;
 
-    return $self->command_message_ok($message);
-}
+    for ($command) {
 
-# features_loaded
+        when ('handshake') {
 
-sub command_reply_features_loaded {
-    my ($self, $view, $request_body) = @_;
+            my ($request_element, @rest) = @{$request_body};
+            die "missing request element" unless defined $request_element;
+            die "multiple request elements" if @rest;
 
-    my $request_hash = { };
-    for (@{$request_body}) {
-        my ($name, $attribute_hash) = @{$_};
-        $request_hash->{$name} = $attribute_hash;
+            my ($tag, $attribute_hash) = @{$request_element};
+
+            my $tag_expected = 'peer';
+            $tag eq $tag_expected
+                or die sprintf
+                "unexpected body tag: '%s': expected: '%s'"
+                , $tag, $tag_expected;
+
+            my ($app_id, $unique_id) =
+                @{$attribute_hash}{qw( app_id unique_id )};
+            defined $app_id    or die 'missing attribute: app_id';
+            defined $unique_id or die 'missing attribute: unique_id';
+
+            $self->connection->remote_selection_id($unique_id);
+            $self->server->zircon_server_handshake($unique_id);
+
+            my $message = sprintf
+                "Handshake successful with peer '%s', id '%s'"
+                , $app_id, $unique_id;
+
+            return $self->command_message_ok($message);
+        }
+
+        when ('ping') {
+
+            $self->server->zircon_server_ping;
+            my $message = "ping ok!";
+
+            return $self->command_message_ok($message);
+        }
+
+        when ('shutdown') {
+
+            $self->server->zircon_server_shutdown;
+            my $message = "shutting down now!";
+
+            return (
+                $self->command_message_ok($message),
+                'after' => sub { CORE::exit; } );
+        }
+
+        when ('goodbye') {
+
+            $self->server->zircon_server_goodbye;
+            $self->close;
+            my $message = "goodbye received, goodbye";
+
+            return $self->command_message_ok($message);
+        }
+
+        default {
+            return
+                $self->server->zircon_server_protocol_command(
+                    $command, $view, $request_body);
+        }
+
     }
 
-    my $status = $request_hash->{'status'}{'value'};
-    my $client_message = $request_hash->{'status'}{'message'};
-    my @feature_list = split /;/, $request_hash->{'featureset'}{'names'};
-
-    $self->server->zircon_zmap_view_features_loaded(
-        $status, $client_message, @feature_list);
-
-    my $message = "feature list received";
-
-    return $self->command_message_ok($message);
+    return; # unreached, quietens perlcritic
 }
 
 # utilities

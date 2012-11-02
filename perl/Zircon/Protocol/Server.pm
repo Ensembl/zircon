@@ -32,11 +32,9 @@ sub zircon_server_goodbye {
     return;
 }
 
-sub zircon_zmap_view_features_loaded {
-    my ($self, $status, $client_message, @feature_list) = @_;
-    my $message =
-        sprintf "features loaded: %s\n%s"
-        , $client_message, (join ', ', @feature_list);
+sub zircon_server_protocol_command {
+    my ($self, $command, $view, $request_body) = @_;
+    my $message = sprintf "invalid command: '%s'", $command;
     $self->zircon_server_log($message);
     return;
 }

@@ -4,10 +4,13 @@ package Zircon::ZMap::View;
 use strict;
 use warnings;
 
+use feature qw( switch );
 use Scalar::Util qw( weaken );
 use POSIX();
 
 use Zircon::Protocol;
+
+use base qw( Zircon::Protocol::Server );
 
 sub new {
     my ($pkg, %args) = @_;
@@ -36,7 +39,7 @@ sub _init {
             '-context' => $context,
             '-selection_id' => $selection_id,
             '-app_id'  => $app_id,
-            '-server'  => $handler,
+            '-server'  => $self,
         );
     $program ||= 'zmap';
     my @zmap_command = (
@@ -63,6 +66,43 @@ sub shutdown_clean {
     my ($self, @args) = @_;
     $self->protocol->send_shutdown_clean(@args);
     return;
+}
+
+# protocol server
+
+sub zircon_server_protocol_command {
+    my ($self, $command, $view, $request_body) = @_;
+
+    for ($command) {
+
+        when ('features_loaded') {
+
+            my $request_hash = { };
+            for (@{$request_body}) {
+                my ($name, $attribute_hash) = @{$_};
+                $request_hash->{$name} = $attribute_hash;
+            }
+
+            my $status = $request_hash->{'status'}{'value'};
+            my $client_message = $request_hash->{'status'}{'message'};
+            my @feature_list = split /;/, $request_hash->{'featureset'}{'names'};
+
+            $self->handler->zircon_zmap_view_features_loaded(
+                $status, $client_message, @feature_list);
+
+            my $message = "feature list received";
+
+            return $self->protocol->command_message_ok($message);
+        }
+
+        default {
+            return $self->SUPER::zircon_server_protocol_command(
+                $command, $view, $request_body);
+        }
+
+    }
+
+    return; # unreached, quietens perlcritic
 }
 
 # attributes

@@ -108,11 +108,7 @@ sub zircon_connection_request {
     my ($self, $request_xml) = @_;
     my ($request_id, $command, $view, $request) =
         @{$self->request_xml_parse($request_xml)};
-    my $command_method =
-        sprintf 'command_reply_%s', $command;
-    $self->can($command_method)
-        or die sprintf "invalid command '%s'", $command;
-    my ($reply, %args) = $self->$command_method($view, $request);
+    my ($reply, %args) = $self->command_request($command, $view, $request);
     $self->connection->after($args{'after'});
     my $reply_xml = $self->reply_xml($request_id, $command, $reply);
     return $reply_xml;
