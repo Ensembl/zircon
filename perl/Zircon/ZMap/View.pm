@@ -34,6 +34,9 @@ sub _init {
     $self->{'handler'} = $handler;
     weaken $self->{'handler'};
 
+    @{$self}{qw( name start end )}=
+        @{$args}{qw( -name -start -end )};
+
     my $protocol = $self->{'protocol'} =
         Zircon::Protocol->new(
             '-context' => $context,
@@ -68,7 +71,39 @@ sub shutdown_clean {
     return;
 }
 
+my @sequence_key_list = qw(
+    name
+    start
+    end
+    );
+
+sub send_new_view {
+    my ($self) = @_;
+
+    my $request =
+        [ 'sequence',
+          { map { $_ => scalar $self->$_ } @sequence_key_list } ];
+
+    $self->protocol->send_command(
+        'new_view', undef, $request, undef);
+
+    return;
+}
+
 # protocol server
+
+sub zircon_server_handshake {
+    my ($self, @args) = @_;
+    my $self_ = $self;
+    weaken $self_;
+    $self->protocol->connection->after(
+        sub {
+            defined $self_ or return;
+            $self_->send_new_view;
+        });
+    $self->SUPER::zircon_server_handshake(@args);
+    return;
+}
 
 sub zircon_server_protocol_command {
     my ($self, $command, $view, $request_body) = @_;
@@ -111,6 +146,24 @@ sub protocol {
     my ($self) = @_;
     my $protocol = $self->{'protocol'};
     return $protocol;
+}
+
+sub name {
+    my ($self) = @_;
+    my $name = $self->{'name'};
+    return $name;
+}
+
+sub start {
+    my ($self) = @_;
+    my $start = $self->{'start'};
+    return $start;
+}
+
+sub end {
+    my ($self) = @_;
+    my $end = $self->{'end'};
+    return $end;
 }
 
 1;

@@ -95,6 +95,15 @@ sub _close {
     return;
 }
 
+my $zmap_stanza_pattern = qr!
+    ^\[ZMap\]$
+    (.*?)
+    (?:^\[|\z)
+    !xms;
+
+my $zmap_key_value_pattern =
+    qr!^[[:blank:]]*([^[:space:]]+)[[:blank:]]*=[[:blank:]]*(.*)$!m;
+
 sub zmap_view_create {
     my ($self) = @_;
     my $session_dir = $self->session_dir;
@@ -104,16 +113,29 @@ sub zmap_view_create {
             sprintf 'utterloss_%s_%06d'
             , $self->window->id, int(rand(1_000_000));
         my $zmap_dir = "${session_dir}/ZMap";
+
         my $ace = Hum::Ace::LocalServer->new($session_dir);
         $ace->server_executable('sgifaceserver');
         my $ace_url = sprintf
             'acedb://%s:%s@%s:%d'
             , $ace->user, $ace->pass, $ace->host, $ace->port;
-        _zmap_config_fix($zmap_dir, $ace_url);
+
+        my $config_path = "${zmap_dir}/ZMap";
+        my $config = _zmap_config_get($config_path);
+        my ($zmap_stanza) = $config =~ /$zmap_stanza_pattern/
+            or die "failed to locate the ZMap configuration stanza";
+        my $zmap_config = { $zmap_stanza =~ /$zmap_key_value_pattern/g, };
+        my $config_new = _zmap_config_new($config, $zmap_config, $ace_url);
+        _zmap_config_save($config_path, $config_new);
+
         $ace->start_server()
             or die "the ace server failed to start\n";
         $ace->ace_handle(1)
             or die "the ace server failed to connect\n";
+
+        my ($name, $start, $end) =
+            @{$zmap_config}{qw( sequence start end )};
+
         my $zmap_view =
             Zircon::ZMap::View->new(
                 '-handler'      => $self,
@@ -123,6 +145,9 @@ sub zmap_view_create {
                 '-program'      => $self->utterloss->program,
                 '-program_args' => $self->utterloss->program_args,
                 '-conf_dir'     => $zmap_dir,
+                '-name'         => $name,
+                '-start'        => $start,
+                '-end'          => $end,
             );
 
         $self->{'ace'} = $ace;
@@ -162,36 +187,31 @@ sub finish {
     return;
 }
 
-sub _zmap_config_fix {
-    my ($dir, $ace_url) = @_;
+sub _zmap_config_get {
+    my ($config_path) = @_;
     local $/ = undef;
-    my $config_path = "${dir}/ZMap";
     open my $config_read_h, '<', $config_path
         or die "open() failed: $!\n";
     my $config = <$config_read_h>;
     close $config_read_h
         or die "close() failed: $!\n";
-    my $config_new = _zmap_config_new($config, $ace_url);
+    return $config;
+}
+
+sub _zmap_config_save {
+    my ($config_path, $config) = @_;
     open my $config_write_h, '>', $config_path
         or die "open() failed: $!\n";
-    print $config_write_h $config_new;
+    print $config_write_h $config;
     close $config_write_h
         or die "close() failed: $!\n";
     return;
 }
 
 sub _zmap_config_new {
-    my ($config, $ace_url) = @_;
+    my ($config, $zmap_config, $ace_url) = @_;
 
-    my ($zmap_stanza) = $config =~ /
-    ^\[ZMap\]$
-    (.*?)
-    (?:^\[|\z)
-    /xms
-    or die "failed to locate the ZMap configuration stanza";
-
-    my ($source_list) =
-        $zmap_stanza =~ /^sources[[:blank:]]*=[[:blank:]]*(.*)$/m
+    my $source_list = $zmap_config->{'sources'}
         or die "failed to locate the source list";
 
     my ($sequence) = split /[[:blank:]]*;[[:blank:]]*/, $source_list;
