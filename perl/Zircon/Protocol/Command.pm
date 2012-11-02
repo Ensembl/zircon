@@ -6,56 +6,6 @@ use warnings;
 
 use feature qw( switch );
 
-# handshake
-
-sub command_request_handshake {
-    my ($self) = @_;
-
-    my $app_id = $self->app_id;
-    my $unique_id = $self->connection->local_selection_id;
-
-    return
-        [ 'peer',
-          {
-              'app_id'    => $app_id,
-              'unique_id' => $unique_id,
-          }, ];
-}
-
-# ping
-
-sub command_request_ping {
-    my ($self) = @_;
-
-    return undef; ## no critic (Subroutines::ProhibitExplicitReturnUndef)
-}
-
-# shutdown
-
-sub command_request_shutdown {
-    my ($self, $type) = @_;
-
-    my $request =
-        defined $type
-        ? [ 'shutdown', { 'type' => $type } ]
-        : undef;
-
-    return $request;
-}
-
-# goodbye
-
-sub command_request_goodbye {
-    my ($self, $type) = @_;
-
-    my $request =
-        defined $type
-        ? [ 'goodbye', { 'type' => $type } ]
-        : undef;
-
-    return $request;
-}
-
 # request handler
 
 sub command_request {

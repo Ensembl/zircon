@@ -54,23 +54,37 @@ sub _init {
 
 sub send_handshake {
     my ($self, $remote_selection_id, $callback) = @_;
+
     $self->connection->remote_selection_id($remote_selection_id);
+
+    my $app_id = $self->app_id;
+    my $unique_id = $self->connection->local_selection_id;
+
+    my $request =
+        [ 'peer',
+          {
+              'app_id'    => $app_id,
+              'unique_id' => $unique_id,
+          }, ];
+
     $self->send_command(
-        'handshake', undef, $callback);
+        'handshake', undef, $request, $callback);
+
     return;
 }
 
 sub send_ping {
     my ($self, $callback) = @_;
     $self->send_command(
-        'ping', undef, $callback);
+        'ping', undef, undef, $callback);
     return;
 }
 
 sub send_shutdown_clean {
     my ($self, $callback) = @_;
+    my $request = [ 'shutdown', { 'type' => 'clean' } ];
     $self->send_command(
-        'shutdown', undef, 'clean',
+        'shutdown', undef, $request,
         sub {
             my ($result) = @_;
             $self->close if
@@ -83,20 +97,16 @@ sub send_shutdown_clean {
 
 sub send_goodbye_exit {
     my ($self, $callback) = @_;
+    my $request = [ 'goodbye', { 'type' => 'exit' } ];
     $self->send_command(
-        'goodbye', undef, 'exit', $callback);
+        'goodbye', undef, $request, $callback);
     return;
 }
 
 sub send_command {
-    my ($self, $command, $view, @args) = @_;
+    my ($self, $command, $view, $request, $callback) = @_;
     $self->is_open or die "the connection is closed\n";
-    my $command_method = sprintf 'command_request_%s', $command;
-    $self->can($command_method)
-        or die sprintf "invalid command '%s'", $command;
-    my $callback = pop @args;
     $self->callback($callback);
-    my $request = $self->$command_method(@args);
     my $request_xml = $self->request_xml($command, $view, $request);
     $self->connection->send($request_xml);
     return;
