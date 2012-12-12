@@ -101,8 +101,14 @@ my $zmap_stanza_pattern = qr!
     (?:^\[|\z)
     !xms;
 
-my $zmap_key_value_pattern =
-    qr!^[[:blank:]]*([^[:space:]]+)[[:blank:]]*=[[:blank:]]*(.*)$!m;
+my $zmap_key_value_pattern = qr!
+    ^
+    [[:blank:]]*               # key
+    ([^[:space:]]+)
+    [[:blank:]]*=[[:blank:]]*  # =
+    (.*)                       # value
+    $
+    !xm;
 
 sub zmap_view_create {
     my ($self) = @_;
