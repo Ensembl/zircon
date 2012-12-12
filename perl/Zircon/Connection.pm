@@ -16,6 +16,7 @@ my @mandatory_args = qw(
 
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
+    'connection_id'    => __PACKAGE__,
 };
 
 my @weak_args = qw(
@@ -363,7 +364,9 @@ sub trace {
     return unless $trace;
     my ($sub_name) = (caller(1))[3];
     $sub_name =~ s/\A.*:://s;
-    warn sprintf "%s(): ${format}\n", $sub_name, @args;
+    warn sprintf
+        "%s: %s(): ${format}\n"
+        , $self->connection_id, $sub_name, @args;
     return;
 }
 
@@ -377,6 +380,12 @@ sub handler {
 sub context {
     my ($self) = @_;
     return $self->{'context'};
+}
+
+sub connection_id {
+    my ($self, @args) = @_;
+    ($self->{'connection_id'}) = @args if @args;
+    return $self->{'connection_id'};
 }
 
 sub request {
