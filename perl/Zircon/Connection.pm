@@ -362,6 +362,7 @@ sub trace {
     my ($self, $format, @args) = @_;
     return unless $trace;
     my ($sub_name) = (caller(1))[3];
+    $sub_name =~ s/\A.*:://s;
     warn sprintf "%s(): ${format}\n", $sub_name, @args;
     return;
 }
