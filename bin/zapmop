@@ -9,6 +9,8 @@ use Tk;
 use Zircon::Protocol;
 use Zircon::Tk::Context;
 
+my $app_id = 'ZapMop';
+
 # parse the command line
 my ($conf_dir, $peer_name, $peer_clipboard);
 GetOptions(
@@ -29,7 +31,7 @@ my $selection_id =
     sprintf "zapmop_%s_%06d"
     , $main_window->id, int(rand(1_000_000));
 my $protocol = Zircon::Protocol->new(
-    '-app_id'       => $peer_name,
+    '-app_id'       => $app_id,
     '-context'      => $context,
     '-selection_id' => $selection_id,
     '-server'       => $server,
