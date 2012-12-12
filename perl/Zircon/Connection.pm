@@ -98,7 +98,7 @@ sub send {
 sub _client_callback {
     my ($self) = @_;
 
-    $self->trace("state = '%s'", $self->state);
+    $self->trace("start: state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -125,6 +125,8 @@ sub _client_callback {
 
     }
 
+    $self->trace("finish: state = '%s'", $self->state);
+
     return;
 }
 
@@ -140,7 +142,7 @@ sub go_client {
 sub _server_callback {
     my ($self) = @_;
 
-    $self->trace("state = '%s'", $self->state);
+    $self->trace("start: state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -167,6 +169,8 @@ sub _server_callback {
         }
 
     }
+
+    $self->trace("finish: state = '%s'", $self->state);
 
     return;
 }
