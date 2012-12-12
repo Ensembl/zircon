@@ -224,9 +224,6 @@ sub selection {
 sub selection_call {
     my ($self, $key, $method, @args) = @_;
     my $selection = $self->{'selection'}{$key};
-    $self->trace(
-        "key = '%s', selection = '%s', method = '%s'",
-        $key, ($selection || '<undef>'), $method);
     return unless defined $selection;
     return $selection->$method(@args);
 }
