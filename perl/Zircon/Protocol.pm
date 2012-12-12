@@ -42,7 +42,9 @@ sub _init {
 
     my ($context, $selection_id) =
         @{$arg_hash}{qw( -context -selection_id )};
+    my $connection_id = sprintf "%s: Connection", $self->app_id;
     my $connection = Zircon::Connection->new(
+        '-connection_id' => $connection_id,
         '-context' => $context,
         '-handler' => $self,
         );
