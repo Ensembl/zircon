@@ -27,8 +27,8 @@ sub init {
 sub selection_new {
     my ($self, @args) = @_;
     my $selection =
-      Zircon::Tk::Selection->new(
-          '-widget' => $self->widget, @args);
+        Zircon::Tk::Selection->new(
+            '-widget' => $self->widget, @args);
     return $selection;
 }
 
