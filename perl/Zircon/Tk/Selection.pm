@@ -16,6 +16,7 @@ sub new {
 }
 
 my @mandatory_args = qw(
+    platform
     id
     handler
     widget
@@ -142,6 +143,12 @@ sub content {
     my ($self, @args) = @_;
     ($self->{'content'}) = @args if @args;
     return $self->{'content'};
+}
+
+sub platform {
+    my ($self) = @_;
+    my $platform = $self->{'platform'};
+    return $platform;
 }
 
 sub id {

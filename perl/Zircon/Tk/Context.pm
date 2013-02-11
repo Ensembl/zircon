@@ -22,13 +22,18 @@ sub init {
     return;
 }
 
+# platform
+sub platform { return 'Tk'; }
+
 # selections
 
 sub selection_new {
     my ($self, @args) = @_;
     my $selection =
         Zircon::Tk::Selection->new(
-            '-widget' => $self->widget, @args);
+            '-platform' => $self->platform,
+            '-widget'   => $self->widget,
+            @args);
     return $selection;
 }
 
