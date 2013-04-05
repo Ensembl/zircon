@@ -46,6 +46,14 @@ sub timeout {
     return $timeout_handle;
 }
 
+# waiting
+
+sub waitVariable {
+    my ($self, $var) = @_;
+    $self->widget->waitVariable($var);
+    return;
+}
+
 # attributes
 
 sub widget {
