@@ -89,6 +89,7 @@ sub get {
     my $get =
         $self->widget->SelectionGet(
             '-selection' => $self->id);
+    $self->zircon_trace("\n%s\n", $get);
     return $get;
 }
 
@@ -103,6 +104,7 @@ sub owner_callback {
 
 sub selection_callback {
     my ($self, $offset, $bytes) = @_;
+    $self->zircon_trace;
     my $content = $self->content;
     my $size = (length $content) - $offset;
     return
