@@ -7,6 +7,9 @@ use Carp;
 
 use Scalar::Util qw( weaken );
 
+use base qw( Zircon::Trace );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_SELECTION_TRACE';
+
 sub new {
     my ($pkg, %args) = @_;
     my $new = { };
@@ -59,6 +62,7 @@ sub init {
 sub own {
     my ($self) = @_;
     if (! $self->owns) {
+        $self->zircon_trace;
         $self->widget->SelectionOwn(
             '-selection' => $self->id,
             '-command' => $self->callback('owner_callback'),
@@ -90,6 +94,7 @@ sub get {
 
 sub owner_callback {
     my ($self) = @_;
+    $self->zircon_trace;
     $self->owns(0);
     $self->handler->selection_owner_callback(
         $self->handler_data);
@@ -173,6 +178,13 @@ sub widget {
     my ($self) = @_;
     my $widget = $self->{'widget'};
     return $widget;
+}
+
+# tracing
+
+sub zircon_trace_format {
+    my ($self) = @_;
+    return ( "id = '%s'", $self->id );
 }
 
 1;
