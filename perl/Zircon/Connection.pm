@@ -9,6 +9,9 @@ use Carp;
 use Scalar::Util qw( weaken );
 use Try::Tiny;
 
+use base qw( Zircon::Trace );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_CONNECTION_TRACE';
+
 my @mandatory_args = qw(
     context
     handler
@@ -82,7 +85,7 @@ sub _selection_owner_callback {
 sub send {
     my ($self, $request) = @_;
 
-    $self->trace("start");
+    $self->zircon_trace("start");
 
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
@@ -91,7 +94,7 @@ sub send {
     $self->update;
     $self->timeout_start;
 
-    $self->trace("finish");
+    $self->zircon_trace("finish");
 
     return;
 }
@@ -99,7 +102,7 @@ sub send {
 sub _client_callback {
     my ($self) = @_;
 
-    $self->trace("start: state = '%s'", $self->state);
+    $self->zircon_trace("start: state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -126,7 +129,7 @@ sub _client_callback {
 
     }
 
-    $self->trace("finish: state = '%s'", $self->state);
+    $self->zircon_trace("finish: state = '%s'", $self->state);
 
     return;
 }
@@ -143,7 +146,7 @@ sub go_client {
 sub _server_callback {
     my ($self) = @_;
 
-    $self->trace("start: state = '%s'", $self->state);
+    $self->zircon_trace("start: state = '%s'", $self->state);
 
     for ($self->state) {
 
@@ -171,7 +174,7 @@ sub _server_callback {
 
     }
 
-    $self->trace("finish: state = '%s'", $self->state);
+    $self->zircon_trace("finish: state = '%s'", $self->state);
 
     return;
 }
@@ -357,17 +360,9 @@ sub go_inactive {
 
 # tracing
 
-my $trace = $ENV{'ZIRCON_CONNECTION_TRACE'};
-
-sub trace {
-    my ($self, $format, @args) = @_;
-    return unless $trace;
-    my ($sub_name) = (caller(1))[3];
-    $sub_name =~ s/\A.*:://s;
-    warn sprintf
-        "%s: %s(): ${format}\n"
-        , $self->connection_id, $sub_name, @args;
-    return;
+sub zircon_trace_format {
+    my ($self) = @_;
+    return ( "id = '%s'", $self->connection_id );
 }
 
 # attributes
