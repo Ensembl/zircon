@@ -227,8 +227,8 @@ sub zircon_connection_timeout {
     }
     else {
         printf
-            "Zircon client: app_id: '%s': timeout\n"
-            , $self->app_id;
+            "%s: connection: timeout: app_id = '%s', connection state = '%s'\n"
+            , __PACKAGE__, $self->app_id, $self->connection->state;
     }
     return;
 }
