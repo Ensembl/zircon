@@ -4,10 +4,6 @@ package Zircon::Trace;
 use strict;
 use warnings;
 
-use base qw( Exporter );
-
-our @EXPORT = qw( zircon_trace ); ## no critic (Modules::ProhibitAutomaticExportation)
-
 sub zircon_trace {
     my ($self, $format, @args) = @_;
     my ($pkg, $sub_name) =
