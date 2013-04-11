@@ -68,6 +68,13 @@ sub own {
             '-selection' => $self->id,
             '-command' => $self->callback('owner_callback'),
             );
+
+        # check we got it
+        my $owner = $self->widget->SelectionOwner('-selection' => $self->id);
+        my $name = defined $owner ? $owner->PathName : 'external';
+        warn 'SelectionOwn('.($self->id).") failed, owner=$name; collision?\n"
+          unless $owner == $self->widget;
+
         $self->owns(1);
     }
     return;
