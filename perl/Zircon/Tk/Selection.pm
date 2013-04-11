@@ -87,10 +87,11 @@ sub clear {
 
 sub get {
     my ($self) = @_;
+    $self->zircon_trace('start');
     my $get =
         $self->widget->SelectionGet(
             '-selection' => $self->id);
-    $self->zircon_trace("\n%s\n", $get);
+    $self->zircon_trace("result:\n%s\n", $get);
     return $get;
 }
 
