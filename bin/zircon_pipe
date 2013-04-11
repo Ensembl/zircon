@@ -37,7 +37,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
                                              -context => $context);
     $handler->zconn($connection); # to call ->after for incoming request
     $reader->zconn($connection);  # to call ->send
-    $handler->on_timeout(sub { $reader->try_send });
+    $handler->on_timeout(sub { $reader->try_send_soon });
 
     $connection->local_selection_id($local_selection);
     $connection->remote_selection_id($remote_selection);
@@ -175,6 +175,15 @@ sub try_send {
         }
     }
 
+    return ();
+}
+
+sub try_send_soon {
+    my ($self) = @_;
+    # postpone the try_send because $handler->zircon_connection_timeout
+    # happens before $connection->reset when state=client_waiting
+    warn "~> Tk::after(0, try_send)\n";
+    $self->{widg}->after(0, [ $self, 'try_send' ]);
     return ();
 }
 
