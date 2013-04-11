@@ -500,9 +500,21 @@ The subroutine argument will be called once after the current
 client/server exchange completes, provided that the connection did not
 reset.
 
-Only the handler's zircon_connection_request method should call this
-method.  If it is called several times then only the last call has any
-effect.
+This method should only be called
+
+=over 4
+
+=item * during L<Zircon::Connection::Handler/zircon_connection_request>
+
+To be notified when the client acknowledges your reply
+
+=item * just before the L</send> method
+
+To be notified after we acknowledge the remote server's reply.
+
+=back
+
+If it is called several times then only the last call has any effect.
 
 =head2 C<$handler-E<gt>zircon_connection_request()>
 
