@@ -13,6 +13,7 @@ use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONNECTION_TRACE';
 
 my @mandatory_args = qw(
+    name
     context
     handler
     );
@@ -204,9 +205,10 @@ sub selection_id {
         my ($id) = @args;
         ( defined $id && $id ne '' )
             or die 'undefined/empty selection ID';
+        my $name = sprintf '%s [%s]', $self->name, $key;
         $self->{'selection'}{$key} =
             $self->context->selection_new(
-                '-name'         => $key,
+                '-name'         => $name,
                 '-id'           => $id,
                 '-handler'      => $self,
                 '-handler_data' => $key,
@@ -363,10 +365,16 @@ sub go_inactive {
 
 sub zircon_trace_prefix {
     my ($self) = @_;
-    return sprintf "connection: id = '%s'", $self->connection_id;
+    return sprintf "connection: %s: id = '%s'", $self->name, $self->connection_id;
 }
 
 # attributes
+
+sub name {
+    my ($self) = @_;
+    my $name = $self->{'name'};
+    return $name;
+}
 
 sub handler {
     my ($self) = @_;

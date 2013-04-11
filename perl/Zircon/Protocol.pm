@@ -45,6 +45,7 @@ sub _init {
     my $connection_id = sprintf "%s: Connection", $self->app_id;
     my $connection = Zircon::Connection->new(
         '-connection_id' => $connection_id,
+        '-name'    => $self->app_id,
         '-context' => $context,
         '-handler' => $self,
         );

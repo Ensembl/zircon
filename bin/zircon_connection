@@ -42,6 +42,7 @@ my $context = Zircon::Tk::Context->new(
     '-widget' => $main_window);
 
 my $connection = Zircon::Connection->new(
+    '-name'    => $tag,
     '-handler' => $handler,
     '-context' => $context,
     );
