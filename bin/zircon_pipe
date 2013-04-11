@@ -63,6 +63,7 @@ use strict;
 use warnings;
 
 use Try::Tiny;
+use Time::HiRes qw( usleep );
 
 
 sub new {
@@ -82,15 +83,23 @@ sub _init {
       or die "Can't make non-blocking STDIN: $!";
     $self->{fh} = $fh;
 
-    $self->{widg}->fileevent($fh, readable => [ $self, 'read_fh' ]);
+    $self->_read_notify(1);
 
+    return ();
+}
+
+sub _read_notify {
+    my ($self, $enable) = @_;
+    my $cb = $enable ? [ $self, 'read_fh' ] : '';
+    my $fh = $self->{fh};
+    $self->{widg}->fileevent($fh, readable => $cb) if defined $fh;
     return ();
 }
 
 sub close {
     my ($self) = @_;
-    my $fh = delete $self->{fh};
-    $self->{widg}->fileevent($fh, readable => '') if defined $fh; # cancel
+    $self->_read_notify(0); # cancel
+    delete $self->{fh};
     return ();
 }
 
@@ -116,10 +125,22 @@ sub read_fh {
     my ($self) = @_;
     my ($fh, $bufref) = $self->fh_buffref;
     my $Q = $self->queue;
+    my $oldQlen = @$Q;
 
     my ($nchar, $eof) = (-1);
     while ($nchar) {
-        $nchar = $fh->read($$bufref, 10, length($$bufref));
+        if (@$Q > 100) { # arbitrary limit
+            # don't read more just yet - let stdin fill and block the writer
+
+            # fileevent would burn CPU.  Re-enable in try_send
+            $self->_read_notify(0);
+
+            last;
+        }
+
+        $nchar = $fh->read($$bufref, 100, length($$bufref));
+        # 100/call was to show it's working sensibly
+
         if (!defined $nchar) {
             warn "I! read failed: $!\n"
               unless 11 == $!; # Resource temporarily unavailable
@@ -146,7 +167,7 @@ sub read_fh {
         push @$Q, undef;
     }
 
-    $self->try_send;
+    $self->try_send if @$Q > $oldQlen;
     return ();
 }
 
@@ -161,6 +182,7 @@ sub try_send {
         warn "=} would send, but state=$S\n";
     } else {
         my $msg = shift @$Q;
+        $self->_read_notify(1) if 50 == @$Q; # idempotent undo for read_fh
         if (!defined $msg) { # for EOF
             warn "[] close\n";
             $zconn->context->widget->destroy;
