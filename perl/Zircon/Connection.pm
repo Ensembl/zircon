@@ -361,9 +361,9 @@ sub go_inactive {
 
 # tracing
 
-sub zircon_trace_format {
+sub zircon_trace_prefix {
     my ($self) = @_;
-    return ( "id = '%s'", $self->connection_id );
+    return sprintf "connection: id = '%s'", $self->connection_id;
 }
 
 # attributes

@@ -191,9 +191,9 @@ sub widget {
 
 # tracing
 
-sub zircon_trace_format {
+sub zircon_trace_prefix {
     my ($self) = @_;
-    return ( "%s: id = '%s'", $self->name, $self->id );
+    return sprintf "selection: %s: id = '%s'", $self->name, $self->id;
 }
 
 1;

@@ -13,17 +13,17 @@ sub zircon_trace {
         no strict qw( refs ); ## no critic (TestingAndDebugging::ProhibitNoStrict)
         return unless $$key_name && $ENV{$$key_name};
     }
-    my ($format_extra, @args_extra) = $self->zircon_trace_format;
-    my $format_full = "%s::%s()";
-    $format_full .= ": ${format_extra}" if $format_extra;
+    my @trace_list = ( );
+    my $trace_prefix = $self->zircon_trace_prefix;
+    push @trace_list, $trace_prefix if $trace_prefix;
+    my $format_full = "%s()";
     $format_full .= ": ${format}" if $format;
-    $format_full .= "\n";
-    warn sprintf $format_full
-        , $pkg, $sub_name, @args_extra, @args;
+    push @trace_list, sprintf $format_full, $sub_name, @args;
+    warn sprintf "%s\n", join ': ', @trace_list;
     return;
 }
 
-sub zircon_trace_format {
+sub zircon_trace_prefix {
     return;
 }
 
