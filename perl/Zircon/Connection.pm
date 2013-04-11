@@ -206,6 +206,7 @@ sub selection_id {
             or die 'undefined/empty selection ID';
         $self->{'selection'}{$key} =
             $self->context->selection_new(
+                '-name'         => $key,
                 '-id'           => $id,
                 '-handler'      => $self,
                 '-handler_data' => $key,

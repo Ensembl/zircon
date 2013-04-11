@@ -19,6 +19,7 @@ sub new {
 }
 
 my @mandatory_args = qw(
+    name
     platform
     id
     handler
@@ -152,6 +153,12 @@ sub content {
     return $self->{'content'};
 }
 
+sub name {
+    my ($self) = @_;
+    my $name = $self->{'name'};
+    return $name;
+}
+
 sub platform {
     my ($self) = @_;
     my $platform = $self->{'platform'};
@@ -186,7 +193,7 @@ sub widget {
 
 sub zircon_trace_format {
     my ($self) = @_;
-    return ( "id = '%s'", $self->id );
+    return ( "%s: id = '%s'", $self->name, $self->id );
 }
 
 1;
