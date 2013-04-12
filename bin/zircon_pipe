@@ -5,6 +5,7 @@ use warnings;
 
 use IO::Handle;
 use Time::HiRes qw( gettimeofday tv_interval );
+use Getopt::Long;
 use Tk;
 
 use Zircon::Tk::Context;
@@ -12,16 +13,23 @@ use Zircon::Connection;
 
 my $t0;
 sub main {
-    $| = 1;
-    $t0 = [ gettimeofday() ];
-    $SIG{__WARN__} = sub {
-        my ($msg) = @_;
-        print tstamp().': '.$msg;
-    };
+    $t0 = [ 1000*int(time() /1000), 0 ]; # short timestamps, locally synchronised
 
-    die "Syntax: $0 <local_selection> <remote_selection>\n
+    my $coloured;
+    GetOptions('colour|C' => \$coloured)
+      or @ARGV=();
+
+    die "Syntax: $0 [ -C ] <local_selection> <remote_selection>\n
 Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     my ($local_selection, $remote_selection) = @ARGV;
+
+    $SIG{__WARN__} = sub {
+        my ($msg) = @_;
+        chomp $msg;
+        my $clr = $local_selection gt $remote_selection ? 33 : 36;
+        $msg = qq{\x1B[${clr}m$msg\x1b[00m} if $coloured;
+        print tstamp().": $msg\n";
+    };
 
     my $M = MainWindow->new;
     $M->title("$0 pid=$$");
@@ -52,7 +60,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
 
 sub tstamp {
     my ($tv) = @_;
-    return sprintf('%10.4f', tv_interval($t0, $tv));
+    return sprintf('%11.6f', tv_interval($t0, $tv));
 }
 
 main();
@@ -187,7 +195,7 @@ sub try_send {
             warn "[] close\n";
             $zconn->context->widget->destroy;
         } else {
-            warn "=> $msg\n";
+            warn "=>   $msg\n";
             try {
                 $zconn->after(sub { $self->sent($msg) });
                 $zconn->send($msg);
@@ -211,7 +219,7 @@ sub try_send_soon {
 
 sub sent {
     my ($self, $msg) = @_;
-    warn "|> send finished: $msg\n";
+    warn "  |> send finished: $msg\n";
     $self->try_send;
     return();
 }
@@ -249,28 +257,28 @@ sub on_timeout {
 
 sub zircon_connection_request {
     my ($self, $request) = @_;
-    warn "<= $request\n";
+    warn "<=   $request\n";
     my $reply = main::tstamp().' ack';
-    warn "-> $reply\n";
+    warn " ->  $reply\n";
     $self->zconn->after(sub { $self->zcreq_done($reply) });
     return $reply;
 }
 
 sub zircon_connection_reply {
     my ($self, $reply) = @_;
-    warn "<- $reply\n";
+    warn " <-  $reply\n";
     return ();
 }
 
 sub zcreq_done {
     my ($self, $reply) = @_;
-    warn "<| request finished: $reply\n";
+    warn "  <| request finished: $reply\n";
     return ();
 }
 
 sub zircon_connection_timeout {
     my ($self) = @_;
-    warn "?? timeout\n";
+    warn "??   timeout\n";
     my $ont = $self->{on_timeout};
     $ont->() if defined $ont;
     return ();
