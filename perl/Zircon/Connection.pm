@@ -54,6 +54,16 @@ sub init {
         weaken $self->{$key};
     }
 
+    $self->state('need_selections');
+    # state is invalid, await the setting of local & remote selections
+
+    return;
+}
+
+sub _init_with_selections {
+    my ($self) = @_;
+
+    # finish initialisation, now that we have local & remote
     $self->state('inactive');
     $self->update;
 
@@ -213,7 +223,17 @@ sub selection_id {
                 '-handler'      => $self,
                 '-handler_data' => $key,
             );
-        $self->update;
+
+        my $S = $self->state;
+        warn "weird - replaced selection{$key} when state=$S"
+          unless $S eq 'need_selections';
+
+        my @N = sort keys %{ $self->{'selection'} };
+        if (2 == @N) {
+            $self->_init_with_selections;
+        } elsif (@N > 2) {
+            warn "weird - (@N) is too many selections";
+        } # else N=1 and we want calling again
     }
     my $selection = $self->{'selection'}{$key};
     my $id = defined $selection ? $selection->id : undef;
@@ -224,7 +244,7 @@ sub selection {
     my ($self, $key) = @_;
     my $selection = $self->{'selection'}{$key};
     defined $selection
-        or die sprintf "Zircon: no selection for key '%s'", $key;
+        or confess sprintf "Zircon: no selection for key '%s'", $key;
     return $selection;
 }
 
@@ -337,7 +357,7 @@ sub update {
         when (/^client_/) { $self->go_client; }
         when (/^server_/) { $self->go_server; }
         default {
-            die sprintf
+            confess sprintf
                 "invalid connection state '%s'", $_;
         }
     }
