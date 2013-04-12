@@ -15,10 +15,6 @@ use Tk::Button;
 
 use Hum::Ace::LocalServer;
 
-use Zircon::ZMap::View;
-
-use base qw( Zircon::ZMap::View::Handler );
-
 my $utterloss_app_id = 'Utterloss';
 
 sub new {
@@ -88,10 +84,7 @@ sub close_button_create {
 
 sub _close {
     my ($self) = @_;
-    $self->zmap_view->shutdown_clean(
-        sub {
-            $self->window->destroy;
-        });
+    $self->window->destroy;
     return;
 }
 
@@ -142,22 +135,7 @@ sub zmap_view_create {
         my ($name, $start, $end) =
             @{$zmap_config}{qw( sequence start end )};
 
-        my $zmap_view =
-            Zircon::ZMap::View->new(
-                '-handler'      => $self,
-                '-context'      => $self->utterloss->zircon_context,
-                '-app_id'       => $utterloss_app_id,
-                '-selection_id' => $selection_id,
-                '-program'      => $self->utterloss->program,
-                '-program_args' => $self->utterloss->program_args,
-                '-conf_dir'     => $zmap_dir,
-                '-name'         => $name,
-                '-start'        => $start,
-                '-end'          => $end,
-            );
-
         $self->{'ace'} = $ace;
-        $self->{'zmap_view'} = $zmap_view;
     }
     catch {
         $self->finish;
