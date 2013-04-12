@@ -1,0 +1,252 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use IO::Handle;
+use Time::HiRes qw( gettimeofday tv_interval );
+use Tk;
+
+use Zircon::Tk::Context;
+use Zircon::Connection;
+
+my $t0;
+sub main {
+    $| = 1;
+    $t0 = [ gettimeofday() ];
+    $SIG{__WARN__} = sub {
+        my ($msg) = @_;
+        print tstamp().': '.$msg;
+    };
+
+    die "Syntax: $0 <local_selection> <remote_selection>\n
+Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
+    my ($local_selection, $remote_selection) = @ARGV;
+
+    my $M = MainWindow->new;
+    $M->title("$0 pid=$$");
+    $M->Entry(-text => "$local_selection => $remote_selection")->pack;
+
+    my $context = Zircon::Tk::Context->new(-widget => $M);
+
+    my $handler = My::Handler->new();
+    my $reader = My::StdinReader->new($M);
+
+    my $connection = Zircon::Connection->new(-handler => $handler,
+                                             -name => 'pipe',
+                                             -context => $context);
+    $handler->zconn($connection); # to call ->after for incoming request
+    $reader->zconn($connection);  # to call ->send
+    $handler->on_timeout(sub { $reader->try_send });
+
+    $connection->local_selection_id($local_selection);
+    $connection->remote_selection_id($remote_selection);
+
+    $M->iconify;
+
+    warn "Done init.  Entering MainLoop.\n";
+    MainLoop();
+    warn "MainLoop finished.\n";
+    return 0;
+}
+
+sub tstamp {
+    my ($tv) = @_;
+    return sprintf('%10.4f', tv_interval($t0, $tv));
+}
+
+main();
+
+
+package My::StdinReader;
+use strict;
+use warnings;
+
+use Try::Tiny;
+
+
+sub new {
+    my ($pkg, $widg, $zconn) = @_;
+    my $self = { widg => $widg, zconn => $zconn, in_buff => '', queue => [] };
+    bless $self, __PACKAGE__;
+    $self->_init($widg);
+    return $self;
+}
+
+sub _init {
+    my ($self) = @_;
+
+    my $fh = IO::Handle->new_from_fd(fileno(STDIN), 'r')
+      or die "Can't dup STDIN: $!";
+    $fh->blocking(0)
+      or die "Can't make non-blocking STDIN: $!";
+    $self->{fh} = $fh;
+
+    $self->{widg}->fileevent($fh, readable => [ $self, 'read_fh' ]);
+
+    return ();
+}
+
+sub close {
+    my ($self) = @_;
+    my $fh = delete $self->{fh};
+    $self->{widg}->fileevent($fh, readable => '') if defined $fh; # cancel
+    return ();
+}
+
+sub fh_buffref {
+    my ($self) = @_;
+    return ($self->{fh}, \$self->{buffref});
+}
+
+sub queue {
+    my ($self) = @_;
+    return $self->{queue};
+}
+
+sub zconn {
+    my ($self, @arg) = @_;
+    ($self->{zconn}) = @arg if @arg;
+    return $self->{zconn} or
+      die "Need zconn set now";
+}
+
+
+sub read_fh {
+    my ($self) = @_;
+    my ($fh, $bufref) = $self->fh_buffref;
+    my $Q = $self->queue;
+
+    my ($nchar, $eof) = (-1);
+    while ($nchar) {
+        $nchar = $fh->read($$bufref, 10, length($$bufref));
+        if (!defined $nchar) {
+            warn "I! read failed: $!\n"
+              unless 11 == $!; # Resource temporarily unavailable
+        } elsif (0 == $nchar) {
+            warn "I] EOF\n";
+            $eof = 1;
+            $self->close;
+        } else {
+            warn "I> $nchar char\n";
+        }
+
+        while ($$bufref =~ s{\A(.*)\n}{}) {
+            my $msg = $1;
+            warn "Q> $msg\n";
+            push @$Q, $msg;
+        }
+    }
+
+    if ($eof) {
+        if ($$bufref ne '') {
+            warn "Q] $$bufref\n";
+            push @$Q, $$bufref;
+        }
+        push @$Q, undef;
+    }
+
+    $self->try_send;
+    return ();
+}
+
+sub try_send {
+    my ($self) = @_;
+    my $Q = $self->queue;
+    my $zconn = $self->zconn;
+
+    if (!@$Q) {
+        # nothing to send
+    } elsif ((my $S = $zconn->state) ne 'inactive') {
+        warn "=} would send, but state=$S\n";
+    } else {
+        my $msg = shift @$Q;
+        if (!defined $msg) { # for EOF
+            warn "[] close\n";
+            $zconn->context->widget->destroy;
+        } else {
+            warn "=> $msg\n";
+            try {
+                $zconn->after(sub { $self->sent($msg) });
+                $zconn->send($msg);
+            } catch {
+                warn "*> send failed: $_";
+            };
+        }
+    }
+
+    return ();
+}
+
+sub sent {
+    my ($self, $msg) = @_;
+    warn "|> send finished: $msg\n";
+    $self->try_send;
+    return();
+}
+
+
+1;
+
+
+
+package My::Handler;
+use strict;
+use warnings;
+
+use base 'Zircon::Connection::Handler';
+
+
+sub new {
+    my ($pkg) = @_;
+    return bless { }, __PACKAGE__;
+}
+
+sub zconn {
+    my ($self, @arg) = @_;
+    ($self->{zconn}) = @arg if @arg;
+    return $self->{zconn} or
+      die "Need zconn set now";
+}
+
+sub on_timeout {
+    my ($self, @arg) = @_;
+    ($self->{on_timeout}) = @arg if @arg;
+    return $self->{on_timeout};
+}
+
+
+sub zircon_connection_request {
+    my ($self, $request) = @_;
+    warn "<= $request\n";
+    my $reply = main::tstamp().' ack';
+    warn "-> $reply\n";
+    $self->zconn->after(sub { $self->zcreq_done($reply) });
+    return $reply;
+}
+
+sub zircon_connection_reply {
+    my ($self, $reply) = @_;
+    warn "<- $reply\n";
+    return ();
+}
+
+sub zcreq_done {
+    my ($self, $reply) = @_;
+    warn "<| request finished: $reply\n";
+    return ();
+}
+
+sub zircon_connection_timeout {
+    my ($self) = @_;
+    warn "?? timeout\n";
+    my $ont = $self->{on_timeout};
+    $ont->() if defined $ont;
+    return ();
+}
+
+1;
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk
