@@ -93,20 +93,13 @@ sub program_frame_create {
             '-fill' => 'y',
         );
 
-    my ($zmap_program) = glob '~edgrif/TEST/JEREMY/zmap';
-    my $zapmop_program = 'zapmop';
-    $self->{'program'} = $zmap_program;
+    $self->{'program'} = 'zmap';
     my $variable = \($self->{'program'});
-
-    for (
-        [ 'zmap',   $zmap_program   ],
-        [ 'zapmop', $zapmop_program ],
-        ) {
-        my ($text, $value) = @{$_};
+    for my $program (qw( zmap zapmop )) {
         $program_frame->Radiobutton(
-            '-text'     => $text,
+            '-text'     => $program,
             '-anchor'   => 'w',
-            '-value'    => $value,
+            '-value'    => $program,
             '-variable' => $variable,
             )
             ->pack(
