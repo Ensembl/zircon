@@ -287,6 +287,36 @@ sub zircon_connection_timeout {
 
 1;
 
+
+=head1 NAME
+
+zircon_pipe - connects (stdin, stdout) to Zircon::Connection
+
+=head1 SYNOPSIS
+
+ zircon_pipe -C mumbly_bumble fibbly_fobble &
+
+ # in another window
+ zircon_pipe -C fibbly_fobble mumbly_bumble &
+
+=head1 DESCRIPTION
+
+This debug tool is a minimal message-passing command line tool for
+L<Zircon::Connection> (not L<Zircon::Protocol>).
+
+=head2 Merge & sort
+
+It is a design goal that the output should merge usefully with its
+peer's output,
+
+ zircon_pipe -C zp_A zp_B > server.TXT &
+ noise | zircon_pipe -C zp_B zp_A > client.TXT
+ fg
+ ^D
+ sort server.TXT client.TXT | less -R
+
+including when the libraries trace (L<Zircon::Trace>) is enabled.
+
 =head1 AUTHOR
 
 Ana Code B<email> anacode@sanger.ac.uk
