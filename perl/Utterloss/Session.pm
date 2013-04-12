@@ -15,6 +15,8 @@ use Tk::Button;
 
 use Hum::Ace::LocalServer;
 
+use Zircon::ZMap;
+
 my $utterloss_app_id = 'Utterloss';
 
 sub new {
@@ -135,7 +137,18 @@ sub zmap_view_create {
         my ($name, $start, $end) =
             @{$zmap_config}{qw( sequence start end )};
 
+        my $zmap =
+            Zircon::ZMap->new(
+                '-program' => 'zapmop',
+                '-context' => $self->utterloss->zircon_context,
+                '-app_id'  => $utterloss_app_id,
+            );
+
+        my $zmap_view =
+            $zmap->new_view;
+
         $self->{'ace'} = $ace;
+        $self->{'zmap_view'} = $zmap_view;
     }
     catch {
         $self->finish;
