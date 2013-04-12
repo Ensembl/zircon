@@ -197,6 +197,14 @@ sub widget {
     return $widget;
 }
 
+# destructor
+
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+    return;
+}
+
 # tracing
 
 sub zircon_trace_prefix {
