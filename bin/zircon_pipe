@@ -26,6 +26,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     $SIG{__WARN__} = sub {
         my ($msg) = @_;
         chomp $msg;
+        $msg =~ s{\n}{\\N}g; # protect the ability to sort(1) out output
         my $clr = $local_selection gt $remote_selection ? 33 : 36;
         $msg = qq{\x1B[${clr}m$msg\x1b[00m} if $coloured;
         print tstamp().": $msg\n";
