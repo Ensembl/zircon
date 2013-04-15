@@ -113,9 +113,10 @@ sub owner_callback {
 
 sub selection_callback {
     my ($self, $offset, $bytes) = @_;
-    $self->zircon_trace;
     my $content = $self->content;
     my $size = (length $content) - $offset;
+    $self->zircon_trace("Get for [$offset,$bytes) of $size bytes remaining");
+    $self->taken(1) if $size <= $bytes; # peer has read the content
     return
         $size < $bytes
         ? substr $content, $offset
@@ -157,8 +158,18 @@ sub owns {
 
 sub content {
     my ($self, @args) = @_;
-    ($self->{'content'}) = @args if @args;
+    if (@args) {
+        $self->taken(0);
+        ($self->{'content'}) = @args;
+    }
     return $self->{'content'};
+}
+
+sub taken {
+    my ($self, @args) = @_;
+    ($self->{'taken'}) = @args if @args;
+    $self->zircon_trace('taken:=%s', @args) if @args;
+    return $self->{'taken'};
 }
 
 sub name {
