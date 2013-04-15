@@ -113,7 +113,7 @@ sub _client_callback {
         }
 
         when ('client_waiting') {
-            my $reply = $self->selection('remote')->get;
+            my $reply = $self->selection_call('remote', 'get');
             $self->reply($reply);
             $self->state('client_reply');
         }
@@ -153,7 +153,7 @@ sub _server_callback {
     for ($self->state) {
 
         when ('inactive') {
-            my $request = $self->selection('local')->get;
+            my $request = $self->selection_call('local', 'get');
             $self->request($request);
             $self->state('server_request');
         }
