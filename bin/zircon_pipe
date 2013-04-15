@@ -51,6 +51,9 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     $connection->local_selection_id($local_selection);
     $connection->remote_selection_id($remote_selection);
 
+    $M->Button(-text => "try_send",
+               -command => [ $reader, 'try_send' ])->pack;
+
     $M->iconify;
 
     warn "Entering MainLoop (pid=$$).\n";

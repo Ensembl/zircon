@@ -113,8 +113,7 @@ sub _client_callback {
             # Remote should have already pasted.  This is ACK of our
             # request.
             $self->state('client_waiting');
-            $self->zircon_trace('server ACKed request, taken=%s', $taken);
-            warn "Server ACKed our request without reading it" unless $taken;
+            die "Server ACKed our request without reading it" unless $taken;
 
             # We are about to Own.  Don't let that be mistaken for a
             # valid request!
@@ -123,8 +122,7 @@ sub _client_callback {
 
         when ('client_waiting') {
             # Result of get should be a reply.
-            $self->zircon_trace('reply available, taken=%s', $taken);
-            warn "Server tried to paste after request ACKed" if $taken;
+            die "Server tried to paste after request ACKed" if $taken;
             my $reply = $self->selection_call('remote', 'get');
             $self->reply($reply);
             $self->state('client_reply');
@@ -135,8 +133,7 @@ sub _client_callback {
         }
 
         when ('client_reply') {
-            $self->zircon_trace('we ACKed reply, taken=%s', $taken);
-            warn "Server tried to paste our reply ACK" if $taken;
+            die "Server tried to paste our reply ACK" if $taken;
             my $reply = $self->reply;
             $self->handler->zircon_connection_reply($reply);
             $self->state('inactive');
@@ -174,8 +171,7 @@ sub _server_callback {
         when ('inactive') {
             # Client makes request
             my $request = $self->selection_call('local', 'get');
-            $self->zircon_trace('client made request, taken=%s', $taken);
-            warn "Client tried to paste our finish" if $taken;
+            die "Client tried to paste our finish" if $taken;
             $self->request($request);
             $self->state('server_request');
 
@@ -186,8 +182,7 @@ sub _server_callback {
 
         when ('server_request') {
             # Client received our ACK
-            $self->zircon_trace('client received request-ACK, taken=%s', $taken);
-            warn "Client tried to paste our request ACK" if $taken;
+            die "Client tried to paste our request ACK" if $taken;
             my $request = $self->request;
             my $reply = $self->handler->zircon_connection_request($request);
             $self->selection('local')->content($reply);
@@ -195,8 +190,7 @@ sub _server_callback {
         }
 
         when ('server_reply') {
-            $self->zircon_trace('client made reply-ACK, taken=%s', $taken);
-            warn "Client ACKed our reply without reading it" unless $taken;
+            die "Client ACKed our reply without reading it" unless $taken;
             $self->state('inactive');
 
             # We are about to Own, in readiness for next request.
