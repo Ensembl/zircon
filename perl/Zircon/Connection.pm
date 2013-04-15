@@ -56,6 +56,7 @@ sub init {
 
     $self->state('inactive');
     $self->update;
+    $self->zircon_trace('Initialised');
 
     return;
 }

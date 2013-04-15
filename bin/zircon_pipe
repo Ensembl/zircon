@@ -53,9 +53,9 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
 
     $M->iconify;
 
-    warn "Done init.  Entering MainLoop.\n";
+    warn "Entering MainLoop (pid=$$).\n";
     MainLoop();
-    warn "MainLoop finished.\n";
+    warn "MainLoop finished (pid=$$).\n";
     return 0;
 }
 
