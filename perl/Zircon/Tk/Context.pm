@@ -5,6 +5,9 @@ use strict;
 use warnings;
 
 use Zircon::Tk::Selection;
+use base 'Zircon::Trace';
+our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
+
 
 sub new {
     my ($pkg, %args) = @_;
@@ -19,6 +22,7 @@ sub init {
     my $widget = $args->{'-widget'};
     defined $widget or die 'missing -widget argument';
     $self->{'widget'} = $widget;
+    $self->zircon_trace;
     return;
 }
 
@@ -29,6 +33,7 @@ sub platform { return 'Tk'; }
 
 sub selection_new {
     my ($self, @args) = @_;
+    $self->zircon_trace('for (%s)', "@args");
     my $selection =
         Zircon::Tk::Selection->new(
             '-platform' => $self->platform,
@@ -43,6 +48,7 @@ sub timeout {
     my ($self, @args) = @_;
     my $timeout_handle =
         $self->widget->after(@args);
+    $self->zircon_trace('configured (%d millisec)', $args[0]);
     return $timeout_handle;
 }
 
@@ -50,7 +56,9 @@ sub timeout {
 
 sub waitVariable {
     my ($self, $var) = @_;
+    $self->zircon_trace('enter for %s=%s', $var, $$var);
     $self->widget->waitVariable($var);
+    $self->zircon_trace('exit with %s=%s', $var, $$var);
     return;
 }
 
@@ -60,6 +68,13 @@ sub widget {
     my ($self) = @_;
     my $widget = $self->{'widget'};
     return $widget;
+}
+
+# tracing
+
+sub zircon_trace_prefix {
+    my ($self) = @_;
+    return sprintf('Z:T:Context: widget=%s', $self->widget->PathName);
 }
 
 1;
