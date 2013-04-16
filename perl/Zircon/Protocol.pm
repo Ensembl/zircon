@@ -14,7 +14,9 @@ use Zircon::Protocol::Result::Timeout;
 use base qw(
     Zircon::Protocol::XML
     Zircon::Connection::Handler
+    Zircon::Trace
     );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_PROTOCOL_TRACE';
 
 sub new {
     my ($pkg, %arg_hash) = @_;
@@ -51,6 +53,7 @@ sub _init {
         );
     $self->{'connection'} = $connection;
     $connection->local_selection_id($selection_id);
+    $self->zircon_trace('Initialised local (clipboard %s)', $selection_id);
 
     return;
 }
@@ -110,6 +113,7 @@ sub send_command {
     my ($self, $command, $view, $request, $callback) = @_;
     $self->is_open or die "the connection is closed\n";
     $self->callback($callback);
+    $self->zircon_trace('send %s #%d', $command, $self->{'request_id'});
     my $request_xml = $self->request_xml($command, $view, $request);
     $self->connection->send($request_xml);
     return;
@@ -129,6 +133,7 @@ sub zircon_connection_request {
 sub _request {
     my ($self, $command, $view, $request_body) = @_;
 
+    $self->zircon_trace('command=%s', $command);
     for ($command) {
 
         when ('handshake') {
@@ -152,6 +157,7 @@ sub _request {
 
             $self->connection->remote_selection_id($unique_id);
             $self->server->zircon_server_handshake($unique_id);
+            $self->zircon_trace('Handshake from remote (clipboard %s)', $unique_id);
 
             my $message = sprintf
                 "Handshake successful with peer '%s', id '%s'"
@@ -209,12 +215,12 @@ sub zircon_connection_reply {
             && $return_code eq 'ok';
         my $result = Zircon::Protocol::Result::Reply->new(
             '-success' => $success);
+        $self->zircon_trace('Reply. return_code=%s', $return_code);
         $callback->($result);
         $self->callback(undef);
     }
     else {
-        printf "\nZircon client: app_id: '%s': reply\n>>>\n%s\n<<<\n"
-            , $self->app_id, $reply_xml;
+        $self->zircon_trace('Reply, no callback.  reply=>>>\n%s\n<<<', $reply_xml);
     }
     return;
 }
@@ -223,13 +229,14 @@ sub zircon_connection_timeout {
     my ($self) = @_;
     if (my $callback = $self->callback) {
         my $result = Zircon::Protocol::Result::Timeout->new;
+        $self->zircon_trace
+          ('Timeout. connection state=%s', $self->connection->state);
         $callback->($result);
         $self->callback(undef);
     }
     else {
-        printf
-            "%s: connection: timeout: app_id = '%s', connection state = '%s'\n"
-            , __PACKAGE__, $self->app_id, $self->connection->state;
+        $self->zircon_trace
+          ('Timeout, no callback.  connection state=%s', $self->connection->state);
     }
     return;
 }
@@ -280,6 +287,13 @@ sub callback {
     my ($self, @args) = @_;
     ($self->{'callback'}) = @args if @args;
     return $self->{'callback'};
+}
+
+# tracing
+
+sub zircon_trace_prefix {
+    my ($self) = @_;
+    return sprintf("Z:Protocol: app_id=%s", $self->app_id);
 }
 
 1;
