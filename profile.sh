@@ -13,7 +13,7 @@ then
 "
 
     PERL5LIB="$PERL5LIB\
-:$ANACODE_ZIRCON/perl\
+:$ANACODE_ZIRCON/lib\
 "
 
 fi
