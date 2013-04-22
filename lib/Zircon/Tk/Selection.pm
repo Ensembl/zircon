@@ -99,6 +99,13 @@ sub own {
 #
 # This code gives Tk_OwnSelection's call to TkCurrentTime an execution
 # context for a more recent event.
+
+my @event_info;
+{
+    no warnings qw(qw);
+    @event_info = qw( # t E d );
+}
+
 sub _own_provoke {
     my ($self) = @_;
 
@@ -124,7 +131,7 @@ sub _own_provoke {
     # Can only have one callback bound to widget, but we probably have
     # two selections to manage.  Re-bind each time we need it.
     $w->bind('<Property>' => [ $self, '_own_timestamped',
-                               map { Tk::Ev($_) } qw( # t E d ) ]);
+                               map { Tk::Ev($_) } @event_info ]);
 
     $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
     $w->waitVariable($V);
