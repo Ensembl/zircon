@@ -1,0 +1,7 @@
+
+# ExtUtils::MakeMaker
+/blib/
+/pm_to_blib
+/MYMETA.*
+/Makefile
+
