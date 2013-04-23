@@ -16,9 +16,9 @@ use base qw(
 
 my $_id = 0;
 
-sub _init {
+sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
-    $self->Zircon::ZMap::Core::_init($arg_hash);
+    $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
     my ($app_id, $context) =
         @{$arg_hash}{qw( -app_id -context )};
     $self->{'_id'} = $_id++;
