@@ -10,7 +10,7 @@ use Zircon::Protocol;
 use Zircon::ZMap::View;
 
 use base qw(
-    Bio::Otter::ZMap::Core
+    Zircon::ZMap::Core
     Zircon::Protocol::Server
     );
 
@@ -18,7 +18,7 @@ my $_id = 0;
 
 sub _init {
     my ($self, $arg_hash) = @_;
-    $self->Bio::Otter::ZMap::Core::_init($arg_hash);
+    $self->Zircon::ZMap::Core::_init($arg_hash);
     my ($app_id, $context) =
         @{$arg_hash}{qw( -app_id -context )};
     $self->{'_id'} = $_id++;
@@ -58,7 +58,7 @@ sub waitVariable {
 
 sub launch_zmap {
     my ($self) = @_;
-    $self->Bio::Otter::ZMap::Core::launch_zmap;
+    $self->Zircon::ZMap::Core::launch_zmap;
     $self->wait; # don't return until the Zircon handshake callback calls wait_finish()
     return;
 }
@@ -71,7 +71,7 @@ sub zmap_arg_list {
     my $peer_clipboard =
         $connection->local_selection_id;
     my $zmap_arg_list = [
-        @{$self->Bio::Otter::ZMap::Core::zmap_arg_list},
+        @{$self->Zircon::ZMap::Core::zmap_arg_list},
         "--peer-name=${peer_name}",
         "--peer-clipboard=${peer_clipboard}",
         ];
