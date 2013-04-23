@@ -26,7 +26,7 @@ sub do_init {
 
     my @id = qw( timestamp_serv timestamp_cli );
     $M->clip_ids(@id);
-#    $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
+    $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
 
     my $context = Zircon::Tk::Context->new(-widget => $M);
     my $handler = ConnHandler->new;
@@ -68,8 +68,8 @@ sub Populate {
     my $S = $self->Button(-command => [ $self, 'start' ], -text => 'start')->pack;
     my $I = $self->Button(-command => [ $self, 'instruct' ], -text => 'instruct')->pack;
 
-#    $self->iconify;
-#    $self->afterIdle(sub { $S->invoke });
+    $self->iconify;
+    $self->afterIdle(sub { $S->invoke });
 
 ### event data not available via -command and ->invoke ?
 #  map {( $_ => Tk::Ev($_) )} qw[ T t E # ]
@@ -96,7 +96,7 @@ sub start {
       or die "Failed to pipe to @cmd: $!";
 
     $self->state_bump(started => "(@cmd) => pid $$self{chld_pid}");
-#    $self->afterIdle([ $self, 'instruct' ]);
+    $self->afterIdle([ $self, 'instruct' ]);
     return ();
 }
 
