@@ -82,8 +82,11 @@ sub zmap_arg_list {
 
 sub zircon_server_handshake {
     my ($self, @arg_list) = @_;
+    $self->protocol->connection->after(
+        sub {
+            $self->wait_finish; # make the caller return
+        });
     $self->Zircon::Protocol::Server::zircon_server_handshake(@arg_list);
-    $self->wait_finish; # make launch_zmap() return
     return;
 }
 
