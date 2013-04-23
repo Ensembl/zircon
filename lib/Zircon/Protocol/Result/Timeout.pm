@@ -19,6 +19,10 @@ sub init {
 
 # attributes
 
+sub success {
+    return 0;
+}
+
 1;
 
 =head1 AUTHOR

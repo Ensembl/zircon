@@ -93,9 +93,7 @@ sub send_shutdown_clean {
         'shutdown', undef, $request,
         sub {
             my ($result) = @_;
-            $self->close if
-                $result->isa('Zircon::Protocol::Result::Reply')
-                && $result->success;
+            $self->close if $result->success;
             $callback->($result) if $callback;
         });
     return;
