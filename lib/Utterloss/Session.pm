@@ -139,7 +139,7 @@ sub zmap_view_create {
 
         my $zmap =
             Zircon::ZMap->new(
-                '-program' => 'zapmop',
+                '-program' => $self->utterloss->program,
                 '-context' => $self->utterloss->zircon_context,
                 '-app_id'  => $utterloss_app_id,
             );
