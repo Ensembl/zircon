@@ -134,9 +134,6 @@ sub zmap_view_create {
         $ace->ace_handle(1)
             or die "the ace server failed to connect\n";
 
-        my ($name, $start, $end) =
-            @{$zmap_config}{qw( sequence start end )};
-
         my $zmap =
             Zircon::ZMap->new(
                 '-program' => $self->utterloss->program,
@@ -144,8 +141,16 @@ sub zmap_view_create {
                 '-app_id'  => $utterloss_app_id,
             );
 
+        my ($name, $start, $end) =
+            @{$zmap_config}{qw( sequence start end )};
+
         my $zmap_view =
-            $zmap->new_view;
+            $zmap->new_view(
+                '-name'  => $name,
+                '-start' => $start,
+                '-end'   => $end,
+                '-config_file' => $config_path,
+                );
 
         $self->{'ace'} = $ace;
         $self->{'zmap_view'} = $zmap_view;
