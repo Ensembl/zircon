@@ -153,6 +153,10 @@ sub zircon_server_protocol_command {
             $view = $self->id_view_hash->{$view_id};
             $view or die sprintf "invalid view id: '%s'", $view_id;
         }
+        else {
+            my $view_list = $self->view_list;
+            ($view) = @{$view_list} if @{$view_list} == 1;
+        }
 
         when ('feature_loading_complete') {
             $view or die "missing view";
