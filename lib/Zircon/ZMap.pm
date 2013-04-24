@@ -90,7 +90,8 @@ sub _new_view_from_result {
     my $view_id = $attribute_hash->{'view_id'} or die "missing view_id attribute";
     my $view =
         Zircon::ZMap::View->new(
-            '-zmap' => $self,
+            '-zmap'    => $self,
+            '-handler' => $handler,
         );
     $self->add_view($view_id, $view);
     return $view;
