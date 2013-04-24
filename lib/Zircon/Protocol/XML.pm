@@ -9,13 +9,13 @@ use feature qw( switch );
 # XML creation
 
 sub request_xml {
-    my ($self, $command, $view, $request) = @_;
+    my ($self, $command, $view_id, $request) = @_;
     my $request_body_xml =
         defined $request ? _element_xml(@{$request}) : undef;
     my $request_element_xml = _element_xml(
         'request', {
             'command' => $command,
-            'view'    => $view,
+            'view_id' => $view_id,
         }, $request_body_xml);
     my $app_id = $self->app_id;
     my $clipboard_id = $self->connection->remote_selection_id;
