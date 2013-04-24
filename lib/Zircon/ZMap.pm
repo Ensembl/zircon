@@ -4,6 +4,8 @@ package Zircon::ZMap;
 use strict;
 use warnings;
 
+use feature qw(switch);
+
 use Try::Tiny;
 
 use Zircon::Protocol;
@@ -138,15 +140,45 @@ sub zircon_server_handshake {
 }
 
 sub zircon_server_protocol_command {
-    my ($self, $command, $view, $request_body) = @_;
+    my ($self, $command, $view_id, $request_body) = @_;
+
+    my $tag_attribute_hash_hash = { };
+    $tag_attribute_hash_hash->{$_->[0]} = $_->[1]
+        for @{$request_body};
+
     for ($command) {
+
+        my $view;
+        if (defined $view_id) {
+            $view = $self->id_view_hash->{$view_id};
+            $view or die sprintf "invalid view id: '%s'", $view_id;
+        }
+
+        when ('feature_loading_complete') {
+            $view or die "missing view";
+            my $status = $tag_attribute_hash_hash->{'status'}{'value'};
+            $status or die "missing status";
+            my $message = $tag_attribute_hash_hash->{'status'}{'message'};
+            $message or die "missing message";
+            my $featureset_list = $tag_attribute_hash_hash->{'featureset'}{'names'};
+            my @featureset_list = split /[;[:space:]]+/, $featureset_list;
+            $view->handler->zircon_zmap_view_features_loaded(
+                $status, $message, @featureset_list);
+            my $protocol_message = 'got features loaded...thanks !';
+            my $reply = $self->protocol->message_ok($protocol_message);
+            return $reply;
+        }
+
         default {
             my $reason = "Unknown ZMap protocol command: '${command}'";
             my $reply =
                 $self->protocol->message_command_unknown($command, $reason);
             return $reply;
         }
+
     }
+
+    return; # never reached, quietens "perlcritic --stern"
 }
 
 # attributes
