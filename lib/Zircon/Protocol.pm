@@ -253,6 +253,12 @@ sub message_ok {
           [ 'message', { }, $message ] ];
 }
 
+sub message_command_unknown {
+    my ($self, $command, $reason) = @_;
+
+    return [ [ $command, $reason ] ];
+}
+
 sub close {
     my ($self) = @_;
     $self->{'is_open'} = 0;

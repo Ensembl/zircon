@@ -137,6 +137,18 @@ sub zircon_server_handshake {
     return;
 }
 
+sub zircon_server_protocol_command {
+    my ($self, $command, $view, $request_body) = @_;
+    for ($command) {
+        default {
+            my $reason = "Unknown ZMap protocol command: '${command}'";
+            my $reply =
+                $self->protocol->message_command_unknown($command, $reason);
+            return $reply;
+        }
+    }
+}
+
 # attributes
 
 sub id {
