@@ -42,14 +42,15 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my ($context, $selection_id) =
-        @{$arg_hash}{qw( -context -selection_id )};
+    my ($context, $selection_id, $timeout) =
+        @{$arg_hash}{qw( -context -selection_id -connection_timeout )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
     my $connection = Zircon::Connection->new(
         '-connection_id' => $connection_id,
         '-name'    => $self->app_id,
         '-context' => $context,
         '-handler' => $self,
+        '-timeout_interval' => $timeout,
         );
     $self->{'connection'} = $connection;
     $connection->local_selection_id($selection_id);
