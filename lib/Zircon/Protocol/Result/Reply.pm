@@ -16,7 +16,10 @@ sub init {
     my ($self, $args) = @_;
     my $success = $args->{'-success'} ? 1 : 0;
     $self->{'success'} = $success;
-    $self->{'view'} = $args->{'-view'};
+    $self->{$_} = $args->{"-$_"} for qw(
+        view
+        reply
+        );
     return;
 }
 
@@ -32,6 +35,12 @@ sub view {
     my ($self) = @_;
     my $view = $self->{'view'};
     return $view;
+}
+
+sub reply {
+    my ($self) = @_;
+    my $reply = $self->{'reply'};
+    return $reply;
 }
 
 1;

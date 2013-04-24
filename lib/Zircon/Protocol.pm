@@ -215,6 +215,7 @@ sub zircon_connection_reply {
         my $result = Zircon::Protocol::Result::Reply->new(
             '-success' => $success,
             '-view'    => $view,
+            '-reply'   => $reply,
             );
         $self->zircon_trace('Reply. return_code=%s', $return_code);
         $callback->($result);
