@@ -344,7 +344,7 @@ sub _do_safely {
             and my $after = $self->after
             ) {
             $self->timeout(
-                0, sub { $after->(); });
+                500, sub { $after->(); });
         }
     }
     catch {
