@@ -84,7 +84,10 @@ sub _new_view {
 
 sub _new_view_from_result {
     my ($self, $handler, $result) = @_;
-    my $view_id = $result->view;
+    my $tag_attribute_hash_hash = { };
+    $tag_attribute_hash_hash->{$_->[0]} = $_->[1] for @{$result->reply};
+    my $attribute_hash = $tag_attribute_hash_hash->{'view'} or die "missing view entity";
+    my $view_id = $attribute_hash->{'view_id'} or die "missing view_id attribute";
     my $view = Zircon::ZMap::View->new($self);
     $self->add_view($view_id, $view);
     return $view;
