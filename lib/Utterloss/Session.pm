@@ -105,6 +105,11 @@ my $zmap_key_value_pattern = qr!
     $
     !xm;
 
+my $zmap_config_global = '
+[ZMap]
+show-mainwindow = false
+';
+
 sub zmap_view_create {
     my ($self) = @_;
     my $session_dir = $self->session_dir;
@@ -139,6 +144,7 @@ sub zmap_view_create {
                 '-program' => $self->utterloss->program,
                 '-context' => $self->utterloss->zircon_context,
                 '-app_id'  => $utterloss_app_id,
+                '-config'  => $zmap_config_global,
             );
 
         my ($name, $start, $end) =
