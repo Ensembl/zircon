@@ -37,12 +37,20 @@ sub reply_xml {
     my ($return_code, $reason) =
         defined $status ? @{$status} : ( 'ok' );
     my $reply_body_xml = _element_xml(@{$reply_body});
-    my $reply_element_xml = _element_xml(
-        'reply', {
-            'command'     => $command,
-            'return_code' => $return_code,
-            'reason'      => $reason,
-        }, $reply_body_xml);
+    my $reply_element_xml =
+        defined $status
+        ? _element_xml(
+            'reply', {
+                'command'     => $command,
+                'return_code' => $return_code,
+                'reason'      => $reason,
+            })
+        : _element_xml(
+            'reply', {
+                'command'     => $command,
+                'return_code' => 'ok',
+            }, _element_xml(@{$reply_body}))
+        ;
     my $app_id = $self->app_id;
     my $clipboard_id = $self->connection->local_selection_id;
     my $zmap_element_xml = _element_xml(
