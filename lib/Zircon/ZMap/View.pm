@@ -4,6 +4,7 @@ package Zircon::ZMap::View;
 use strict;
 use warnings;
 
+use Try::Tiny;
 use Scalar::Util qw( weaken );
 
 sub new {
@@ -39,6 +40,14 @@ sub view_id {
     my ($self) = @_;
     my $view_id = $self->{'_view_id'};
     return $view_id;
+}
+
+# destructor
+
+sub DESTROY {
+    my ($self) = @_;
+    try { $self->zmap->view_destroyed($self); }
+    catch { warn $_; };
 }
 
 1;
