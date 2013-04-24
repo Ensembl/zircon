@@ -156,6 +156,7 @@ sub zmap_view_create {
                 '-start' => $start,
                 '-end'   => $end,
                 '-config_file' => $config_path,
+                '-handler' => $self,
                 );
 
         $self->{'ace'} = $ace;
