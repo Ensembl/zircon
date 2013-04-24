@@ -5,16 +5,16 @@ use strict;
 use warnings;
 
 sub new {
-    my ($pkg, @arg_list) = @_;
+    my ($pkg, %arg_hash) = @_;
     my $new = { };
     bless $new, $pkg;
-    $new->_init(@arg_list);
+    $new->_init(\ %arg_hash);
     return $new;
 }
 
 sub _init {
-    my ($self, $zmap) = @_;
-    $self->{'_zmap'} = $zmap;
+    my ($self, $arg_hash) = @_;
+    $self->{"_$_"} = $arg_hash->{"-$_"} for qw( zmap );
     return;
 }
 
