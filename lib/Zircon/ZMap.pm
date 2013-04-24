@@ -45,8 +45,47 @@ sub _protocol {
 }
 
 sub new_view {
-    my ($self) = @_;
+    my ($self, %arg_hash) = @_;
+    my $view = $self->_new_view(\ %arg_hash);
+    return $view;
+}
+
+my @_new_view_key_list = qw(
+    name
+    start
+    end
+    config_file
+    );
+
+sub _new_view {
+    my ($self, $arg_hash) = @_;
+    my $new_view_arg_hash = {
+        map { $_ => $arg_hash->{"-$_"} } @_new_view_key_list
+    };
+    my $view;
+    $self->protocol->send_command(
+        'new_view',
+        undef, # no view
+        [ 'sequence', $new_view_arg_hash ],
+        sub {
+            my ($result) = @_;
+            $self->protocol->connection->after(
+                sub {
+                    $self->wait_finish;
+                });
+            die "&_new_view: failed" unless $result->success;
+            my $handler = $arg_hash->{'-handler'};
+            $view = $self->_new_view_from_result($handler, $result);
+        });
+    $self->wait;
+    return $view;
+}
+
+sub _new_view_from_result {
+    my ($self, $handler, $result) = @_;
+    my $view_id = $result->view;
     my $view = Zircon::ZMap::View->new($self);
+    $self->add_view($view_id, $view);
     return $view;
 }
 
