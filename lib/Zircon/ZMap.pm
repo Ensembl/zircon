@@ -40,6 +40,7 @@ sub _protocol {
             '-selection_id' => $selection_id,
             '-context'      => $self->context,
             '-server'       => $self,
+            '-connection_timeout' => 2000,
         );
     return $protocol;
 }
