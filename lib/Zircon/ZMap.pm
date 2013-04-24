@@ -94,6 +94,7 @@ sub _new_view_from_result {
         Zircon::ZMap::View->new(
             '-zmap'    => $self,
             '-handler' => $handler,
+            '-view_id' => $view_id,
         );
     $self->add_view($view_id, $view);
     return $view;
