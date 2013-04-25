@@ -69,11 +69,7 @@ sub Populate {
         $self->Button(-command => [ $self, $btn ], -text => $btn, Name => $btn)->pack;
     }
 
-    $self->afterIdle(sub { $self->Widget('.start')->invoke });
-
-### event data not available via -command and ->invoke ?
-#  map {( $_ => Tk::Ev($_) )} qw[ T t E # ]
-#  use YAML 'Dump'; warn Dump({ info => \%info });
+    $self->afterIdle([ $self, 'start' ]);
 
     $self->bind('<Destroy>' => [ $self, 'being_destroyed', Tk::Ev('W') ]);
 
@@ -87,6 +83,12 @@ sub clip_ids {
     return @{ $self->{clip_id} };
 }
 
+sub recent_time {
+    my ($self, @arg) = @_;
+    ($self->{_recent_time}) = @arg if @arg;
+    return $self->{_recent_time};
+}
+
 sub start {
     my ($self, %info) = @_;
 
@@ -96,14 +98,6 @@ sub start {
       or die "Failed to pipe to @cmd: $!";
 
     $self->state_bump(started => "(@cmd) => pid $$self{chld_pid}");
-
-    # Queuing a KeyPress event for the "instruct" button requires,
-    # approximately
-    #
-    #   one of the buttons inside TestWin has had VisibilityNotify
-    #   instruct button is given focus
-    #   the FocusOut,FocusIn events from that are processed
-    #   then the KeyPress is generated
 
     # queue ButtonPress event for the "instruct" button
     my $w = $self->Widget('.instruct');
@@ -115,8 +109,21 @@ sub start {
 
     $w->eventGenerate('<Enter>'); # sets global $Tk::window
 
-    $w->eventGenerate('<ButtonPress-1>', -x => 5, -y => 5);
-    $w->eventGenerate('<ButtonRelease-1>', -x => 5, -y => 5);
+    ### Discover the current "time", in milliseconds since arbitrary.
+    #
+    # $button->invoke cannot decode Tk::Ev; only the ButtonPress-1
+    # event would get it right.  We don't have one yet.
+    #
+    # Many PropertyNotifys will arrive unbidden, but for some reason I
+    # cannot bind them?
+    $self->bind('<Property>' => [ $self, 'recent_time', Tk::Ev('t') ]);
+    $self->property('set', 'junk', "STRING", 8, $self->id);
+    $self->waitVariable(\$self->{_recent_time}); # wait for PropertyNotify
+    $self->bind('<Property>' => '');
+
+    my $t = $self->recent_time;
+    $w->eventGenerate('<ButtonPress-1>', -x => 5, -y => 5, -time => $t);
+    $w->eventGenerate('<ButtonRelease-1>', -x => 5, -y => 5, -time => $t);
 
     return ();
 }
@@ -129,6 +136,12 @@ sub instruct {
     $cin->autoflush(1);
     $cin->print("shakey handy\n") or die "print to child: $!";
     $self->state_bump('instructed');
+
+    # wait here until TestWin is gone, in context of ButtonPress
+    while (Tk::Exists($self)) {
+        Tk::DoOneEvent();
+    }
+
     return;
 }
 
@@ -183,7 +196,7 @@ sub zconn {
 
 sub zircon_connection_timeout {
     my ($self, @info) = @_;
-    $self->widget->state_bump(timeout => @info);
+    $self->widget->state_bump(zircon_connection_timeout => @info);
     $self->widget->destroy;
     return;
 }
