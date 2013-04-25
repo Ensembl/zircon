@@ -170,23 +170,9 @@ sub zircon_server_protocol_command {
     for ($command) {
 
         when ('feature_loading_complete') {
-            my $status_entity = $tag_entity_hash->{'status'};
-            $status_entity or die "missing status entity";
-            my $status_attribute_hash = $status_entity->[1];
-            my $status = $status_attribute_hash->{'value'};
-            defined $status or die "missing status";
-            my $message = $status_attribute_hash->{'message'};
-            defined $message or die "missing message";
-            my $featureset_entity = $tag_entity_hash->{'featureset'};
-            $featureset_entity or die "missing featureset entity";
-            my $featureset_attribute_hash = $featureset_entity->[1];
-            my $featureset_list = $featureset_attribute_hash->{'names'};
-            defined $featureset_list or die "missing featureset list";
-            my @featureset_list = split /[;[:space:]]+/, $featureset_list;
-            $handler->zircon_zmap_view_features_loaded(
-                $status, $message, @featureset_list);
-            my $protocol_message = 'got features loaded...thanks !';
-            my $reply = $self->protocol->message_ok($protocol_message);
+            my $reply =
+                $self->_command_feature_loading_complete(
+                    $handler, $tag_entity_hash);
             return $reply;
         }
 
@@ -216,6 +202,28 @@ sub _view_from_id {
         ($view) = @{$view_list};
     }
     return $view;
+}
+
+sub _command_feature_loading_complete {
+    my ($self, $handler, $tag_entity_hash) = @_;
+    my $status_entity = $tag_entity_hash->{'status'};
+    $status_entity or die "missing status entity";
+    my $status_attribute_hash = $status_entity->[1];
+    my $status = $status_attribute_hash->{'value'};
+    defined $status or die "missing status";
+    my $message = $status_attribute_hash->{'message'};
+    defined $message or die "missing message";
+    my $featureset_entity = $tag_entity_hash->{'featureset'};
+    $featureset_entity or die "missing featureset entity";
+    my $featureset_attribute_hash = $featureset_entity->[1];
+    my $featureset_list = $featureset_attribute_hash->{'names'};
+    defined $featureset_list or die "missing featureset list";
+    my @featureset_list = split /[;[:space:]]+/, $featureset_list;
+    $handler->zircon_zmap_view_features_loaded(
+        $status, $message, @featureset_list);
+    my $protocol_message = 'got features loaded...thanks !';
+    my $reply = $self->protocol->message_ok($protocol_message);
+    return $reply;
 }
 
 # attributes
