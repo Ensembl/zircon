@@ -176,6 +176,13 @@ sub zircon_server_protocol_command {
             return $reply;
         }
 
+        when ('feature_details') {
+            my $reply =
+                $self->_command_feature_details(
+                    $handler, $tag_entity_hash);
+            return $reply;
+        }
+
         default {
             my $reason = "Unknown ZMap protocol command: '${command}'";
             my $reply =
@@ -223,6 +230,30 @@ sub _command_feature_loading_complete {
         $status, $message, @featureset_list);
     my $protocol_message = 'got features loaded...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
+    return $reply;
+}
+
+sub _command_feature_details {
+    my ($self, $handler, $tag_entity_hash) = @_;
+    my $featureset_entity = $tag_entity_hash->{'featureset'};
+    $featureset_entity or die "missing featureset entity";
+    my $featureset_body = $featureset_entity->[2];
+    my $tag_feature_hash = { };
+    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
+    my $feature_entity = $tag_feature_hash->{'feature'};
+    $feature_entity or die "missing feature entity";
+    my $name = $feature_entity->[1]{'name'};
+    defined $name or die "missing name";
+    my $feature_body = $feature_entity->[2];
+    my $tag_feature_body_hash = { };
+    push @{$tag_feature_body_hash->{$_->[0]}}, $_ for @{$feature_body};
+    my $feature_details_xml =
+        $handler->zircon_zmap_view_feature_details_xml(
+            $name, $tag_feature_body_hash);
+    my $reply =
+        [ undef, # ok
+          $feature_details_xml, # raw xml
+        ];
     return $reply;
 }
 
