@@ -36,7 +36,6 @@ sub reply_xml {
     my ($status, $reply_body) = @{$reply};
     my ($return_code, $reason) =
         defined $status ? @{$status} : ( 'ok' );
-    my $reply_body_xml = _element_xml(@{$reply_body});
     my $reply_element_xml =
         defined $status
         ? _element_xml(
