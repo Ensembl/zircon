@@ -93,7 +93,8 @@ sub start {
     my ($self, %info) = @_;
 
     # start the client
-    my @cmd = (qw( bin/zircon_pipe -Q ), reverse $self->clip_ids);
+    my $noise = (grep { /^ZIRCON_(.*_)?TRACE$/ } keys %ENV) ? '-C' : '-Q';
+    my @cmd = ('bin/zircon_pipe', $noise, reverse $self->clip_ids);
     $self->{chld_pid} = open $self->{chld_fh}, '|-', @cmd
       or die "Failed to pipe to @cmd: $!";
 
