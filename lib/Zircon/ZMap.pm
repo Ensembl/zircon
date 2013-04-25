@@ -162,6 +162,7 @@ sub zircon_server_protocol_command {
     my ($self, $command, $view_id, $request_body) = @_;
 
     my $view = $self->_view_from_id($view_id);
+    my $handler = $view->handler;
 
     my $tag_entity_hash = { };
     $tag_entity_hash->{$_->[0]} = $_ for @{$request_body};
@@ -182,7 +183,7 @@ sub zircon_server_protocol_command {
             my $featureset_list = $featureset_attribute_hash->{'names'};
             defined $featureset_list or die "missing featureset list";
             my @featureset_list = split /[;[:space:]]+/, $featureset_list;
-            $view->handler->zircon_zmap_view_features_loaded(
+            $handler->zircon_zmap_view_features_loaded(
                 $status, $message, @featureset_list);
             my $protocol_message = 'got features loaded...thanks !';
             my $reply = $self->protocol->message_ok($protocol_message);
