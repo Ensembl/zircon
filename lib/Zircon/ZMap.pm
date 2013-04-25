@@ -163,18 +163,24 @@ sub zircon_server_protocol_command {
 
     my $view = $self->_view_from_id($view_id);
 
-    my $tag_attribute_hash_hash = { };
-    $tag_attribute_hash_hash->{$_->[0]} = $_->[1]
-        for @{$request_body};
+    my $tag_entity_hash = { };
+    $tag_entity_hash->{$_->[0]} = $_ for @{$request_body};
 
     for ($command) {
 
         when ('feature_loading_complete') {
-            my $status = $tag_attribute_hash_hash->{'status'}{'value'};
-            $status or die "missing status";
-            my $message = $tag_attribute_hash_hash->{'status'}{'message'};
-            $message or die "missing message";
-            my $featureset_list = $tag_attribute_hash_hash->{'featureset'}{'names'};
+            my $status_entity = $tag_entity_hash->{'status'};
+            $status_entity or die "missing status entity";
+            my $status_attribute_hash = $status_entity->[1];
+            my $status = $status_attribute_hash->{'value'};
+            defined $status or die "missing status";
+            my $message = $status_attribute_hash->{'message'};
+            defined $message or die "missing message";
+            my $featureset_entity = $tag_entity_hash->{'featureset'};
+            $featureset_entity or die "missing featureset entity";
+            my $featureset_attribute_hash = $featureset_entity->[1];
+            my $featureset_list = $featureset_attribute_hash->{'names'};
+            defined $featureset_list or die "missing featureset list";
             my @featureset_list = split /[;[:space:]]+/, $featureset_list;
             $view->handler->zircon_zmap_view_features_loaded(
                 $status, $message, @featureset_list);
