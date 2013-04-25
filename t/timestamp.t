@@ -34,7 +34,7 @@ sub do_init {
                                              -name => 'timestamp.t',
                                              -context => $context);
     $handler->zconn($connection);
-    $M->state_bump('new');
+    $M->state_bump(new => @id);
 
     $connection->local_selection_id($id[0]);
     $connection->remote_selection_id($id[1]);
@@ -65,11 +65,12 @@ sub Populate {
     $self->{want_states} = [qw[ new started instructed requested replied reaped finishing ]];
 
     $self->title("$0 pid=$$");
-    my $S = $self->Button(-command => [ $self, 'start' ], -text => 'start')->pack;
-    my $I = $self->Button(-command => [ $self, 'instruct' ], -text => 'instruct')->pack;
+    foreach my $btn (qw( start instruct )) {
+        $self->Button(-command => [ $self, $btn ], -text => $btn, Name => $btn)->pack;
+    }
 
-    $self->iconify;
-    $self->afterIdle(sub { $S->invoke });
+#    $self->iconify;
+    $self->afterIdle(sub { $self->Widget('.start')->invoke });
 
 ### event data not available via -command and ->invoke ?
 #  map {( $_ => Tk::Ev($_) )} qw[ T t E # ]
@@ -96,7 +97,28 @@ sub start {
       or die "Failed to pipe to @cmd: $!";
 
     $self->state_bump(started => "(@cmd) => pid $$self{chld_pid}");
-    $self->afterIdle([ $self, 'instruct' ]);
+
+    # Queuing a KeyPress event for the "instruct" button requires,
+    # approximately
+    #
+    #   one of the buttons inside TestWin has had VisibilityNotify
+    #   instruct button is given focus
+    #   the FocusOut,FocusIn events from that are processed
+    #   then the KeyPress is generated
+
+    # queue keypress event for the "instruct" button
+$self->bind('<Visibility>' => [ sub {
+ my ($W) = @_;
+my $N = $W->PathName; warn "visibility: $W == $N\n";
+ return unless $W == $self->Widget('.start');
+warn "focus!";       $self->Widget('.instruct')->focus;
+warn "generate!";
+    $self->Widget('.instruct')->eventGenerate('<KeyPress>', -keysym => 'space',
+#           -time => -1695528688 + 30e3, # the default == CurrentTime.  Need a better value?
+);#           -when => 'tail');
+warn "poked";
+}, Tk::Ev('W') ]);
+
     return ();
 }
 
