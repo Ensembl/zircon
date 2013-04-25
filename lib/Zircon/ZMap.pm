@@ -176,6 +176,20 @@ sub zircon_server_protocol_command {
             return $reply;
         }
 
+        when ('single_select') {
+            my $reply =
+                $self->_command_single_select(
+                    $handler, $tag_entity_hash);
+            return $reply;
+        }
+
+        when ('multiple_select') {
+            my $reply =
+                $self->_command_multiple_select(
+                    $handler, $tag_entity_hash);
+            return $reply;
+        }
+
         when ('feature_details') {
             my $reply =
                 $self->_command_feature_details(
@@ -231,6 +245,40 @@ sub _command_feature_loading_complete {
     my $protocol_message = 'got features loaded...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
     return $reply;
+}
+
+sub _command_single_select {
+    my ($self, $handler, $tag_entity_hash) = @_;
+    my $name_list = _select_name_list($tag_entity_hash);
+    $handler->zircon_zmap_view_single_select($name_list);
+    my $protocol_message = 'single select received...thanks !';
+    my $reply = $self->protocol->message_ok($protocol_message);
+    return $reply;
+}
+
+sub _command_multiple_select {
+    my ($self, $handler, $tag_entity_hash) = @_;
+    my $name_list = _select_name_list($tag_entity_hash);
+    $handler->zircon_zmap_view_multiple_select($name_list);
+    my $protocol_message = 'multiple select received...thanks !';
+    my $reply = $self->protocol->message_ok($protocol_message);
+    return $reply;
+}
+
+sub _select_name_list {
+    # *not* a method
+    my ($tag_entity_hash) = @_;
+    my $featureset_entity = $tag_entity_hash->{'featureset'};
+    $featureset_entity or die "missing featureset entity";
+    my $featureset_body = $featureset_entity->[2];
+    my $tag_feature_hash = { };
+    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
+    my $feature_entity = $tag_feature_hash->{'feature'};
+    $feature_entity or die "missing feature entity";
+    my $name = $feature_entity->[1]{'name'};
+    defined $name or die "missing name";
+    my $name_list = [ $name ];
+    return $name_list;
 }
 
 sub _command_feature_details {
