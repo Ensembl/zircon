@@ -268,13 +268,7 @@ sub _command_multiple_select {
 sub _select_name_list {
     # *not* a method
     my ($tag_entity_hash) = @_;
-    my $featureset_entity = $tag_entity_hash->{'featureset'};
-    $featureset_entity or die "missing featureset entity";
-    my $featureset_body = $featureset_entity->[2];
-    my $tag_feature_hash = { };
-    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
-    my $feature_entity = $tag_feature_hash->{'feature'};
-    $feature_entity or die "missing feature entity";
+    my $feature_entity = _feature_entity($tag_entity_hash);
     my $name = $feature_entity->[1]{'name'};
     defined $name or die "missing name";
     my $name_list = [ $name ];
@@ -283,13 +277,7 @@ sub _select_name_list {
 
 sub _command_feature_details {
     my ($self, $handler, $tag_entity_hash) = @_;
-    my $featureset_entity = $tag_entity_hash->{'featureset'};
-    $featureset_entity or die "missing featureset entity";
-    my $featureset_body = $featureset_entity->[2];
-    my $tag_feature_hash = { };
-    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
-    my $feature_entity = $tag_feature_hash->{'feature'};
-    $feature_entity or die "missing feature entity";
+    my $feature_entity = _feature_entity($tag_entity_hash);
     my $name = $feature_entity->[1]{'name'};
     defined $name or die "missing name";
     my $feature_body = $feature_entity->[2];
@@ -303,6 +291,19 @@ sub _command_feature_details {
           $feature_details_xml, # raw xml
         ];
     return $reply;
+}
+
+sub _feature_entity {
+    # *not* a method
+    my ($tag_entity_hash) = @_;
+    my $featureset_entity = $tag_entity_hash->{'featureset'};
+    $featureset_entity or die "missing featureset entity";
+    my $featureset_body = $featureset_entity->[2];
+    my $tag_feature_hash = { };
+    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
+    my $feature_entity = $tag_feature_hash->{'feature'};
+    $feature_entity or die "missing feature entity";
+    return $feature_entity;
 }
 
 # attributes
