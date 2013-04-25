@@ -161,22 +161,13 @@ sub zircon_server_handshake {
 sub zircon_server_protocol_command {
     my ($self, $command, $view_id, $request_body) = @_;
 
+    my $view = $self->_view_from_id($view_id);
+
     my $tag_attribute_hash_hash = { };
     $tag_attribute_hash_hash->{$_->[0]} = $_->[1]
         for @{$request_body};
 
     for ($command) {
-
-        my $view;
-        if (defined $view_id) {
-            $view = $self->id_view_hash->{$view_id};
-            $view or die sprintf "invalid view id: '%s'", $view_id;
-        }
-        else {
-            my $view_list = $self->view_list;
-            ($view) = @{$view_list} if @{$view_list} == 1;
-        }
-        $view or die "missing view";
 
         when ('feature_loading_complete') {
             my $status = $tag_attribute_hash_hash->{'status'}{'value'};
@@ -202,6 +193,22 @@ sub zircon_server_protocol_command {
     }
 
     return; # never reached, quietens "perlcritic --stern"
+}
+
+sub _view_from_id {
+    my ($self, $view_id) = @_;
+    my $view;
+    if (defined $view_id) {
+        $view = $self->id_view_hash->{$view_id};
+        $view or die sprintf "invalid view id: '%s'", $view_id;
+    }
+    else {
+        my $view_list = $self->view_list;
+        die "no views"       if @{$view_list} < 1;
+        die "multiple views" if @{$view_list} > 1;
+        ($view) = @{$view_list};
+    }
+    return $view;
 }
 
 # attributes
