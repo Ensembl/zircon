@@ -48,7 +48,8 @@ sub reply_xml {
             'reply', {
                 'command'     => $command,
                 'return_code' => 'ok',
-            }, _element_xml(@{$reply_body}))
+            },
+            $self->_reply_body_xml($reply_body))
         ;
     my $app_id = $self->app_id;
     my $clipboard_id = $self->connection->local_selection_id;
@@ -61,6 +62,16 @@ sub reply_xml {
             'request_id'   => $request_id,
         }, $reply_element_xml);
     return $zmap_element_xml;
+}
+
+sub _reply_body_xml {
+    my ($self, $body) = @_;
+    my $xml =
+        ref $body
+        ? _element_xml(@{$body})
+        : $body
+        ;
+    return $xml;
 }
 
 sub _element_xml {
