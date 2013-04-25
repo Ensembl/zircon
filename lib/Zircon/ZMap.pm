@@ -176,9 +176,9 @@ sub zircon_server_protocol_command {
             my $view_list = $self->view_list;
             ($view) = @{$view_list} if @{$view_list} == 1;
         }
+        $view or die "missing view";
 
         when ('feature_loading_complete') {
-            $view or die "missing view";
             my $status = $tag_attribute_hash_hash->{'status'}{'value'};
             $status or die "missing status";
             my $message = $tag_attribute_hash_hash->{'status'}{'message'};
