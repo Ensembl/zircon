@@ -69,7 +69,6 @@ sub Populate {
         $self->Button(-command => [ $self, $btn ], -text => $btn, Name => $btn)->pack;
     }
 
-#    $self->iconify;
     $self->afterIdle(sub { $self->Widget('.start')->invoke });
 
 ### event data not available via -command and ->invoke ?
@@ -106,18 +105,18 @@ sub start {
     #   the FocusOut,FocusIn events from that are processed
     #   then the KeyPress is generated
 
-    # queue keypress event for the "instruct" button
-$self->bind('<Visibility>' => [ sub {
- my ($W) = @_;
-my $N = $W->PathName; warn "visibility: $W == $N\n";
- return unless $W == $self->Widget('.start');
-warn "focus!";       $self->Widget('.instruct')->focus;
-warn "generate!";
-    $self->Widget('.instruct')->eventGenerate('<KeyPress>', -keysym => 'space',
-#           -time => -1695528688 + 30e3, # the default == CurrentTime.  Need a better value?
-);#           -when => 'tail');
-warn "poked";
-}, Tk::Ev('W') ]);
+    # queue ButtonPress event for the "instruct" button
+    my $w = $self->Widget('.instruct');
+
+    my $junk = $w->id; # vivify the widget XID before generating events for it
+    $self->iconify;
+    # TestWin must have been ready to map, but now no longer need to
+    # let it pop up
+
+    $w->eventGenerate('<Enter>'); # sets global $Tk::window
+
+    $w->eventGenerate('<ButtonPress-1>', -x => 5, -y => 5);
+    $w->eventGenerate('<ButtonRelease-1>', -x => 5, -y => 5);
 
     return ();
 }
