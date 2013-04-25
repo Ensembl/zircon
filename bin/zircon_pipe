@@ -49,11 +49,13 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
                                              -name => 'pipe',
                                              -context => $context);
     $handler->zconn($connection); # to call ->after for incoming request
-    $reader->zconn($connection);  # to call ->send
     $handler->on_timeout(sub { $reader->try_send_soon });
 
     $connection->local_selection_id($local_selection);
     $connection->remote_selection_id($remote_selection);
+    # now ready to send & receive
+
+    $reader->zconn($connection);  # so it can call ->send, which is now ready
 
     $M->Button(-text => "try_send",
                -command => [ $reader, 'try_send' ])->pack;
@@ -131,7 +133,10 @@ sub queue {
 
 sub zconn {
     my ($self, @arg) = @_;
-    ($self->{zconn}) = @arg if @arg;
+    if (@arg) {
+        ($self->{zconn}) = @arg;
+        $self->try_send; # may have been postponed due to lack of zconn
+    }
     return $self->{zconn} or
       die "Need zconn set now";
 }
@@ -192,7 +197,13 @@ sub try_send {
     my $Q = $self->queue;
     my $zconn = $self->zconn;
 
-    if (!@$Q) {
+    if (!$zconn) {
+        # Connection has not been given to us yet.
+        #
+        # Availability of this was postponed, because when we had
+        # STDIN queued on startup we tried to send before setting
+        #     $connection->remote_selection_id($remote_selection);
+    } elsif (!@$Q) {
         # nothing to send
     } elsif ((my $S = $zconn->state) ne 'inactive') {
         warn "=} would send, but state=$S\n";
