@@ -305,11 +305,7 @@ sub _command_edit {
     my $featureset_entity = _featureset_entity($tag_entity_hash);
     my $style = $featureset_entity->[1]{'name'};
     defined $style or die "missing style";
-    my $featureset_body = $featureset_entity->[2];
-    my $tag_feature_hash = { };
-    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
-    my $feature_entity = $tag_feature_hash->{'feature'};
-    $feature_entity or die "missing feature entity";
+    my $feature_entity = _feature_from_featureset($featureset_entity);
     my $name = $feature_entity->[1]{'name'};
     defined $name or die "missing name";
     my $feature_body = $feature_entity->[2];
@@ -329,11 +325,7 @@ sub _feature_entity {
     # *not* a method
     my ($tag_entity_hash) = @_;
     my $featureset_entity = _featureset_entity($tag_entity_hash);
-    my $featureset_body = $featureset_entity->[2];
-    my $tag_feature_hash = { };
-    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
-    my $feature_entity = $tag_feature_hash->{'feature'};
-    $feature_entity or die "missing feature entity";
+    my $feature_entity = _feature_from_featureset($featureset_entity);
     return $feature_entity;
 }
 
@@ -343,6 +335,17 @@ sub _featureset_entity {
     my $featureset_entity = $tag_entity_hash->{'featureset'};
     $featureset_entity or die "missing featureset entity";
     return $featureset_entity;
+}
+
+sub _feature_from_featureset {
+    # *not* a method
+    my ($featureset_entity) = @_;
+    my $featureset_body = $featureset_entity->[2];
+    my $tag_feature_hash = { };
+    $tag_feature_hash->{$_->[0]} = $_ for @{$featureset_body};
+    my $feature_entity = $tag_feature_hash->{'feature'};
+    $feature_entity or die "missing feature entity";
+    return $feature_entity;
 }
 
 # attributes
