@@ -118,6 +118,22 @@ sub view_destroyed {
     return;
 }
 
+sub send_command_and_xml {
+    my ($self, $view, $command, $xml) = @_;
+    my $result;
+    $self->protocol->send_command(
+        $command, $view->view_id, $xml,
+        sub {
+            ($result) = @_;
+            $self->protocol->connection->after(
+                sub {
+                    $self->wait_finish;
+                });
+        });
+    $self->wait;
+    return $result;
+}
+
 sub waitVariable {
     my ($self, $var) = @_;
     $self->context->waitVariable($var);

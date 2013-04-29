@@ -22,6 +22,50 @@ sub _init {
     return;
 }
 
+sub get_mark {
+    my ($self) = @_;
+    my $result = $self->send_command_and_xml('get_mark');
+    $result->success or return; # absent mark is a failure!
+    my $hash = $result->reply->[0][1];
+    my $start = abs($hash->{'start'});
+    my $end   = abs($hash->{'end'});
+    if ($end < $start) {
+        ($start, $end) = ($end, $start);
+    }
+    warn sprintf "&get_mark: mark = (%d,%d)\n", $start, $end;
+    return ($start, $end);
+}
+
+sub load_features {
+    my ($self, @featuresets) = @_;
+    my $xml = $self->handler->zircon_zmap_view_load_features_xml(@featuresets);    
+    my $result = $self->send_command_and_xml('load_features', $xml);
+    $result->success or die "&load_features: failed";
+    return;
+}
+
+sub delete_featuresets {
+    my ($self, @featuresets) = @_;
+    my $xml = $self->handler->zircon_zmap_view_delete_featuresets_xml(@featuresets);
+    my $result = $self->send_command_and_xml('delete_feature', $xml);
+    $result->success or die "&delete_featuresets: failed";
+    return;
+}
+
+sub zoom_to_subseq {
+    my ($self, $subseq) = @_;
+    my $xml = $self->handler->zircon_zmap_view_zoom_to_subseq_xml($subseq);
+    my $result = $self->send_command_and_xml('zoom_to', $xml);
+    my $success = $result->success;
+    return $success;
+}
+
+sub send_command_and_xml {
+    my ($self, @arg_list) = @_;
+    my $result = $self->zmap->send_command_and_xml($self, @arg_list);
+    return $result;
+}
+
 # attributes
 
 sub zmap {
