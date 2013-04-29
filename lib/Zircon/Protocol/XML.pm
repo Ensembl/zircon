@@ -11,7 +11,7 @@ use feature qw( switch );
 sub request_xml {
     my ($self, $command, $view_id, $request) = @_;
     my $request_body_xml =
-        defined $request ? _element_xml(@{$request}) : undef;
+        ref $request ? _element_xml(@{$request}) : $request;
     my $request_element_xml = _element_xml(
         'request', {
             'command' => $command,
