@@ -48,6 +48,7 @@ sub DESTROY {
     my ($self) = @_;
     try { $self->zmap->view_destroyed($self); }
     catch { warn $_; };
+    return;
 }
 
 1;
