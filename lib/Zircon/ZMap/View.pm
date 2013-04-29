@@ -32,7 +32,6 @@ sub get_mark {
     if ($end < $start) {
         ($start, $end) = ($end, $start);
     }
-    warn sprintf "&get_mark: mark = (%d,%d)\n", $start, $end;
     return ($start, $end);
 }
 
