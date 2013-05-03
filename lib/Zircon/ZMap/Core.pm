@@ -75,7 +75,8 @@ sub _make_conf {
         or die sprintf
         "failed to open the configuration file '%s': $!"
         , $conf_file;
-    print $conf_file_h $self->config;
+    my $config = $self->config;
+    print $conf_file_h $config if defined $config;
     close $conf_file_h
         or die sprintf
         "failed to close the configuration file '%s': $!"
