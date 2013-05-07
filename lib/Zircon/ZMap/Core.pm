@@ -49,7 +49,6 @@ sub _init {
     $self->{'_arg_list'} = $arg_hash->{'-arg_list'};
     $self->{'_id_view_hash'} = { };
     $self->{'_view_list'} = [ ];
-    $self->{'_conf_dir'} = $arg_hash->{'-config_dir'};
     return;
 }
 
@@ -74,16 +73,10 @@ sub launch_zmap {
 
 sub zmap_command {
     my ($self) = @_;
-    my @zmap_command = ( $self->program, @{$self->zmap_arg_list} );
-    return @zmap_command;
-}
-
-sub zmap_arg_list {
-    my ($self) = @_;
-    my $zmap_arg_list = [ '--conf_dir' => $self->conf_dir ];
+    my @zmap_command = ( $self->program );
     my $arg_list = $self->arg_list;
-    push @{$zmap_arg_list}, @{$arg_list} if $arg_list;
-    return $zmap_arg_list;
+    push @zmap_command, @{$arg_list} if $arg_list;
+    return @zmap_command;
 }
 
 sub add_view {
@@ -120,12 +113,6 @@ sub wait_finish {
 }
 
 # attributes
-
-sub conf_dir {
-    my ($self) = @_;
-    my $conf_dir = $self->{'_conf_dir'};
-    return $conf_dir;
-}
 
 sub program {
     my ($self) = @_;
