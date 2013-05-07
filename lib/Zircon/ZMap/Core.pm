@@ -53,36 +53,6 @@ sub _init {
     return;
 }
 
-sub _conf_dir {
-    my $conf_dir = q(/var/tmp);
-    my $user = getpwuid($<);
-    my $dir_name = "otter_${user}";
-    my $key = sprintf "%09d", int(rand(1_000_000_000));
-    for ($dir_name, 'ZMap', $key) {
-        $conf_dir .= "/$_";
-        -d $conf_dir
-            or mkdir $conf_dir
-            or die sprintf "mkdir('%s') failed: $!", $conf_dir;
-    }
-    return $conf_dir;
-}
-
-sub _make_conf {
-    my ($self) = @_;
-    my $conf_file = sprintf "%s/ZMap", $self->conf_dir;
-    open my $conf_file_h, '>', $conf_file
-        or die sprintf
-        "failed to open the configuration file '%s': $!"
-        , $conf_file;
-    my $config = $self->config;
-    print $conf_file_h $config if defined $config;
-    close $conf_file_h
-        or die sprintf
-        "failed to close the configuration file '%s': $!"
-        , $conf_file;
-    return;
-}
-
 sub launch_zmap {
     my ($self) = @_;
 
@@ -150,12 +120,6 @@ sub wait_finish {
 }
 
 # attributes
-
-sub config {
-    my ($self) = @_;
-    my $config = $self->{'_config'};
-    return $config;
-}
 
 sub conf_dir {
     my ($self) = @_;
