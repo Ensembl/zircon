@@ -27,6 +27,13 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     $self->{'_app_id'} = $app_id;
     $self->{'_context'} = $context;
     $self->{'_protocol'} = $self->_protocol;
+    my $peer_name = $self->app_id;
+    my $peer_clipboard =
+        $self->protocol->connection->local_selection_id;
+    push @{$self->{'_arg_list'}},
+    "--peer-name=${peer_name}",
+    "--peer-clipboard=${peer_clipboard}",
+    ;
     return;
 }
 
@@ -145,21 +152,6 @@ sub launch_zmap {
     $self->Zircon::ZMap::Core::launch_zmap;
     $self->wait; # don't return until the Zircon handshake callback calls wait_finish()
     return;
-}
-
-sub zmap_arg_list {
-    my ($self) = @_;
-    my $peer_name = $self->app_id;
-    my $protocol = $self->protocol;
-    my $connection = $protocol->connection;
-    my $peer_clipboard =
-        $connection->local_selection_id;
-    my $zmap_arg_list = [
-        @{$self->Zircon::ZMap::Core::zmap_arg_list},
-        "--peer-name=${peer_name}",
-        "--peer-clipboard=${peer_clipboard}",
-        ];
-    return $zmap_arg_list;
 }
 
 # protocol server
