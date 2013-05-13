@@ -85,14 +85,15 @@ sub _new_view {
                 });
             die "&_new_view: failed" unless $result->success;
             my $handler = $arg_hash->{'-handler'};
-            $view = $self->_new_view_from_result($handler, $result);
+            my $name    = $arg_hash->{'-name'};
+            $view = $self->_new_view_from_result($handler, $name, $result);
         });
     $self->wait;
     return $view;
 }
 
 sub _new_view_from_result {
-    my ($self, $handler, $result) = @_;
+    my ($self, $handler, $name, $result) = @_;
     my $tag_attribute_hash_hash = { };
     $tag_attribute_hash_hash->{$_->[0]} = $_->[1] for @{$result->reply};
     my $attribute_hash = $tag_attribute_hash_hash->{'view'} or die "missing view entity";
@@ -102,6 +103,7 @@ sub _new_view_from_result {
             '-zmap'    => $self,
             '-handler' => $handler,
             '-view_id' => $view_id,
+            '-name'    => $name,
         );
     $self->add_view($view_id, $view);
     return $view;

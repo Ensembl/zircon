@@ -17,7 +17,7 @@ sub new {
 
 sub _init {
     my ($self, $arg_hash) = @_;
-    $self->{"_$_"} = $arg_hash->{"-$_"} for qw( zmap handler view_id );
+    $self->{"_$_"} = $arg_hash->{"-$_"} for qw( zmap handler view_id name );
     weaken $self->{'_handler'} if ref $self->{'_handler'};
     return;
 }
@@ -83,6 +83,12 @@ sub view_id {
     my ($self) = @_;
     my $view_id = $self->{'_view_id'};
     return $view_id;
+}
+
+sub name {
+    my ($self) = @_;
+    my $name = $self->{'_name'};
+    return $name;
 }
 
 # destructor
