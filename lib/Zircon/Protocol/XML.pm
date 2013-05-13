@@ -103,7 +103,7 @@ my @request_parse_parameter_list = (
         ) ],
     'attribute_used' => [ qw(
         command
-        view
+        view_id
         ) ],
     );
 
