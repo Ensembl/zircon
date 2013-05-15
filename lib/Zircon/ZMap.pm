@@ -69,13 +69,19 @@ my @_new_view_key_list = qw(
 
 sub _new_view {
     my ($self, $arg_hash) = @_;
+    my ($view_previous) = values %{$self->id_view_hash};
+    my ($command, $view_id) =
+        $view_previous
+        ? ( 'add_to_view', $view_previous->view_id )
+        : ( 'new_view',    undef                   )
+        ;
     my $new_view_arg_hash = {
         map { $_ => $arg_hash->{"-$_"} } @_new_view_key_list
     };
     my $view;
     $self->protocol->send_command(
-        'new_view',
-        undef, # no view
+        $command,
+        $view_id,
         [ 'sequence', $new_view_arg_hash ],
         sub {
             my ($result) = @_;
