@@ -262,6 +262,7 @@ sub _xml_entity { ## no critic(Subroutines::ProhibitUnusedPrivateSubroutines)
         when ('lt')   { return '<'; }
         when ('gt')   { return '>'; }
         when ('quot') { return '"'; }
+        when ('apos') { return "'"; }
         when ('amp')  { return '&'; }
     }
     die sprintf "unknown XML entity: '%s'", $name;
