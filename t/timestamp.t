@@ -2,14 +2,15 @@
 use strict;
 use warnings;
 
-use lib "t/lib";
-use TestShared qw( have_display );
-
 use Test::More;
 use Tk;
 
 use Zircon::Tk::Context;
 use Zircon::Connection;
+
+use lib "t/lib";
+use TestShared qw( have_display init_zircon_conn );
+use ConnHandler;
 
 
 sub main {
@@ -30,16 +31,8 @@ sub do_init {
     $M->clip_ids(@id);
     $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
 
-    my $context = Zircon::Tk::Context->new(-widget => $M);
-    my $handler = ConnHandler->new;
-    my $connection = Zircon::Connection->new(-handler => $handler,
-                                             -name => 'timestamp.t',
-                                             -context => $context);
-    $handler->zconn($connection);
+    my $handler = init_zircon_conn($M, @id);
     $M->state_bump(new => @id);
-
-    $connection->local_selection_id($id[0]);
-    $connection->remote_selection_id($id[1]);
 
     return $handler;
 }
@@ -162,6 +155,11 @@ sub state_bump {
     return ();
 }
 
+sub handle_request {
+    my ($self, $request) = @_;
+    return 'howdy doo';
+}
+
 sub do_after__replied {
     my ($self) = @_;
 
@@ -173,52 +171,4 @@ sub do_after__replied {
     # weird, $!=="No child processes".  Doesn't matter to us.
 
     $self->destroy;
-}
-
-
-
-package ConnHandler;
-
-sub new {
-    my ($pkg) = @_;
-    return bless { }, __PACKAGE__;
-}
-
-sub zconn {
-    my ($self, @arg) = @_;
-    ($self->{zconn}) = @arg if @arg;
-    return $self->{zconn} or
-      die "Need zconn set now";
-}
-
-sub zircon_connection_timeout {
-    my ($self, @info) = @_;
-    $self->widget->state_bump(zircon_connection_timeout => @info);
-    $self->widget->destroy;
-    return;
-}
-
-sub zircon_connection_request {
-    my ($self, $request) = @_;
-    $self->widget->state_bump(requested => $request);
-    my $reply = 'howdy doo';
-    $self->zconn->after(sub { $self->zcreq_done($reply) });
-    return $reply;
-}
-
-sub zircon_connection_reply {
-    my ($self, $reply) = @_;
-    $self->widget->state_bump(reply => $reply);
-    return;
-}
-
-sub zcreq_done {
-    my ($self, $reply) = @_;
-    $self->widget->state_bump(replied => $reply);
-    return;
-}
-
-sub widget {
-    my ($self) = @_;
-    return $self->zconn->context->widget;
 }

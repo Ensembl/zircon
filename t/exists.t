@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib "t/lib";
-use TestShared qw( have_display );
+use TestShared qw( have_display init_zircon_conn );
 
 use Test::More;
 use Try::Tiny;
@@ -32,16 +32,8 @@ sub predestroy_tt {
     $M->destroy;
 
     # Zircon can't use it
-    my $got = try {
-        my $context = Zircon::Tk::Context->new(-widget => $M);
-        my $handler = []; # bogus
-        my $conn = Zircon::Connection->new(-handler => $handler,
-                                           -name => 'exists.t',
-                                           -context => $context);
-        $conn->local_selection_id('me_local');
-        $conn->remote_selection_id('me_remote');
-        $conn;
-    } catch { "FAIL:$_" };
+    my $got = try { init_zircon_conn($M, qw( me_local me_remote )) }
+      catch { "FAIL:$_" };
 
     like($got, qr{^FAIL:Attempt to construct with invalid widget},
          "Z:T:Context->new with destroyed widget");
