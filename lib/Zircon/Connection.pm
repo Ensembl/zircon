@@ -243,6 +243,7 @@ sub selection_id {
                 '-handler'      => $self,
                 '-handler_data' => $key,
             );
+        $self->zircon_trace("['%s'] set = '%s'", $key, $id);
         $self->update;
     }
     my $selection = $self->{'selection'}{$key};
