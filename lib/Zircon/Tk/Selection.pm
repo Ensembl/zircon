@@ -51,6 +51,9 @@ sub init {
         weaken $self->{$key};
     }
 
+    Tk::Exists($self->widget)
+        or croak "Attempt to construct with invalid widget";
+
     $self->empty;
     $self->owns(0);
 
