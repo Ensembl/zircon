@@ -2,6 +2,9 @@
 use strict;
 use warnings;
 
+use lib "t/lib";
+use TestShared qw( have_display );
+
 use Test::More;
 use Tk;
 
@@ -10,14 +13,13 @@ use Zircon::Connection;
 
 
 sub main {
-    if (!$ENV{DISPLAY}) {
-        plan skip_all => 'Cannot test without $DISPLAY';
-    } else {
-        plan tests => 7;
-        my $handler = do_init();
-        # hold the ref to prevent garbage collection
-        MainLoop();
-    }
+    have_display();
+
+    plan tests => 7;
+    my $handler = do_init();
+    # hold the ref to prevent garbage collection
+    MainLoop();
+
     return 0;
 }
 
@@ -40,12 +42,6 @@ sub do_init {
     $connection->remote_selection_id($id[1]);
 
     return $handler;
-}
-
-sub Tk::Error {
-    my ($widget,$error,@locations) = @_;
-    fail("Tk::Error was called");
-    diag(join "\n", $error, @locations);
 }
 
 main();
