@@ -16,8 +16,9 @@ use Zircon::Connection;
 sub main {
     have_display();
 
-    plan tests => 1;
+    plan tests => 2;
     predestroy_tt();
+    postdestroy_tt();
 
     return 0;
 }
@@ -37,4 +38,17 @@ sub predestroy_tt {
 
     like($got, qr{^FAIL:Attempt to construct with invalid widget},
          "Z:T:Context->new with destroyed widget");
+}
+
+
+sub postdestroy_tt {
+    my $M = MainWindow->new;
+    my $make_it_live = $M->id;
+
+    my $handler = init_zircon_conn($M, qw( me_local me_remote ));
+    is(ref($handler), 'ConnHandler', 'postdestroy_tt: init');
+
+    $M->destroy;
+    my $got = try { $handler->zconn->send('message'); 'done' } catch {"FAIL:$_"};
+    like($got, qr{^FAIL:moo}, "send after destroy");
 }
