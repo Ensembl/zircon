@@ -73,10 +73,11 @@ sub own {
 
         # check we got it - does not notice if the XServer binned our
         # ownership due e.g. to timestamp staleness
-        my $owner = $self->widget->SelectionOwner('-selection' => $self->id);
+        my ($id, $W) = ($self->id, $self->widget);
+        my $owner = try { $W->SelectionOwner('-selection' => $id) };
         my $name = defined $owner ? $owner->PathName : 'external';
-        warn 'SelectionOwn('.($self->id).") failed, owner=$name; collision?\n"
-          unless $owner == $self->widget;
+        warn "SelectionOwn($id) failed, owner=$name; collision?\n"
+          unless $owner == $W;
 
         $self->owns(1);
     }
@@ -116,6 +117,9 @@ sub _own_provoke {
     # absent=unused, 0 = waiting, 1 = timeout, 2 = complete
 
     my $w = $self->widget;
+
+    Tk::Exists($w)
+        or croak "Attempt to own selection with destroyed widget";
 
     if (!defined $$V or 2 == $$V) {
         # unused or previous call complete - continue
@@ -176,6 +180,9 @@ sub _own_timestamped {
 sub clear {
     my ($self) = @_;
     if ($self->owns) {
+        my $w = $self->widget;
+        Tk::Exists($w)
+            or croak "Attempt to clear selection with destroyed widget";
         $self->widget->SelectionOwn(
             '-selection' => $self->id);
         $self->widget->SelectionClear(

@@ -4,6 +4,7 @@ package Zircon::Tk::Context;
 use strict;
 use warnings;
 
+use Carp;
 use Zircon::Tk::Selection;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
@@ -46,8 +47,11 @@ sub selection_new {
 
 sub timeout {
     my ($self, @args) = @_;
-    my $timeout_handle =
-        $self->widget->after(@args);
+
+    my $w = $self->widget;
+    Tk::Exists($w)
+        or croak "Attempt to set timeout with destroyed widget";
+    my $timeout_handle = $w->after(@args);
     $self->zircon_trace('configured (%d millisec)', $args[0]);
     return $timeout_handle;
 }

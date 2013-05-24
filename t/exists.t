@@ -16,7 +16,7 @@ use Zircon::Connection;
 sub main {
     have_display();
 
-    plan tests => 2;
+    plan tests => 6;
     predestroy_tt();
     postdestroy_tt();
 
@@ -24,6 +24,11 @@ sub main {
 }
 
 main();
+
+sub try_err(&) {
+    my ($code) = @_;
+    return try { goto &$code } catch {"ERR:$_"};
+}
 
 
 sub predestroy_tt {
@@ -33,10 +38,9 @@ sub predestroy_tt {
     $M->destroy;
 
     # Zircon can't use it
-    my $got = try { init_zircon_conn($M, qw( me_local me_remote )) }
-      catch { "FAIL:$_" };
+    my $got = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
 
-    like($got, qr{^FAIL:Attempt to construct with invalid widget},
+    like($got, qr{^ERR:Attempt to construct with invalid widget},
          "Z:T:Context->new with destroyed widget");
 }
 
@@ -45,10 +49,28 @@ sub postdestroy_tt {
     my $M = MainWindow->new;
     my $make_it_live = $M->id;
 
-    my $handler = init_zircon_conn($M, qw( me_local me_remote ));
+    my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
     is(ref($handler), 'ConnHandler', 'postdestroy_tt: init');
+    my $sel = $handler->zconn->selection('local');
 
     $M->destroy;
-    my $got = try { $handler->zconn->send('message'); 'done' } catch {"FAIL:$_"};
-    like($got, qr{^FAIL:moo}, "send after destroy");
+    my $want = sub {
+        my ($what) = @_;
+        return qr{^ERR:Attempt to .*$what.* with destroyed widget at };
+    };
+
+    my $do_fail = sub { fail('timeout happened') };
+    my $got = try_err { $handler->zconn->timeout(100, $do_fail) };
+    like($got, $want->('timeout'), 'timeout after destroy');
+
+    my $old_own = $sel->owns;
+    $got = try_err { $sel->owns(0); $sel->own(); };
+    like($got, $want->('own'), 'own after destroy');
+    $sel->owns($old_own);
+
+    $got = try_err { $handler->zconn->send('message'); 'done' };
+    like($got, $want->('clear|own'), 'send after destroy');
+
+    $got = try_err { $handler->zconn->reset; 'done' };
+    is($got, 'done', 'reset should still work');
 }
