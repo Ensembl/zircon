@@ -4,7 +4,7 @@ package Zircon::Tk::Context;
 use strict;
 use warnings;
 
-use Carp;
+use Carp qw( croak cluck );
 use Zircon::Tk::Selection;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
@@ -61,7 +61,12 @@ sub timeout {
 sub waitVariable {
     my ($self, $var) = @_;
     $self->zircon_trace('enter for %s=%s', $var, $$var);
-    $self->widget->waitVariable($var);
+    my $w = $self->widget;
+    Tk::Exists($w)
+        or croak "Attempt to waitVariable with destroyed widget";
+    $w->waitVariable($var);
+    Tk::Exists($w)
+        or cluck "Widget $w destroyed during waitVariable";
     $self->zircon_trace('exit with %s=%s', $var, $$var);
     return;
 }

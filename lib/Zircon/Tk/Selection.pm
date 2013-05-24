@@ -3,7 +3,7 @@ package Zircon::Tk::Selection;
 
 use strict;
 use warnings;
-use Carp;
+use Carp qw( croak confess cluck );
 
 use Scalar::Util qw( weaken );
 use Try::Tiny;
@@ -114,16 +114,16 @@ sub _own_provoke {
     my ($self) = @_;
 
     my $V = \$self->{'_own_var'};
-    # absent=unused, 0 = waiting, 1 = timeout, 2 = complete
+    # values: (absent)=unused, waiting, complete(=ready for next), (other)=fail
 
     my $w = $self->widget;
 
     Tk::Exists($w)
         or croak "Attempt to own selection with destroyed widget";
 
-    if (!defined $$V or 2 == $$V) {
+    if (!defined $$V or $$V eq 'complete') {
         # unused or previous call complete - continue
-        $$V = 0;
+        $$V = 'waiting';
     } else {
         confess "recursive ->own call? _own_var=$$V";
         # May be caused by: own dies, catch in Zircon::Connection
@@ -131,28 +131,38 @@ sub _own_provoke {
     }
 
     try { $w->property('delete', 'Zircon_Own') }; # belt&braces
-    my $after = $w->after
-      (10e3, # 10 sec timeout is an arbitrarily chosen safety feature
-       sub { $$V = 1; warn "_own_provoke: timeout!"; });
 
     # Can only have one callback bound to widget, but we probably have
     # two selections to manage.  Re-bind each time we need it.
     $w->bind('<Property>' => [ $self, '_own_timestamped',
                                map { Tk::Ev($_) } @event_info ]);
 
+    my $after = $w->after
+      (10e3, # 10 sec timeout is an arbitrarily chosen safety feature
+       sub {
+           $$V = 'timeout';
+           warn "_own_provoke: safety timeout!";
+       });
+
     $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
     $w->waitVariable($V);
     $after->cancel;
-    $w->bind('<Property>' => ''); # cancel
-    try { $w->property('delete', 'Zircon_Own') }; # ready for next
 
-    if (2 == $$V) {
-        # leave $$V==2 for next time
+    if (Tk::Exists($w)) {
+        $w->bind('<Property>' => ''); # cancel
+        try { $w->property('delete', 'Zircon_Own') }; # ready for next
+    } else {
+        die "Widget $w destroyed during waitVariable";
+        # leave $$V broken
+    }
+
+    if ($$V eq 'complete') {
+        # leave it for next time
         return 1;
     } else {
-        my $id = $self->id;
-        $$V = 2; # reset for next time
-        die "Failed to Own selection $id";
+        my $was = $$V;
+        $$V = 'complete'; # reset for next time
+        die 'Failed to Own selection '.$self->id.": _own_var=$was";
     }
 }
 
@@ -161,17 +171,27 @@ sub _own_provoke {
 sub _own_timestamped {
     my ($self, @arg) = @_;
 
-    my $propval = try { $self->widget->property('get', 'Zircon_Own') } catch { "absent: $_" };
+    my $w = $self->widget;
+    if (!Tk::Exists($w)) {
+        # I suspect it can't happen.  While trying to write an
+        # automated test for it, the result was sometimes a segfault.
+        warn "PropertyNotify on destroyed window?!";
+        $self->{'_own_var'} = 'destroyed';
+        return;
+        # there is nothing useful we can do without the widget
+    }
+
+    my $propval = try { $w->property('get', 'Zircon_Own') } catch { "absent: $_" };
     $propval =~ s{\x00}{}; # probably comes back NUL-terminated
 
     # Tk:Ev(d) gives property name, but use property value instead
     # because documentation doesn't promise data for PropertyNotify
     $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s', @arg, $propval);
     if ($propval eq $self->id) {
-        $self->widget->SelectionOwn
+        $self->{'_own_var'} = 'complete';
+        $w->SelectionOwn
           ('-selection' => $self->id,
            '-command' => $self->callback('owner_callback'));
-        $self->{'_own_var'} = 2;
     }
 
     return;
@@ -195,8 +215,10 @@ sub clear {
 sub get {
     my ($self) = @_;
     $self->zircon_trace('start');
-    my $get =
-        $self->widget->SelectionGet(
+    my $w = $self->widget;
+    Tk::Exists($w)
+        or croak "Attempt to get selection with destroyed widget";
+    my $get = $w->SelectionGet(
             '-selection' => $self->id);
     $self->zircon_trace("result:\n%s\n", $get);
     return $get;
