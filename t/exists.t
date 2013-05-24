@@ -34,12 +34,22 @@ sub try_err(&) {
 }
 
 
+sub mkwidg {
+    my $M = MainWindow->new;
+    my $make_it_live = $M->id;
+
+    # for quieter tests,
+    # but also under prove(1) without -v prevents some failures(?)
+    $M->withdraw;
+
+    return $M;
+}
+
 sub predestroy_tt {
     plan tests => 1;
 
     # make a window which is already destroyed
-    my $M = MainWindow->new;
-    my $make_it_live = $M->id;
+    my $M = mkwidg();
     $M->destroy;
 
     # Zircon can't use it
@@ -58,9 +68,7 @@ sub want_re {
 sub postdestroy_tt {
     plan tests => 7;
 
-    my $M = MainWindow->new;
-    my $make_it_live = $M->id;
-
+    my $M = mkwidg();
     my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
     is(ref($handler), 'ConnHandler', 'postdestroy_tt: init');
     my $sel = $handler->zconn->selection('local');
@@ -100,9 +108,7 @@ sub postdestroy_tt {
 sub waitdestroy_tt {
     plan tests => 4;
 
-    my $M = MainWindow->new;
-    my $make_it_live = $M->id;
-
+    my $M = mkwidg();
     my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
     is(ref($handler), 'ConnHandler', 'waitdestroy_tt: init');
 
@@ -125,9 +131,7 @@ sub waitdestroy_tt {
 
 sub owndestroy_tt {
     plan tests => 4;
-
-    my $M = MainWindow->new;
-    my $make_it_live = $M->id;
+    my $M = mkwidg();
     my $handler = init_zircon_conn($M, qw( me_local me_remote ));
 
     my $sel = $handler->zconn->selection('local');
@@ -140,7 +144,8 @@ sub owndestroy_tt {
 
     alarm(2);
     my $got = try_err {
-        local $SIG{__WARN__} = sub { push @warn, "@_" };
+        local $SIG{__WARN__} = # in scope above, this causes Tk.so segfault!?
+          sub { push @warn, "@_" };
         $sel->owns(0);
         $sel->own();
         "flag=$flag";
