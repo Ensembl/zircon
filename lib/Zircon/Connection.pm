@@ -349,6 +349,7 @@ sub _do_safely {
         }
     }
     catch {
+        $self->zircon_trace("_do_safely caught '%s'", $_);
         $self->reset;
         die $_; # propagate any error
     }
