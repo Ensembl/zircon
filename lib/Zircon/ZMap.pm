@@ -390,6 +390,29 @@ sub context {
     return $context;
 }
 
+# destructor
+
+sub DESTROY {
+    my ($self) = @_;
+    try {
+        $self->protocol->send_command(
+            'shutdown',
+            undef,
+            undef,
+            sub {
+                my ($result) = @_;
+                $self->protocol->connection->after(
+                    sub {
+                        $self->wait_finish;
+                    });
+                die "shutdown: failed" unless $result->success;
+            });
+        $self->wait;
+    }
+    catch { warn $_; };
+    return;
+}
+
 1;
 
 =head1 AUTHOR
