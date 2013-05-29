@@ -91,7 +91,7 @@ sub _new_view {
                 });
             die "&_new_view: failed" unless $result->success;
             my $handler = $arg_hash->{'-handler'};
-            my $name    = $arg_hash->{'-name'};
+            my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
             $view = $self->_new_view_from_result($handler, $name, $result);
         });
     $self->wait;
