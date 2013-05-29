@@ -117,19 +117,19 @@ sub _new_view_from_result {
 
 sub view_destroyed {
     my ($self, $view) = @_;
+    my $result;
     $self->protocol->send_command(
         'close_view',
         $view->view_id,
         undef,
         sub {
-            my ($result) = @_;
+            ($result) = @_;
             $self->protocol->connection->after(
-                sub {
-                    $self->wait_finish;
-                });
-            die "close_view: failed" unless $result->success;
+                sub { $self->wait_finish; });
         });
     $self->wait;
+    ($result && $result->success)
+        or die "close_view: failed";
     return;
 }
 
