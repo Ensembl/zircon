@@ -15,7 +15,7 @@ use Zircon::Connection;
 
 sub main {
     have_display();
-    do_subtests(qw( predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt ));
+    do_subtests(qw( predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt extwindow_tt ));
     return 0;
 }
 
@@ -61,7 +61,7 @@ sub want_re {
 }
 
 sub postdestroy_tt {
-    plan tests => 7;
+    plan tests => 8;
 
     my $M = mkwidg();
     my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
@@ -94,6 +94,9 @@ sub postdestroy_tt {
     $got = try_err { $handler->zconn->context->waitVariable(\$boom); "boom=$boom" };
     alarm(0);
     like($got, want_re('waitVariable'), 'waitVariable after destroy');
+
+    $got = try_err { $handler->zconn->context->window_exists(1234) };
+    like($got, want_re('check window_exists'), 'window_exists after destroy');
 
     $got = try_err { $handler->zconn->reset; 'done' };
     is($got, 'done', 'reset should still work');
@@ -160,6 +163,36 @@ sub owndestroy_tt {
     return;
 }
 
+
+sub extwindow_tt {
+    plan tests => 3;
+    my $M = mkwidg();
+    my $handler = init_zircon_conn($M, qw( me_local me_remote ));
+
+    my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD';
+  my $M = MainWindow->new(-title => "Child for extwindow_tt");
+#  $M->withdraw;
+  my $w = $M->Label(-text => "foo");
+  print "made ", $w->id,  ": ", $M->id, "\n";
+  MainLoop;
+CHILD
+
+    my $info = <$fh>;
+    like($info, qr{0x\w+}, 'child process told us of window');
+    my ($extid) = $info =~ m{(0x\w+)};
+
+diag explain { pid => $pid, info => $info, extid => $extid };
+
+    my $got = try_err { $handler->zconn->context->window_exists($extid) };
+    is($got, 1, 'we see child process window');
+    kill 'INT', $pid
+      or warn "kill child failed: $!";
+
+    $got = try_err { $handler->zconn->context->window_exists($extid) };
+    is($got, 0, 'we see child process window is gone');
+
+    return;
+}
 
 package Selection::Footshooting;
 use strict;

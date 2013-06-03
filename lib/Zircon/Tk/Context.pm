@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use Carp qw( croak cluck );
+use Tk::Xlib;
 use Zircon::Tk::Selection;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
@@ -83,6 +84,41 @@ sub widget_xid {
     my ($self) = @_;
     return $self->widget->id;
 }
+
+# other app's windows
+
+sub window_exists {
+    my ($self, $win_id) = @_;
+    my $widget = $self->{'widget'};
+
+    my $w = $self->widget;
+    Tk::Exists($w)
+        or croak "Attempt to check window_exists with destroyed widget";
+
+    my $win;
+    if (ref($win_id)) {
+        # assume it is a Window from Tk::Xlib
+        $win = $win_id;
+    } else {
+        $win_id = hex($win_id) if $win_id =~ /^0x/;
+        $win = \$win_id;
+        # there is no constructor, they come from Tk.xs
+        bless $win, 'Window'; # no critic(
+    }
+
+    my ($root, $parent);
+    return try {
+        # see e.g. Xlib/tree_demo in perl-tk
+        $w->Display->XQueryTree($win, $root, $parent);
+        return defined $root;
+    } catch {
+        die "XQueryTree died unexpectedly: $_"
+          unless m{\bBadWindow\b};
+        warn "$self: I see the window is gone.\n";
+        return 0;
+    };
+}
+
 
 # tracing
 
