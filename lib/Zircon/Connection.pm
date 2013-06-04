@@ -448,6 +448,12 @@ sub state {
     return $self->{'state'};
 }
 
+sub xid_remote {
+    my ($self, @args) = @_;
+    ($self->{'xid_remote'}) = @args if @args;
+    return $self->{'xid_remote'};
+}
+
 1;
 
 =head1 NAME - Zircon::Connection

@@ -297,6 +297,20 @@ sub callback {
     return $self->{'callback'};
 }
 
+sub xid_local { # strongly caching, read-only
+    my ($self) = @_;
+    $self->{'xid_local'} =
+      $self->connection->context->widget_xid
+        unless defined $self->{'xid_local'};
+    return $self->{'xid_local'};
+}
+
+sub xid_remote { # delegated
+    my ($self, @args) = @_;
+    return $self->connection->xid_remote(@args);
+}
+
+
 # tracing
 
 sub zircon_trace_prefix {

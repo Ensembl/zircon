@@ -79,6 +79,11 @@ sub widget {
     return $widget;
 }
 
+sub widget_xid {
+    my ($self) = @_;
+    return $self->widget->id;
+}
+
 # tracing
 
 sub zircon_trace_prefix {
