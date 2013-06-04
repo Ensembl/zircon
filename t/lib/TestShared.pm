@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use base 'Exporter';
-our @EXPORT_OK = qw( have_display init_zircon_conn );
+our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn );
 
 use Tk;
 use Test::More;
@@ -16,6 +16,18 @@ TestShared - common stuff for Zircon tests
 
 =cut
 
+
+sub do_subtests {
+    my @sub = @_;
+
+    plan tests => scalar @sub;
+
+    foreach my $sub (@sub) {
+        subtest $sub => main->can($sub);
+    }
+
+    return 0;
+}
 
 sub have_display {
     if (!$ENV{DISPLAY}) {

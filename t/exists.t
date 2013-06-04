@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn );
+use TestShared qw( have_display init_zircon_conn do_subtests );
 
 use Test::More;
 use Try::Tiny;
@@ -15,14 +15,7 @@ use Zircon::Connection;
 
 sub main {
     have_display();
-
-    my @sub = qw( predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt );
-    plan tests => scalar @sub;
-
-    foreach my $sub (@sub) {
-        subtest $sub => main->can($sub);
-    }
-
+    do_subtests(qw( predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt ));
     return 0;
 }
 
