@@ -9,7 +9,7 @@ use TestShared qw( do_subtests );
 
 
 sub main {
-    do_subtests(qw( request_tt reply_tt element_tt ));
+    do_subtests(qw( request_tt reply_tt element_tt parse_tt ));
     return 0;
 }
 
@@ -142,6 +142,54 @@ text content
 </data>}, 'nesting');
 
     return;
+}
+
+
+sub parse_tt {
+    plan tests => 4;
+    my $P = MockProto->new;
+
+    my $req = [ finger => { side => 'left' },
+                undef # optional, but made explicit during parsing
+              ];
+    my $xml = $P->request_xml(prod => view6 => $req);
+
+    eq_or_diff(MockProto->request_xml_parse($xml),
+               [ '0', 'prod', 'view6', [ $req ] ],
+               'command: prod');
+
+
+
+    my $reply = [ message => { }, 'Roger' ];
+    $xml = $P->reply_xml(req1 => cmd1 => [ undef, $reply ]);
+    __clap_LFs($reply, -1);
+    eq_or_diff(MockProto->reply_xml_parse($xml),
+               [ req1 => cmd1 => ok => undef, undef, [ $reply ] ],
+               'reply: ok')
+      or diag $xml;
+
+    $xml = $P->reply_xml(req2 => cmd2 => [ [ '502', 'Yeargh' ] ]);
+    __clap_LFs($reply, -1);
+    eq_or_diff(MockProto->reply_xml_parse($xml),
+               [ req2 => cmd2 => 502 => 'Yeargh', undef, undef ],
+               'reply: 502 fail');
+
+    $reply = [ view => { view_id => 'deja0' }, undef ];
+    $xml = $P->reply_xml(req3 => cmd3 => [ undef, $reply ]);
+    eq_or_diff(MockProto->reply_xml_parse($xml),
+               [ req3 => cmd3 => ok => undef,
+                 'deja0', # comes back undef, should be the view_id ??
+                 , [ $reply ] ],
+               'reply: view ok')
+      or diag $xml;
+
+    return;
+}
+
+sub __clap_LFs { # whitespace is not stripped - fix up the input to match
+    my ($listref, $idx) = @_;
+    $listref->[$idx] = join $listref->[$idx], "\n", "\n";
+    return ();
 }
 
 
