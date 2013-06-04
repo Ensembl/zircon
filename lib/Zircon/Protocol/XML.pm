@@ -33,7 +33,7 @@ sub request_xml {
 
 sub reply_xml {
     my ($self, $request_id, $command, $reply) = @_;
-    my ($status, $reply_body) = @{$reply};
+    my ($status, @reply_body) = @{$reply};
     my ($return_code, $reason) =
         defined $status ? @{$status} : ( 'ok' );
     my $reply_element_xml =
@@ -49,7 +49,7 @@ sub reply_xml {
                 'command'     => $command,
                 'return_code' => 'ok',
             },
-            $self->_reply_body_xml($reply_body))
+            @reply_body)
         ;
     my $app_id = $self->app_id;
     my $clipboard_id = $self->connection->local_selection_id;
@@ -64,22 +64,15 @@ sub reply_xml {
     return $zmap_element_xml;
 }
 
-sub _reply_body_xml {
-    my ($self, $body) = @_;
-    my $xml =
-        ref $body
-        ? _element_xml(@{$body})
-        : $body
-        ;
-    return $xml;
-}
-
 sub _element_xml {
-    my ($tag, $attribute_hash, $content_xml) = @_;
+    my ($tag, $attribute_hash, @content_xml) = @_;
     my $tag_xml = join ' ', $tag, map {
         _attribute_xml($_, $attribute_hash->{$_});
     } sort keys %{$attribute_hash};
-    return defined $content_xml
+    @content_xml = grep { defined $_ } @content_xml;
+    my $content_xml = join "\n",
+      map { ref($_) ? _element_xml(@$_) : $_ } @content_xml;
+    return @content_xml
         ? sprintf "<%s>\n%s\n</%s>", $tag_xml, $content_xml, $tag
         : sprintf "<%s />", $tag_xml;
 }

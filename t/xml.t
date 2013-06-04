@@ -17,7 +17,7 @@ main();
 
 
 sub reply_tt {
-    plan tests => 2;
+    plan tests => 3;
 
     eq_or_diff
       (MockProto->reply_xml
@@ -39,11 +39,30 @@ Done that
 <reply command="cmd6" reason="could not" return_code="345" />
 </zmap>}, 'reply, failed 345');
 
+    eq_or_diff
+      (MockProto->reply_xml
+       (req7 => cmd7 => [ undef,
+                          [ message => { }, 'Done that' ],
+                          [ data => { payload => 1 },
+                            [ gubbins => {} => [ 'stop' ] ] ] ]),
+       q{<zmap app_id="Bob" clipboard_id="sel_id_local" request_id="req7" type="reply" version="2.0">
+<reply command="cmd7" return_code="ok">
+<message>
+Done that
+</message>
+<data payload="1">
+<gubbins>
+<stop />
+</gubbins>
+</data>
+</reply>
+</zmap>}, 'reply, ok');
+
     return;
 }
 
 sub element_tt {
-    plan tests => 5;
+    plan tests => 6;
     my $e = Zircon::Protocol::XML->can('_element_xml'); # a sub, not a method
 
     eq_or_diff
@@ -66,6 +85,18 @@ text content
 
     eq_or_diff
       ($e->(hr => {}, ''), "<hr>\n\n</hr>", 'empty3 (ws)');
+
+    eq_or_diff
+      ($e->(data => {} =>
+            [ message => {}, 'Text' ],
+            [ detail => { foo => 5 },
+              [ wag => {}, 'On' ] ]),
+       qq{<data>
+<message>\nText\n</message>
+<detail foo="5">
+<wag>\nOn\n</wag>
+</detail>
+</data>}, 'nesting');
 
     return;
 }
