@@ -13,6 +13,10 @@ A small handler for L<Zircon::Connection>.
 It needs the underlying widget to implement C<state_bump> and
 C<handle_request> methods.
 
+=head1 AUTHOR
+
+Matthew Astley mca@sanger.ac.uk
+
 =cut
 
 

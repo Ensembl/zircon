@@ -14,6 +14,10 @@ use ConnHandler;
 
 TestShared - common stuff for Zircon tests
 
+=head1 AUTHOR
+
+Matthew Astley mca@sanger.ac.uk
+
 =cut
 
 
@@ -61,6 +65,7 @@ sub Tk::Error {
     my ($widget,$error,@locations) = @_;
     fail("Tk::Error was called");
     diag(join "\n", $error, @locations);
+    return ();
 }
 
 1;
