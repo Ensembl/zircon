@@ -78,7 +78,7 @@ sub _element_xml {
     my ($tag, $attribute_hash, $content_xml) = @_;
     my $tag_xml = join ' ', $tag, map {
         _attribute_xml($_, $attribute_hash->{$_});
-    } keys %{$attribute_hash};
+    } sort keys %{$attribute_hash};
     return defined $content_xml
         ? sprintf "<%s>\n%s\n</%s>", $tag_xml, $content_xml, $tag
         : sprintf "<%s />", $tag_xml;
