@@ -9,11 +9,54 @@ use TestShared qw( do_subtests );
 
 
 sub main {
-    do_subtests(qw( reply_tt element_tt ));
+    do_subtests(qw( request_tt reply_tt element_tt ));
     return 0;
 }
 
 main();
+
+
+sub request_tt {
+    plan tests => 4;
+    my $P = MockProto->new;
+
+    eq_or_diff
+      ($P->request_xml(vanish => 'view4'),
+       q{<zmap app_id="Bob" clipboard_id="sel_id_remote" request_id="0" type="request" version="2.0">
+<request command="vanish" view_id="view4" />
+</zmap>}, 'request, empty');
+
+    eq_or_diff
+      ($P->request_xml(smudge => view5 => 'with finger'),
+       q{<zmap app_id="Bob" clipboard_id="sel_id_remote" request_id="1" type="request" version="2.0">
+<request command="smudge" view_id="view5">
+with finger
+</request>
+</zmap>}, 'request, flat');
+
+    eq_or_diff
+      ($P->request_xml(prod => view6 => [ finger => { side => 'left' } ]),
+       q{<zmap app_id="Bob" clipboard_id="sel_id_remote" request_id="2" type="request" version="2.0">
+<request command="prod" view_id="view6">
+<finger side="left" />
+</request>
+</zmap>}, 'request, depth 1');
+
+    eq_or_diff
+      ($P->request_xml(prod => view7 => [ finger => { side => 'left' },
+                                          [ speed => {}, 'quick' ] ]),
+       q{<zmap app_id="Bob" clipboard_id="sel_id_remote" request_id="3" type="request" version="2.0">
+<request command="prod" view_id="view7">
+<finger side="left">
+<speed>
+quick
+</speed>
+</finger>
+</request>
+</zmap>}, 'request, depth 2');
+
+    return;
+}
 
 
 sub reply_tt {
@@ -103,9 +146,14 @@ text content
 
 
 
-# These Mocks cheerfully assume the methods all work as class methods.
+# These Mocks cheerfully assume some methods work as class methods.
 package MockProto;
 use base qw( Zircon::Protocol::XML );
+
+sub new {
+    my $self = {};
+    return bless $self, __PACKAGE__;
+}
 
 sub app_id { return 'Bob' }
 
@@ -113,5 +161,6 @@ sub connection { return 'MockConn' }
 
 package MockConn;
 sub local_selection_id { return 'sel_id_local' }
+sub remote_selection_id { return 'sel_id_remote' }
 
 1;
