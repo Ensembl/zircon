@@ -146,7 +146,7 @@ text content
 
 
 sub parse_tt {
-    plan tests => 4;
+    plan tests => 5;
     my $P = MockProto->new;
 
     my $req = [ finger => { side => 'left' },
@@ -160,16 +160,17 @@ sub parse_tt {
 
 
 
-    my $reply = [ message => { }, 'Roger' ];
+    my $reply = [ message => { }, "  Roger   \n  " ];
     $xml = $P->reply_xml(req1 => cmd1 => [ undef, $reply ]);
-    __clap_LFs($reply, -1);
+    $reply->[-1] = 'Roger';
+    like($xml, qr{>\n  Roger   \n  \n<},
+         'whitespace augmented during xml generation');
     eq_or_diff(MockProto->reply_xml_parse($xml),
                [ req1 => cmd1 => ok => undef, undef, [ $reply ] ],
-               'reply: ok')
+               'reply: ok, whitespace trimmed during parsing')
       or diag $xml;
 
     $xml = $P->reply_xml(req2 => cmd2 => [ [ '502', 'Yeargh' ] ]);
-    __clap_LFs($reply, -1);
     eq_or_diff(MockProto->reply_xml_parse($xml),
                [ req2 => cmd2 => 502 => 'Yeargh', undef, undef ],
                'reply: 502 fail');
@@ -184,12 +185,6 @@ sub parse_tt {
       or diag $xml;
 
     return;
-}
-
-sub __clap_LFs { # whitespace is not stripped - fix up the input to match
-    my ($listref, $idx) = @_;
-    $listref->[$idx] = join $listref->[$idx], "\n", "\n";
-    return ();
 }
 
 

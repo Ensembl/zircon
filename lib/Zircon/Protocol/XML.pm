@@ -222,6 +222,7 @@ sub _xml_string_parse {
     my ($xml) = @_;
     local $_ = $xml;
     _xml_unescape();
+    s/^\s+|\s+$//sg;
     return $_;
 }
 
