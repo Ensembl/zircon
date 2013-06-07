@@ -171,4 +171,6 @@ sub do_after__replied {
     # weird, $!=="No child processes".  Doesn't matter to us.
 
     $self->destroy;
+
+    return;
 }

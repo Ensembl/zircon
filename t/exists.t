@@ -50,6 +50,8 @@ sub predestroy_tt {
 
     like($got, qr{^ERR:Attempt to construct with invalid widget},
          "Z:T:Context->new with destroyed widget");
+
+    return;
 }
 
 
@@ -95,6 +97,8 @@ sub postdestroy_tt {
 
     $got = try_err { $handler->zconn->reset; 'done' };
     is($got, 'done', 'reset should still work');
+
+    return;
 }
 
 
@@ -119,6 +123,8 @@ sub waitdestroy_tt {
     is(scalar @warn, 1, 'produces warning');
     like($warn[0], qr{destroyed during waitVariable.*main::main}s,
          'is the expected long cluck');
+
+    return;
 }
 
 
@@ -150,6 +156,8 @@ sub owndestroy_tt {
     is(scalar @warn, 1, 'produces warnings')
       or diag explain \@warn;
     like($warn[0], qr{PropertyNotify on destroyed}, 'ordering of destory');
+
+    return;
 }
 
 
