@@ -13,6 +13,8 @@ use Zircon::Protocol;
 use lib "t/lib";
 use TestShared qw( have_display init_zircon_conn do_subtests );
 
+our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
+
 
 sub main {
     have_display();
@@ -71,7 +73,7 @@ sub init_zircon_proto {
 # send it a shutdown,
 # see it is gone.
 sub zirpro_tt {
-    plan tests => 8;
+    plan tests => 10;
 
     my $server = MockServer->new;
     my ($M, $proto) = init_zircon_proto($server);
@@ -89,6 +91,9 @@ sub zirpro_tt {
     is(scalar @$server, 1, 'one event logged by Server')
       or diag explain $server;
     like($server->[0], qr{^handshake: id}, 'handshake happened');
+
+    like($proto->xid_local,  $WINDOW_ID_RE, 'have local XWin');
+    like($proto->xid_remote, $WINDOW_ID_RE, 'have remote XWin');
 
     # XXX: grubby workaround: $server is told of request before request-ack
     $M->waitVariable(\$proto->connection->{'state'}) # PRIVATE!
