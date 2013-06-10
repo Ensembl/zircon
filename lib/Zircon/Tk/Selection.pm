@@ -199,6 +199,7 @@ sub _own_timestamped {
 
 sub clear {
     my ($self) = @_;
+    $self->zircon_trace($self->owns ? 'already owned' : 'will take');
     if ($self->owns) {
         my $w = $self->widget;
         Tk::Exists($w)
