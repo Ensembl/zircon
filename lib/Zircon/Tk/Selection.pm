@@ -7,9 +7,12 @@ use Carp qw( croak confess cluck );
 
 use Scalar::Util qw( weaken );
 use Try::Tiny;
+use File::Slurp qw( slurp );
+use Time::HiRes qw( usleep );
 
 use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_SELECTION_TRACE';
+our $DELAY_FILE_KEY = 'ZIRCON_DEBUG_DELAY';
 
 sub new {
     my ($pkg, %args) = @_;
@@ -67,6 +70,7 @@ sub init {
 sub own {
     my ($self) = @_;
     if (! $self->owns) {
+        $self->debug_delay('own');
         $self->zircon_trace('provoking timestamped event');
         $self->_own_provoke;
         $self->zircon_trace('did SelectionOwn');
@@ -204,6 +208,7 @@ sub clear {
         my $w = $self->widget;
         Tk::Exists($w)
             or croak "Attempt to clear selection with destroyed widget";
+        $self->debug_delay('clear');
         $self->widget->SelectionOwn(
             '-selection' => $self->id);
         $self->widget->SelectionClear(
@@ -219,6 +224,7 @@ sub get {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to get selection with destroyed widget";
+    $self->debug_delay('get');
     my $get = $w->SelectionGet(
             '-selection' => $self->id);
     $self->zircon_trace("result:\n%s\n", $get);
@@ -229,6 +235,7 @@ sub owner_callback {
     my ($self) = @_;
     $self->zircon_trace;
     $self->owns(0);
+    $self->debug_delay('lost');
     $self->handler->selection_owner_callback(
         $self->handler_data);
     return;
@@ -239,7 +246,11 @@ sub selection_callback {
     my $content = $self->content;
     my $size = (length $content) - $offset;
     $self->zircon_trace("Get for [$offset,$bytes) of $size bytes remaining");
-    $self->taken(1) if $size <= $bytes; # peer has read the content
+    if ($size <= $bytes) {
+        # peer has read the content
+        $self->debug_delay('taken');
+        $self->taken(1);
+    }
     return
         $size < $bytes
         ? substr $content, $offset
@@ -344,6 +355,24 @@ sub DESTROY {
 sub zircon_trace_prefix {
     my ($self) = @_;
     return sprintf "selection: %s: id = '%s'", $self->name, $self->id;
+}
+
+sub debug_delay {
+    my ($self, $type) = @_;
+    my $fn = $ENV{$DELAY_FILE_KEY};
+    return unless $fn && -f $fn;
+    $type .= " ".$self->name;
+    foreach my $ln (slurp($fn)) {
+        chomp $ln;
+        my ($min, $max, $pat) = split / /, $ln, 3;
+        next unless defined $pat;
+        next unless $type =~ /$pat/;
+        my $delay = rand($max - $min) + $min; # millisec
+        $self->zircon_trace(q{Sleeping (%d..%d) => %dms for '%s' =~ %s},
+                            $min, $max, $delay, $type, $pat);
+        usleep($delay * 1000);
+    }
+    return;
 }
 
 1;
