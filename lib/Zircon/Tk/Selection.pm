@@ -218,6 +218,8 @@ sub clear {
     return;
 }
 
+# Error when selection is not present (i.e. cleared)
+# which is wrapped by Z:C->_do_safely
 sub get {
     my ($self) = @_;
     $self->zircon_trace('start');

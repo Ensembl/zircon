@@ -349,9 +349,11 @@ sub _do_safely {
         }
     }
     catch {
-        $self->zircon_trace("_do_safely caught '%s'", $_);
+        my $msg = $_;
+        $msg =~ s/\.?\s*\n*$//;
+        $msg .= sprintf(', via _do_safely(state=%s, name=%s)', $self->state, $self->name);
         $self->reset;
-        die $_; # propagate any error
+        die $msg; # propagate any error
     }
     finally {
         $self->after(undef)
