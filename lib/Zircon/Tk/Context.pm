@@ -87,36 +87,103 @@ sub widget_xid {
 
 # other app's windows
 
+# Desperately risk-averse algorithm for "does xwinid exist?"
+#
+#   on hearing from the window,
+#   get the path back to root window
+#   unless we already have it
+#
+#   to check that the window still exists,
+#   chase the path from the root window downwards,
+#   assuming that the path is still valid
+#
+#   when window is known to exist (event from it),
+#   check that it still exists on the known path,
+#   and if it does not, just clear the path (re-parented?)
+#
+# Last part not implemented - YAGNI
 sub window_exists {
-    my ($self, $win_id) = @_;
-    my $widget = $self->{'widget'};
+    my ($self, $win_id, $does_exist) = @_;
 
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to check window_exists with destroyed widget";
 
-    my $win;
-    if (ref($win_id)) {
-        # assume it is a Window from Tk::Xlib
-        $win = $win_id;
+    my $path = $self->{_window_exists}{$win_id} ||= [];
+    if (!@$path) {
+        if (!$does_exist) {
+            # If it exists, we don't know where it is
+            return 0;
+        } else {
+            # Get the path of parents back up to root
+            my $win = __id2window($win_id);
+            while ($win) {
+                push @$path, $win;
+                ($win) = __xquerytree($w, $win);
+            }
+            my @id = map { sprintf '0x%X', $$_ } @$path;
+            $self->zircon_trace('window path (%s) registered',
+                                (join ' <- ', @id));
+            return 1;
+        }
     } else {
-        $win_id = hex($win_id) if $win_id =~ /^0x/;
-        $win = \$win_id;
-        # there is no constructor, they come from Tk.xs
-        bless $win, 'Window'; # no critic(
+        my @id = map { sprintf '0x%X', $$_ } @$path;
+        if ($does_exist) {
+            # YAGNI
+            return 1;
+        } else {
+            # Go look for $win_id starting at root
+            for (my $i=@$path-1; $i > 0; $i--) {
+                my $parent = $path->[$i];
+                my $win = $path->[$i-1];
+                my (undef, @kid) = __xquerytree($w, $parent);
+                if (grep { $$win == $$_ } @kid) {
+                    # $win still exists under $parent
+$self->zircon_trace('window 0x%X exists under 0x%X', $$win, $$parent);
+# Sometimes it fibs.  The child was present, but when we query it - boom!
+                } else {
+                    # The path has become invalid
+                    delete $self->{_window_exists}{$win_id};
+                    $self->zircon_trace('window path (%s) now invalid at 0x%X',
+                                        (join ' <- ', @id), $$win);
+                    return 0; # assume it was not reparented
+                }
+            }
+            $self->zircon_trace('window path (%s) still valid',
+                                (join ' <- ', @id));
+            return 1;
+        }
     }
+}
 
-    my ($root, $parent);
+sub __xquerytree {
+    my ($w, $win) = @_;
     return try {
         # see e.g. Xlib/tree_demo in perl-tk
-        $w->Display->XQueryTree($win, $root, $parent);
-        return defined $root;
+        my ($root, $parent);
+        my @kid = $w->Display->XQueryTree($win, $root, $parent);
+        # try will not protect us when $win does not exist.
+        # We cannot reach Tk_CreateErrorHandler from here.
+        # Ask for a BadWindow and we are *gone*.
+        return ($parent, @kid);
     } catch {
-        die "XQueryTree died unexpectedly: $_"
-          unless m{\bBadWindow\b};
-        warn "$self: I see the window is gone.\n";
-        return 0;
+        die "XQueryTree died unexpectedly: $_";
     };
+}
+
+sub __id2window {
+    my ($id) = @_;
+    # hackery to construct object from hexid
+    if (ref($id)) {
+        # assume it is a Window from Tk::Xlib
+        return $id;
+    } else {
+        $id = hex($id) if $id =~ /^0x/;
+        my $obj = \$id;
+        # there is no constructor, they come from Tk/Xlib.so
+        bless $obj, 'Window'; # no critic (Anacode::ProhibitRebless)
+        return $obj;
+    }
 }
 
 

@@ -15,7 +15,7 @@ use Zircon::Connection;
 
 sub main {
     have_display();
-    do_subtests(qw( predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt extwindow_tt ));
+    do_subtests(qw( extwindow_tt predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt ));
     return 0;
 }
 
@@ -165,16 +165,19 @@ sub owndestroy_tt {
 
 
 sub extwindow_tt {
-    plan tests => 3;
+    plan tests => 5;
     my $M = mkwidg();
     my $handler = init_zircon_conn($M, qw( me_local me_remote ));
 
     my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD';
   my $M = MainWindow->new(-title => "Child for extwindow_tt");
-#  $M->withdraw;
+  $M->withdraw;
+  $M->after(1500, \&late);
   my $w = $M->Label(-text => "foo");
   print "made ", $w->id,  ": ", $M->id, "\n";
+  $SIG{INT} = sub { $M->destroy; print "gone\n" };
   MainLoop;
+  sub late { warn "safety timeout - extwindow_tt child"; exit 1 }
 CHILD
 
     my $info = <$fh>;
@@ -183,10 +186,18 @@ CHILD
 
 diag explain { pid => $pid, info => $info, extid => $extid };
 
-    my $got = try_err { $handler->zconn->context->window_exists($extid) };
+    my $got = try_err { $handler->zconn->context->window_exists($extid, 1) };
+    is($got, 1, 'we notice child process window');
+
+    $got = try_err { $handler->zconn->context->window_exists($extid) };
     is($got, 1, 'we see child process window');
     kill 'INT', $pid
       or warn "kill child failed: $!";
+
+###  This makes the test pass, but we cannot rely on it
+#
+#    $info = <$fh>;
+#    is($info, "gone\n", 'child reports gone');
 
     $got = try_err { $handler->zconn->context->window_exists($extid) };
     is($got, 0, 'we see child process window is gone');

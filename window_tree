@@ -1,0 +1,39 @@
+#! /usr/bin/env perl
+use strict;
+use warnings;
+use Tk;
+use Tk::Xlib;
+
+sub main {
+    my $M = MainWindow->new(-title => 'experimental');
+    $M->repeat(750, [ \&show_path, $M ]);
+    MainLoop;
+}
+
+my $old_path = '';
+main();
+
+
+sub show_path {
+    my ($w) = @_;
+    my @id;
+    push @id, do {
+        my $id = $w->id;
+        $id=hex($id) if $id =~ /^0x/;
+        \$id;
+    };
+    bless $id[-1], 'Window'; # there is no constructor
+
+    my ($root, $parent);
+    do {
+        my @k = $w->Display->XQueryTree($id[-1], $root, $parent);
+        push @id, $parent if defined $parent;
+    } while (defined $parent);
+
+    my $txt = join " ", map { sprintf('0x%X', $$_) } @id;
+
+    print "$txt\n" unless $txt eq $old_path;
+    $old_path = $txt;
+
+    return $txt;
+}
