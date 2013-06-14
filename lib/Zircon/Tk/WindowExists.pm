@@ -100,10 +100,10 @@ sub tidy {
     return unless $pid;
 
     kill INT => $pid; # most likely already dead
-    waitpid $pid, 0;
     close $self->in;
     close $self->out;
-    return;
+    waitpid $pid, 0;
+    return $?;
 }
 
 sub main { # child only
@@ -126,6 +126,11 @@ sub do_query {
 
     # Get query from parent
     my $ln = <STDIN>;
+    if (!defined $ln) {
+        # EOF
+        $widget->destroy;
+        return;
+    }
     chomp $ln;
     die "Bad input '$ln'" unless $ln =~ m{^query\? (\S+)$};
     my $win_id = $1;

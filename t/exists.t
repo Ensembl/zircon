@@ -165,7 +165,7 @@ sub owndestroy_tt {
 
 
 sub extwindow_tt {
-    plan tests => 5;
+    plan tests => 9;
     my $M = mkwidg();
     my $handler = init_zircon_conn($M, qw( me_local me_remote ));
 
@@ -199,8 +199,29 @@ CHILD
     $info = <$fh>;
     is($info, "gone\n", 'child reports gone');
 
+    # Check for exit code
+    my $we = Zircon::Tk::WindowExists->new;
+    my $gone_id;
+    {
+        my $gone = $M->Frame->pack;
+        $gone_id = $gone->id;
+        $gone->destroy;
+    }
+    is($we->query( $gone_id ), 0, 'see absence of gone-frame');
+    my $exit = $we->tidy;
+    is(sprintf('0x%X', $exit), '0x100', 'child exit code: Xlib exit');
+
+    # Check for clean exit
+    $we = Zircon::Tk::WindowExists->new;
+    is($we->query( $M->id ), 1, 'see our MainWindow');
+    close $we->out; # emulate the parent closing
+    sleep 1; # bodge delay, giving child time to see EOF
+    $exit = $we->tidy; # sends SIGINT to be sure
+    is(sprintf('0x%X', $exit), '0x0', 'child exit code: EOF');
+
     return;
 }
+
 
 package Selection::Footshooting;
 use strict;
