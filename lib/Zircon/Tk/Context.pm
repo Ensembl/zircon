@@ -6,6 +6,7 @@ use warnings;
 
 use Carp qw( croak cluck );
 use Zircon::Tk::Selection;
+use Zircon::Tk::WindowExists;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
 
@@ -83,6 +84,17 @@ sub widget_xid {
     my ($self) = @_;
     return $self->widget->id;
 }
+
+# other app's windows
+
+sub window_exists {
+    my ($self, $win_id) = @_;
+
+    # Another process does the checking
+    my $we = $self->{_window_exists} ||= Zircon::Tk::WindowExists->new;
+    return $we->query($win_id);
+}
+
 
 # tracing
 
