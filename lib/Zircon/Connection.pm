@@ -20,6 +20,7 @@ my @mandatory_args = qw(
 
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
+    'timeout_retries_initial' => 10,
     'connection_id'    => __PACKAGE__,
 };
 
@@ -269,11 +270,13 @@ sub selection_call {
 # timeouts
 
 sub timeout_start {
-    my ($self) = @_;
+    my ($self, $retries) = @_;
+    $retries = $self->timeout_retries_initial unless defined $retries;
     my $timeout_handle =
         $self->timeout(
             $self->timeout_interval,
-            $self->callback('timeout_callback'));
+            $self->callback('timeout_maybe_callback'));
+    $self->timeout_retries($retries);
     $self->timeout_handle($timeout_handle);
     return;
 }
@@ -288,10 +291,41 @@ sub timeout_cancel {
     return;
 }
 
+# Time is up, but maybe we will wait again
+sub timeout_maybe_callback {
+    my ($self) = @_;
+    my $retries = $self->timeout_retries;
+    my $xid_remote = $self->xid_remote;
+    my $again = 0;
+    if ($retries && $xid_remote) {
+        # If the remote's window still exists, they're just busy
+        $again = 1 if $self->context->window_exists($xid_remote);
+
+        $self->zircon_trace
+          ('remote window %s %s, %d retr%s left',
+           $xid_remote,
+           ($again ? 'still exists' : 'gone'),
+           $retries, $retries == 1 ? 'y' : 'ies');
+    } elsif ($retries) {
+        # Assume we are waiting for handshake, benefit of the doubt
+        $again = 1;
+        $self->zircon_trace('no remote window, wait for handshake [%d]',
+                            $retries);
+    } # else we waiting long enough
+
+    if ($again) {
+        $self->timeout_start($retries - 1);
+    } else {
+        $self->timeout_callback;
+    }
+    return;
+}
+
 sub timeout_callback {
     my ($self) = @_;
     $self->timeout_handle(undef);
     $self->after(undef);
+    $self->zircon_trace;
     try { $self->handler->zircon_connection_timeout; }
     catch { die $_; } # propagate any error
     finally { $self->reset; };
@@ -308,6 +342,18 @@ sub timeout_handle {
     my ($self, @args) = @_;
     ($self->{'timeout_handle'}) = @args if @args;
     return $self->{'timeout_handle'};
+}
+
+sub timeout_retries {
+    my ($self, @args) = @_;
+    ($self->{'timeout_retries'}) = @args if @args;
+    return $self->{'timeout_retries'};
+}
+
+sub timeout_retries_initial {
+    my ($self, @args) = @_;
+    ($self->{'timeout_retries_initial'}) = @args if @args;
+    return $self->{'timeout_retries_initial'};
 }
 
 sub timeout {
