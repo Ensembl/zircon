@@ -380,6 +380,7 @@ sub update {
 
 sub reset {
     my ($self) = @_;
+    $self->zircon_trace("old state = '%s'", $self->state);
     $self->state('inactive');
     $self->go_inactive;
     return;
