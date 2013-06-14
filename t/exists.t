@@ -96,7 +96,7 @@ sub postdestroy_tt {
     like($got, want_re('waitVariable'), 'waitVariable after destroy');
 
     $got = try_err { $handler->zconn->context->window_exists(1234) };
-    like($got, want_re('check window_exists'), 'window_exists after destroy');
+    like($got, qr/^[01]$/, 'window_exists after destroy');
 
     $got = try_err { $handler->zconn->reset; 'done' };
     is($got, 'done', 'reset should still work');
@@ -183,8 +183,7 @@ CHILD
     my $info = <$fh>;
     like($info, qr{0x\w+}, 'child process told us of window');
     my ($extid) = $info =~ m{(0x\w+)};
-
-diag explain { pid => $pid, info => $info, extid => $extid };
+    # diag explain { pid => $pid, info => $info, extid => $extid };
 
     my $got = try_err { $handler->zconn->context->window_exists($extid, 1) };
     is($got, 1, 'we notice child process window');
@@ -194,13 +193,11 @@ diag explain { pid => $pid, info => $info, extid => $extid };
     kill 'INT', $pid
       or warn "kill child failed: $!";
 
-###  This makes the test pass, but we cannot rely on it
-#
-#    $info = <$fh>;
-#    is($info, "gone\n", 'child reports gone');
-
     $got = try_err { $handler->zconn->context->window_exists($extid) };
     is($got, 0, 'we see child process window is gone');
+
+    $info = <$fh>;
+    is($info, "gone\n", 'child reports gone');
 
     return;
 }
