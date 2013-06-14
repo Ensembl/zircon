@@ -88,7 +88,9 @@ sub widget_xid {
 
 sub zircon_trace_prefix {
     my ($self) = @_;
-    return sprintf('Z:T:Context: widget=%s', $self->widget->PathName);
+    my $w = $self->widget;
+    my $path = Tk::Exists($w) ? $w->PathName : '(destroyed)';
+    return sprintf('Z:T:Context: widget=%s', $path);
 }
 
 1;

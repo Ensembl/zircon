@@ -120,6 +120,10 @@ sub waitdestroy_tt {
     my $got = try_err { $handler->zconn->context->waitVariable(\$flag); "flag=$flag" };
     alarm(0);
     is($got, 'flag=1', 'waitVariable with destruction during');
+    if (3 == @warn) {
+        # extra noise from zircon_trace
+        @warn = ($warn[1]);
+    }
     is(scalar @warn, 1, 'produces warning');
     like($warn[0], qr{destroyed during waitVariable.*main::main}s,
          'is the expected long cluck');
@@ -153,6 +157,10 @@ sub owndestroy_tt {
     ok(!Tk::Exists($M), 'window was destroyed');
 
     like($got, qr{destroyed during waitVariable at}, 'own with destruction during');
+    if (2 == @warn) {
+        # extra noise from zircon_trace
+        @warn = ($warn[1]);
+    }
     is(scalar @warn, 1, 'produces warnings')
       or diag explain \@warn;
     like($warn[0], qr{PropertyNotify on destroyed}, 'ordering of destory');
