@@ -300,6 +300,12 @@ sub message_command_unknown {
     return [ [ 'cmd_unknown', $reason ] ];
 }
 
+sub message_command_failed {
+    my ($self, $reason) = @_;
+
+    return [ [ 'cmd_failed', $reason ] ];
+}
+
 sub close {
     my ($self) = @_;
     $self->{'is_open'} = 0;
