@@ -295,9 +295,9 @@ sub message_ok {
 }
 
 sub message_command_unknown {
-    my ($self, $command, $reason) = @_;
+    my ($self, $reason) = @_;
 
-    return [ [ $command, $reason ] ];
+    return [ [ 'cmd_unknown', $reason ] ];
 }
 
 sub close {

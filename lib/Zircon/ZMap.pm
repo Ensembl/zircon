@@ -223,7 +223,7 @@ sub zircon_server_protocol_command {
         default {
             my $reason = "Unknown ZMap protocol command: '${command}'";
             my $reply =
-                $self->protocol->message_command_unknown($command, $reason);
+                $self->protocol->message_command_unknown($reason);
             return $reply;
         }
 
