@@ -330,11 +330,19 @@ sub _command_edit {
         for @{$feature_body};
     my $sub_list =
         $tag_attribute_list_hash->{'subfeature'};
-    $handler->zircon_zmap_view_edit(
-        $name, $style, $sub_list);
-    my $protocol_message = 'edit received...thanks !';
-    my $reply = $self->protocol->message_ok($protocol_message);
-    return $reply;
+    my $success =
+        $handler->zircon_zmap_view_edit(
+            $name, $style, $sub_list);
+    if ($success) {
+        my $protocol_message = 'edit received...thanks !';
+        my $reply = $self->protocol->message_ok($protocol_message);
+        return $reply;
+    }
+    else {
+        my $protocol_message = 'object not editable...failed !';
+        my $reply = $self->protocol->message_command_failed($protocol_message);
+        return $reply;
+    }
 }
 
 sub _feature_entity {
