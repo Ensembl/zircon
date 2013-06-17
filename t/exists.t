@@ -7,6 +7,7 @@ use TestShared qw( have_display init_zircon_conn do_subtests );
 
 use Test::More;
 use Try::Tiny;
+use Time::HiRes qw( usleep );
 use Tk;
 
 use Zircon::Tk::Context;
@@ -201,11 +202,21 @@ CHILD
     kill 'INT', $pid
       or warn "kill child failed: $!";
 
-    $got = try_err { $handler->zconn->context->window_exists($extid) };
-    is($got, 0, 'we see child process window is gone');
-
     $info = <$fh>;
     is($info, "gone\n", 'child reports gone');
+
+    ($got, my $retry) = try_err {
+        # kill and resulting window disappearance take some realtime
+        # to reach the XServer, so wait a while for the "right" answer
+        my ($out, $n);
+        for ($n=0; $n <= 10; $n++) {
+            $out = $handler->zconn->context->window_exists($extid);
+            last if $out == 0;
+            usleep(10e3); # 10ms
+        }
+        return ($out, $n);
+    };
+    is($got, 0, "we see child process window is gone (attempt $retry)");
 
     # Check for exit code
     my $we = Zircon::Tk::WindowExists->new;
