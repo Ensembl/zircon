@@ -3,10 +3,11 @@ use strict;
 use warnings;
 
 use base 'Exporter';
-our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn );
+our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn try_err mkwidg );
 
 use Tk;
 use Test::More;
+use Try::Tiny;
 
 use ConnHandler;
 
@@ -60,6 +61,28 @@ sub init_zircon_conn {
 
     return $handler;
 }
+
+
+sub try_err(&) {
+    my ($code) = @_;
+    return try { goto &$code } catch {"ERR:$_"};
+}
+
+
+sub mkwidg {
+    my @mw_arg = @_;
+    my $M = MainWindow->new(@mw_arg);
+    my $make_it_live = $M->id;
+
+    # for quieter tests,
+    #
+    # but also under prove(1) without -v prevents some failures(?)
+    # in t/exists.t owndestroy_tt
+    $M->withdraw;
+
+    return $M;
+}
+
 
 sub Tk::Error {
     my ($widget,$error,@locations) = @_;

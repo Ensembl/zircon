@@ -3,10 +3,9 @@ use strict;
 use warnings;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn do_subtests );
+use TestShared qw( have_display init_zircon_conn do_subtests try_err mkwidg );
 
 use Test::More;
-use Try::Tiny;
 use Time::HiRes qw( usleep );
 use Tk;
 
@@ -22,22 +21,6 @@ sub main {
 
 main();
 
-sub try_err(&) {
-    my ($code) = @_;
-    return try { goto &$code } catch {"ERR:$_"};
-}
-
-
-sub mkwidg {
-    my $M = MainWindow->new;
-    my $make_it_live = $M->id;
-
-    # for quieter tests,
-    # but also under prove(1) without -v prevents some failures(?)
-    $M->withdraw;
-
-    return $M;
-}
 
 sub predestroy_tt {
     plan tests => 1;

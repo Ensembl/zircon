@@ -11,7 +11,7 @@ use Zircon::Tk::Context;
 use Zircon::Protocol;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn do_subtests );
+use TestShared qw( have_display init_zircon_conn do_subtests mkwidg );
 
 our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
 
@@ -47,9 +47,7 @@ main();
 sub init_zircon_proto {
     my ($server) = @_;
 
-    my $M = MainWindow->new;
-    $M->withdraw;
-    my $make_it_live = $M->id;
+    my $M = mkwidg();
 
     my $name = $0;
     $name =~ s{.*/}{};
