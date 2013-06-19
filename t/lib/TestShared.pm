@@ -80,6 +80,9 @@ sub mkwidg {
     # in t/exists.t owndestroy_tt
     $M->withdraw;
 
+    # necessary for window to be seen promply by Zircon::Tk::WindowExists ..?
+    $M->idletasks;
+
     return $M;
 }
 
