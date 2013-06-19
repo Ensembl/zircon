@@ -76,6 +76,10 @@ sub ensure_open {
         # Redirect the pipes before exec, else they are closed
         my @err;
         try {
+            try { untie *STDIN };
+            try { untie *STDOUT };
+            try { untie *STDERR };
+
             open STDIN, '<&', $q_read or push @err, "dup STDIN: $!";
             open STDOUT, '>&', $a_write or push @err, "dup STDOUT: $!";
 

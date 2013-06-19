@@ -153,3 +153,16 @@ sub take_content {
     my ($self) = @_;
     return splice @{ $self->{printed} };
 }
+
+sub UNTIE {
+    my ($self) = @_;
+
+    $self->{dead} = 1; # unused, just symbolic
+
+    # Without this method, we can get warnings
+    #
+    #    untie attempted while 1 inner references still exist at /nfs/users/nfs_m/mca/gitwk-anacode/zircon/lib/Zircon/Tk/WindowExists.pm line 79.
+    #
+    # http://www.perlmonks.org/?node_id=562150
+    return;
+}
