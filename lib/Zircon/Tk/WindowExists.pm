@@ -106,6 +106,12 @@ sub tidy {
     return $?;
 }
 
+sub DESTROY { # parent only
+    my ($self) = @_;
+    $self->tidy;
+    return;
+}
+
 sub main { # child only
     require Tk;
     require Tk::Xlib;

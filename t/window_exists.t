@@ -15,7 +15,7 @@ use Zircon::Tk::WindowExists;
 
 sub main {
     have_display();
-    do_subtests(qw( clean_exit_tt tied_handles_tt ));
+    do_subtests(qw( clean_exit_tt destroy_tt tied_handles_tt ));
     return 0;
 }
 
@@ -64,6 +64,26 @@ sub clean_exit_tt {
 
     return;
 }
+
+
+sub destroy_tt {
+    plan tests => 3;
+
+    my $dut = Zircon::Tk::WindowExists->new; # device under test
+    my $M = mkwidg();
+    my $winid = $M->id;
+    is($dut->query($winid), 1, 'sees our window');
+
+    my $pid = $dut->pid;
+    undef $dut;
+
+    undef $!;
+    my $count = kill KILL => $pid;
+    my $rc = $!;
+    is($count, 0, 'pid gone after undef'); # gone = dead + reaped
+    is(0+$rc, 3, "pid not killed ($rc)");
+}
+
 
 sub tied_handles_tt {
     plan tests => 1;
