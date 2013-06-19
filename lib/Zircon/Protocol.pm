@@ -54,6 +54,8 @@ sub _init {
         );
     $self->{'connection'} = $connection;
     $connection->local_selection_id($selection_id);
+
+    $self->trace_env_update;
     $self->zircon_trace('Initialised local (clipboard %s)', $selection_id);
 
     return;

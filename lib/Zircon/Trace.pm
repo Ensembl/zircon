@@ -4,6 +4,21 @@ package Zircon::Trace;
 use strict;
 use warnings;
 
+sub trace_env_update {
+    my ($called) = @_;
+    return unless Bio::Otter::Debug->can('debug');
+
+    if (Bio::Otter::Debug->debug('Zircon')) {
+        $ENV{$_}=1 foreach
+          (qw( ZIRCON_CONNECTION_TRACE ZIRCON_PROTOCOL_TRACE
+               ZIRCON_CONTEXT_TRACE    ZIRCON_SELECTION_TRACE ));
+        # we don't admit being able to turn it off again,
+        # because maybe it was set via %ENV from outside
+    }
+
+    return;
+}
+
 sub zircon_trace {
     my ($self, $format, @args) = @_;
     my ($pkg, $sub_name) =
