@@ -3,6 +3,7 @@ package Zircon::Tk::WindowExists;
 use strict;
 use warnings;
 
+use Try::Tiny;
 use POSIX;
 use IO::Handle;
 
@@ -74,11 +75,16 @@ sub ensure_open {
     } else { # child
         # Redirect the pipes before exec, else they are closed
         my @err;
-        open STDIN, '<&', $q_read or push @err, "dup STDIN: $!";
-        open STDOUT, '>&', $a_write or push @err, "dup STDOUT: $!";
+        try {
+            open STDIN, '<&', $q_read or push @err, "dup STDIN: $!";
+            open STDOUT, '>&', $a_write or push @err, "dup STDOUT: $!";
 
-        close $a_read;
-        close $q_write;
+            close $a_read;
+            close $q_write;
+        } catch {
+            # do not propagate errors before (exec || exit)
+            push @err, "Redirections failed: $_";
+        };
 
         my $pkg = __PACKAGE__;
         my @cmd = ($^X, "-M$pkg", "-E", "$pkg\->main");
@@ -88,7 +94,7 @@ sub ensure_open {
         }
         warn "$pkg: child pid=$$ failed to start";
         warn "  $_\n" foreach @err;
-        close STDERR; # for flush
+        try { close STDERR }; # for flush
         POSIX::_exit(127); # avoid DESTROY and END actions
     }
     return; # parent only
