@@ -194,7 +194,7 @@ CHILD
     my ($extid) = $info =~ m{(0x\w+)};
     # diag explain { pid => $pid, info => $info, extid => $extid };
 
-    my $got = try_err { $handler->zconn->context->window_exists($extid, 1) };
+    my $got = try_err { $handler->zconn->context->window_exists($extid) };
     is($got, 1, 'we notice child process window');
 
     $got = try_err { $handler->zconn->context->window_exists($extid) };

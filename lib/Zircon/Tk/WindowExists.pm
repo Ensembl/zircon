@@ -117,11 +117,11 @@ sub main { # child only
     $M->withdraw;
 
     my $obj = $pkg->new;
-    $M->fileevent(\*STDIN, readable => [ $obj, 'do_query', $M ]);
+    $M->fileevent(\*STDIN, readable => [ $obj, '_do_query', $M ]);
     Tk::MainLoop();
 }
 
-sub do_query {
+sub _do_query {
     my ($self, $widget) = @_;
 
     # Get query from parent
