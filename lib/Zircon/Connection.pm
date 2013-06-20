@@ -21,6 +21,7 @@ my @mandatory_args = qw(
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
     'timeout_retries_initial' => 10,
+    'rolechange_wait' => 500,
     'connection_id'    => __PACKAGE__,
 };
 
@@ -356,6 +357,12 @@ sub timeout_retries_initial {
     return $self->{'timeout_retries_initial'};
 }
 
+sub rolechange_wait {
+    my ($self, @args) = @_;
+    ($self->{'rolechange_wait'}) = @args if @args;
+    return $self->{'rolechange_wait'};
+}
+
 sub timeout {
     my ($self, @args) = @_;
     my $timeout_handle =
@@ -389,9 +396,11 @@ sub _do_safely {
         $self->update;
         if ($self->state eq 'inactive'
             and my $after = $self->after
-            ) {
-            $self->timeout(
-                500, sub { $after->(); });
+           ) {
+            $self->timeout($self->rolechange_wait, # RT#324544
+                           sub { $after->(); });
+            # When $rolechange_wait can go back to zero, why not run
+            # the $after->() here+now?  Originally in 2d8bbeb
         }
     }
     catch {
@@ -516,7 +525,8 @@ Create a Zircon connection.
     my $connection = Zircon::Connection->new(
         -context => $context, # mandatory
         -handler => $handler, # mandatory
-        -timeout_interval => $timeout, # optional
+        -timeout_interval => $timeout, # optional, in millisec
+        -timeout_retries_initial => $count, # optional
         );
 
 =over 4
@@ -548,6 +558,13 @@ the timeout interval, then the connection calls the handler's timeout
 method and then resets.
 
 This value defaults to 500 if not supplied.
+
+=item C<$count> (optional)
+
+The number of times the timeout may be restarted, per phase.  This is
+used when we have some reason to think the peer is still present:
+remote window still exists, or we are waiting for the handshake to
+complete.
 
 =back
 

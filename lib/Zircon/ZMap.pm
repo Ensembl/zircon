@@ -21,12 +21,13 @@ my $_id = 0;
 sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
-    my ($app_id, $context) =
-        @{$arg_hash}{qw( -app_id -context )};
+
+    foreach my $k (qw( app_id context timeout_ms timeout_retries rolechange_wait )) {
+        $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
+    }
     $self->{'_id'} = $_id++;
-    $self->{'_app_id'} = $app_id;
-    $self->{'_context'} = $context;
-    $self->{'_protocol'} = $self->_protocol;
+    $self->{'_protocol'} = $self->_protocol; # needs app_id etc.
+
     my $peer_name = $self->app_id;
     my $peer_clipboard =
         $self->protocol->connection->local_selection_id;
@@ -49,7 +50,9 @@ sub _protocol {
             '-selection_id' => $selection_id,
             '-context'      => $self->context,
             '-server'       => $self,
-            '-connection_timeout' => 2000,
+            '-connection_timeout' => $self->{'_timeout_ms'},
+            '-timeout_retries' => $self->{'_timeout_retries'},
+            '-rolechange_wait' => $self->{'_rolechange_wait'}, # XXX: temporary, awaiting RT#324544
         );
     return $protocol;
 }

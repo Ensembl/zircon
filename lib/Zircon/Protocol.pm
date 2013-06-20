@@ -42,15 +42,17 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my ($context, $selection_id, $timeout) =
-        @{$arg_hash}{qw( -context -selection_id -connection_timeout )};
+    my ($context, $selection_id, $timeout_ms, $timeout_retries, $rolechange_wait) =
+        @{$arg_hash}{qw( -context -selection_id -connection_timeout -timeout_retries -rolechange_wait )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
     my $connection = Zircon::Connection->new(
         '-connection_id' => $connection_id,
         '-name'    => $self->app_id,
         '-context' => $context,
         '-handler' => $self,
-        '-timeout_interval' => $timeout,
+        '-timeout_interval' => $timeout_ms,
+        '-timeout_retries_initial' => $timeout_retries,
+        '-rolechange_wait' => $rolechange_wait, # XXX: temporary, awaiting RT#324544
         );
     $self->{'connection'} = $connection;
     $connection->local_selection_id($selection_id);
