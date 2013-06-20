@@ -135,13 +135,16 @@ sub main { # child only
     my $obj = $pkg->new;
     $M->fileevent(\*STDIN, readable => [ $obj, '_do_query', $M ]);
     Tk::MainLoop();
+    return 0;
 }
 
-sub _do_query {
+# method used in Tk event spec, in child
+sub _do_query { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $widget) = @_;
 
-    # Get query from parent
-    my $ln = <STDIN>;
+    # Get query from parent, which comes explicitly on STDIN
+    my $ln = <STDIN>; ## no critic (InputOutput::ProhibitExplicitStdin)
+
     if (!defined $ln) {
         # EOF
         $widget->destroy;
@@ -164,8 +167,8 @@ sub _do_query {
     my @kid = $widget->Display->XQueryTree($win, $root, $parent);
 
     if ($old_stderr) {
-        open STDERR, '>&', $old_stderr;
-        # or we are muted indefinitely
+        open STDERR, '>&', $old_stderr
+          or 1; # we are muted indefinitely
     }
     die "Window $win_id did not exist.  We survived asking?"
       unless defined $root;
@@ -186,7 +189,7 @@ sub __id2window {
         $id = hex($id) if $id =~ /^0x/;
         my $obj = \$id;
         # there is no constructor, they come from Tk/Xlib.so
-        bless $obj, 'Window'; # no critic (Anacode::ProhibitRebless)
+        bless $obj, 'Window'; ## no critic (Anacode::ProhibitRebless)
         return $obj;
     }
 }
