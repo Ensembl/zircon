@@ -46,7 +46,9 @@ sub _init {
     my ($self, $arg_hash) = @_;
     my $program = $arg_hash->{'-program'};
     $self->{'_program'} = $program if $program;
-    $self->{'_arg_list'} = $arg_hash->{'-arg_list'};
+    $self->{'_arg_list'} = [@{
+        $arg_hash->{'-arg_list'}
+    }]; # copy now because list is modified by subclass _init
     $self->{'_id_view_hash'} = { };
     $self->{'_view_list'} = [ ];
     return;
