@@ -88,10 +88,7 @@ sub _new_view {
         [ 'sequence', $new_view_arg_hash ],
         sub {
             my ($result) = @_;
-            $self->protocol->connection->after(
-                sub {
-                    $self->wait_finish;
-                });
+            $self->wait_finish;
             die "&_new_view: failed" unless $result->success;
             my $handler = $arg_hash->{'-handler'};
             my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
@@ -127,8 +124,7 @@ sub view_destroyed {
         undef,
         sub {
             ($result) = @_;
-            $self->protocol->connection->after(
-                sub { $self->wait_finish; });
+            $self->wait_finish;
         });
     $self->wait;
     ($result && $result->success)
@@ -143,10 +139,7 @@ sub send_command_and_xml {
         $command, $view->view_id, $xml,
         sub {
             ($result) = @_;
-            $self->protocol->connection->after(
-                sub {
-                    $self->wait_finish;
-                });
+            $self->wait_finish;
         });
     $self->wait;
     return $result;
@@ -169,10 +162,7 @@ sub launch_zmap {
 
 sub zircon_server_handshake {
     my ($self, @arg_list) = @_;
-    $self->protocol->connection->after(
-        sub {
-            $self->wait_finish; # make the caller return
-        });
+    $self->wait_finish; # make the caller return
     $self->Zircon::Protocol::Server::zircon_server_handshake(@arg_list);
     return;
 }
@@ -412,10 +402,7 @@ sub DESTROY {
             undef,
             sub {
                 my ($result) = @_;
-                $self->protocol->connection->after(
-                    sub {
-                        $self->wait_finish;
-                    });
+                $self->wait_finish;
                 die "shutdown: failed" unless $result->success;
             });
         $self->wait;
