@@ -65,9 +65,9 @@ sub waitVariable {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to waitVariable with destroyed widget";
-    $self->zircon_trace('startWAIT(%s) for %s=%s', refaddr($self), $var, $$var);
+    $self->zircon_trace('startWAIT(0x%x) for %s=%s', refaddr($self), $var, $$var);
     $w->waitVariable($var); # traced
-    $self->zircon_trace('stopWAIT(%s) with %s=%s', refaddr($self), $var, $$var);
+    $self->zircon_trace('stopWAIT(0x%x) with %s=%s', refaddr($self), $var, $$var);
     Tk::Exists($w)
         or cluck "Widget $w destroyed during waitVariable";
     return;
