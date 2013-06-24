@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use Carp qw( croak cluck );
+use Scalar::Util qw( refaddr );
 use Zircon::Tk::Selection;
 use Zircon::Tk::WindowExists;
 use base 'Zircon::Trace';
@@ -61,14 +62,14 @@ sub timeout {
 
 sub waitVariable {
     my ($self, $var) = @_;
-    $self->zircon_trace('enter for %s=%s', $var, $$var);
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to waitVariable with destroyed widget";
-    $w->waitVariable($var);
+    $self->zircon_trace('startWAIT(%s) for %s=%s', refaddr($self), $var, $$var);
+    $w->waitVariable($var); # traced
+    $self->zircon_trace('stopWAIT(%s) with %s=%s', refaddr($self), $var, $$var);
     Tk::Exists($w)
         or cluck "Widget $w destroyed during waitVariable";
-    $self->zircon_trace('exit with %s=%s', $var, $$var);
     return;
 }
 

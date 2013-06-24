@@ -149,7 +149,7 @@ sub _own_provoke {
        });
 
     $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
-    $w->waitVariable($V);
+    $w->waitVariable($V); # protected by local after (10sec)
     $after->cancel;
 
     if (Tk::Exists($w)) {

@@ -15,6 +15,7 @@ use base qw(
     Zircon::ZMap::Core
     Zircon::Protocol::Server
     );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
 
 my $_id = 0;
 

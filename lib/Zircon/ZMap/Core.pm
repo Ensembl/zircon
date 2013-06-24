@@ -7,8 +7,11 @@ use strict;
 use warnings;
 
 use Carp;
-use Scalar::Util qw( weaken );
+use Scalar::Util qw( weaken refaddr );
 use POSIX ();
+
+use base qw( Zircon::Trace );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
 
 my @_list = ( );
 
@@ -94,8 +97,14 @@ sub add_view {
 
 sub wait {
     my ($self) = @_;
+    my $val = $self->{'_wait'};
     $self->{'_wait'} = 1;
-    $self->waitVariable(\ $self->{'_wait'});
+    $self->zircon_trace('startWAIT(%s), old val=%s, new=%s', refaddr($self),
+                        defined $val ? $val : '(undef)', $self->{'_wait'});
+    $self->waitVariable(\ $self->{'_wait'}); # traced
+    $val = $self->{'_wait'};
+    $self->zircon_trace('stopWAIT(%s), val=%s', refaddr($self),
+                        defined $val ? $val : '(undef)');
     return;
 }
 
@@ -145,6 +154,14 @@ sub _view_list {
     my ($self) = @_;
     my $view_list = $self->{'_view_list'};
     return $view_list;
+}
+
+
+# tracing
+
+sub zircon_trace_prefix {
+    my ($self) = @_;
+    return 'Z:ZMap';
 }
 
 1;
