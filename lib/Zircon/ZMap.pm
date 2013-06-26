@@ -161,8 +161,18 @@ sub waitVariable {
 
 sub launch_zmap {
     my ($self) = @_;
+
+    my $wait = 0;
+    my $wait_ok = 0;
+    my $wait_finish = sub { $wait ||= 1; };
+    $self->launch_zmap_wait_finish(sub { $wait_ok ||= 1; $wait ||= 1; });
+
+    # we hope the Zircon handshake callback calls $self->launch_zmap_wait_finish->()
     $self->Zircon::ZMap::Core::launch_zmap;
-    $self->wait; # don't return until the Zircon handshake callback calls wait_finish()
+    $self->context->timeout(15_000, $wait_finish);
+    $self->waitVariable(\ $wait);
+    $wait_ok or die "launch_zmap(): timeout waiting for the handshake";
+
     return;
 }
 
@@ -171,9 +181,7 @@ sub launch_zmap {
 sub zircon_server_handshake {
     my ($self, @arg_list) = @_;
     $self->protocol->connection->after(
-        sub {
-            $self->wait_finish; # make the caller return
-        });
+        sub { $self->launch_zmap_wait_finish->(); });
     $self->Zircon::Protocol::Server::zircon_server_handshake(@arg_list);
     return;
 }
@@ -400,6 +408,13 @@ sub context {
     my ($self) = @_;
     my $context = $self->{'_context'};
     return $context;
+}
+
+sub launch_zmap_wait_finish {
+    my ($self, @args) = @_;
+    ($self->{'_launch_zmap_wait_finish'}) = @args if @args;
+    my $launch_zmap_wait_finish = $self->{'_launch_zmap_wait_finish'};
+    return $launch_zmap_wait_finish;
 }
 
 # destructor
