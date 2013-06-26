@@ -146,17 +146,24 @@ sub view_destroyed {
 
 sub send_command_and_xml {
     my ($self, $view, $command, $xml) = @_;
+
+    my $wait = 0;
+    my $wait_ok = 0;
+    my $wait_finish = sub { $wait ||= 1; };
+    my $wait_finish_ok = sub { $wait_ok ||= 1; $wait ||= 1; };
+
     my $result;
     $self->protocol->send_command(
         $command, $view->view_id, $xml,
         sub {
             ($result) = @_;
-            $self->protocol->connection->after(
-                sub {
-                    $self->wait_finish;
-                });
+            $self->protocol->connection->after($wait_finish_ok);
         });
-    $self->wait;
+
+    $self->context->timeout(15_000, $wait_finish);
+    $self->waitVariable(\ $wait);
+    $wait_ok or die "&send_command_and_xml: timeout";
+
     return $result;
 }
 
