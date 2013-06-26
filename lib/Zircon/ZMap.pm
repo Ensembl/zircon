@@ -82,23 +82,30 @@ sub _new_view {
     my $new_view_arg_hash = {
         map { $_ => $arg_hash->{"-$_"} } @_new_view_key_list
     };
-    my $view;
+
+    my $wait = 0;
+    my $wait_ok = 0;
+    my $wait_finish = sub { $wait ||= 1; };
+    my $wait_finish_ok = sub { $wait_ok ||= 1; $wait ||= 1; };
+
+    my $result;
     $self->protocol->send_command(
         $command,
         $view_id,
         [ 'sequence', $new_view_arg_hash ],
         sub {
-            my ($result) = @_;
-            $self->protocol->connection->after(
-                sub {
-                    $self->wait_finish;
-                });
-            die "&_new_view: failed" unless $result->success;
-            my $handler = $arg_hash->{'-handler'};
-            my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
-            $view = $self->_new_view_from_result($handler, $name, $result);
+            ($result) = @_;
+            $self->protocol->connection->after($wait_finish_ok);
         });
-    $self->wait;
+
+    $self->context->timeout(15_000, $wait_finish);
+    $self->waitVariable(\ $wait);
+    die "&_new_view: failed" unless $wait_ok && $result && $result->success;
+
+    my $handler = $arg_hash->{'-handler'};
+    my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
+    my $view = $self->_new_view_from_result($handler, $name, $result);
+
     return $view;
 }
 
