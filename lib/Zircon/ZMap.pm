@@ -98,8 +98,7 @@ sub _new_view {
             $self->protocol->connection->after($wait_finish_ok);
         });
 
-    $self->context->timeout(15_000, $wait_finish);
-    $self->waitVariable(\ $wait);
+    $self->waitVariable_with_fail(\ $wait, $wait_finish);
     die "&_new_view: failed" unless $wait_ok && $result && $result->success;
 
     my $handler = $arg_hash->{'-handler'};
@@ -107,6 +106,16 @@ sub _new_view {
     my $view = $self->_new_view_from_result($handler, $name, $result);
 
     return $view;
+}
+
+sub waitVariable_with_fail {
+    my ($self, $var_ref, $wait_finish) = @_;
+    my $fail_timeout =
+      $self->protocol->connection->timeout_interval * # millisec
+        ($self->protocol->connection->timeout_retries_initial + 2);
+    $self->context->timeout($fail_timeout, $wait_finish);
+    $self->waitVariable($var_ref);
+    return;
 }
 
 sub _new_view_from_result {
@@ -160,8 +169,7 @@ sub send_command_and_xml {
             $self->protocol->connection->after($wait_finish_ok);
         });
 
-    $self->context->timeout(15_000, $wait_finish);
-    $self->waitVariable(\ $wait);
+    $self->waitVariable_with_fail(\ $wait, $wait_finish);
     $wait_ok or die "&send_command_and_xml: timeout";
 
     return $result;
@@ -183,8 +191,7 @@ sub launch_zmap {
 
     # we hope the Zircon handshake callback calls $self->launch_zmap_wait_finish->()
     $self->Zircon::ZMap::Core::launch_zmap;
-    $self->context->timeout(15_000, $wait_finish);
-    $self->waitVariable(\ $wait);
+    $self->waitVariable_with_fail(\ $wait, $wait_finish);
     $wait_ok or die "launch_zmap(): timeout waiting for the handshake";
 
     return;
