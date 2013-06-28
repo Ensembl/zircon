@@ -7,6 +7,7 @@ use warnings;
 use feature qw(switch);
 
 use Try::Tiny;
+use Scalar::Util qw( refaddr );
 
 use Zircon::Protocol;
 use Zircon::ZMap::View;
