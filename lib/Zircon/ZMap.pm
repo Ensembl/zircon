@@ -84,9 +84,7 @@ sub _new_view {
     };
 
     my $wait = 0;
-    my $wait_ok = 0;
-    my $wait_finish = sub { $wait ||= 1; };
-    my $wait_finish_ok = sub { $wait_ok ||= 1; $wait ||= 1; };
+    my $wait_finish_ok = sub { $wait = 'ok' };
 
     my $result;
     $self->protocol->send_command(
@@ -98,8 +96,8 @@ sub _new_view {
             $self->protocol->connection->after($wait_finish_ok);
         });
 
-    $self->waitVariable_with_fail(\ $wait, $wait_finish);
-    die "&_new_view: failed" unless $wait_ok && $result && $result->success;
+    $self->waitVariable_with_fail(\ $wait);
+    die "&_new_view: failed" unless $wait eq 'ok' && $result && $result->success;
 
     my $handler = $arg_hash->{'-handler'};
     my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
@@ -109,12 +107,17 @@ sub _new_view {
 }
 
 sub waitVariable_with_fail {
-    my ($self, $var_ref, $wait_finish) = @_;
+    my ($self, $var_ref) = @_;
+    my $wait_finish = sub { $$var_ref = 'fail_timeout' };
     my $fail_timeout =
       $self->protocol->connection->timeout_interval * # millisec
         ($self->protocol->connection->timeout_retries_initial + 2);
     $self->context->timeout($fail_timeout, $wait_finish);
+    $self->zircon_trace('startWAIT(0x%x), var %s=%s',
+                        refaddr($self), $var_ref, $$var_ref);
     $self->waitVariable($var_ref);
+    $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
+                        refaddr($self), $var_ref, $$var_ref);
     return;
 }
 
@@ -157,9 +160,7 @@ sub send_command_and_xml {
     my ($self, $view, $command, $xml) = @_;
 
     my $wait = 0;
-    my $wait_ok = 0;
-    my $wait_finish = sub { $wait ||= 1; };
-    my $wait_finish_ok = sub { $wait_ok ||= 1; $wait ||= 1; };
+    my $wait_finish_ok = sub { $wait = 'ok' };
 
     my $result;
     $self->protocol->send_command(
@@ -169,8 +170,8 @@ sub send_command_and_xml {
             $self->protocol->connection->after($wait_finish_ok);
         });
 
-    $self->waitVariable_with_fail(\ $wait, $wait_finish);
-    $wait_ok or die "&send_command_and_xml: timeout";
+    $self->waitVariable_with_fail(\ $wait);
+    $wait eq 'ok' or die "&send_command_and_xml: timeout";
 
     return $result;
 }
@@ -185,14 +186,12 @@ sub launch_zmap {
     my ($self) = @_;
 
     my $wait = 0;
-    my $wait_ok = 0;
-    my $wait_finish = sub { $wait ||= 1; };
-    $self->launch_zmap_wait_finish(sub { $wait_ok ||= 1; $wait ||= 1; });
+    $self->launch_zmap_wait_finish(sub { $wait = 'ok' });
 
     # we hope the Zircon handshake callback calls $self->launch_zmap_wait_finish->()
     $self->Zircon::ZMap::Core::launch_zmap;
-    $self->waitVariable_with_fail(\ $wait, $wait_finish);
-    $wait_ok or die "launch_zmap(): timeout waiting for the handshake";
+    $self->waitVariable_with_fail(\ $wait);
+    $wait eq 'ok' or die "launch_zmap(): timeout waiting for the handshake";
 
     return;
 }
