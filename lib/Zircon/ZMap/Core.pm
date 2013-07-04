@@ -64,7 +64,10 @@ sub launch_zmap {
     warn "Running: @e\n";
     my $pid = fork;
     confess "Error: couldn't fork()\n" unless defined $pid;
-    return if $pid;
+    if ($pid) { # parent
+        warn "Started $e[0], pid $pid\n";
+        return $pid;
+    }
     { exec @e; }
     # DUP: EditWindow::PfamWindow::initialize $launch_belvu
     # DUP: Hum::Ace::LocalServer
