@@ -190,9 +190,13 @@ sub launch_zmap {
     $self->launch_zmap_wait_finish(sub { $wait = 'ok' });
 
     # we hope the Zircon handshake callback calls $self->launch_zmap_wait_finish->()
-    $self->Zircon::ZMap::Core::launch_zmap;
+    my $pid = $self->Zircon::ZMap::Core::launch_zmap;
     $self->waitVariable_with_fail(\ $wait);
-    $wait eq 'ok' or die "launch_zmap(): timeout waiting for the handshake";
+    if ($wait ne 'ok') {
+        kill 'TERM', $pid; # can't talk to it -> don't want it
+        die "launch_zmap(): timeout waiting for the handshake; killed pid $pid";
+        # wait() happens in event loop
+    }
 
     return;
 }
