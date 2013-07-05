@@ -118,14 +118,19 @@ sub _own_provoke {
     my ($self) = @_;
 
     my $V = \$self->{'_own_var'};
-    # values: (absent)=unused, waiting, complete(=ready for next), (other)=fail
+    # values:
+    #   (absent)=ready=unused
+    #   waiting
+    #   complete (awaiting exit from waitVariable)
+    #   overdue  (complete, and the safety timer fired)
+    #   (other)=fail
 
     my $w = $self->widget;
 
     Tk::Exists($w)
         or croak "Attempt to own selection with destroyed widget";
 
-    if (!defined $$V or $$V eq 'complete') {
+    if (!defined $$V or $$V eq 'ready') {
         # unused or previous call complete - continue
         $$V = 'waiting';
     } else {
@@ -144,8 +149,14 @@ sub _own_provoke {
     my $after = $w->after
       (10e3, # 10 sec timeout is an arbitrarily chosen safety feature
        sub {
-           $$V = 'timeout';
-           warn "_own_provoke: safety timeout!";
+           my $id = $self->id;
+           if ($$V eq 'complete') {
+               $$V = 'overdue';
+               warn "_own_provoke($id): safety timeout due to tangled waitVariable; no-op";
+           } else {
+               $$V = 'timeout';
+               warn "_own_provoke($id): safety timeout!";
+           }
        });
 
     $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
@@ -160,13 +171,16 @@ sub _own_provoke {
         # leave $$V broken
     }
 
-    if ($$V eq 'complete') {
-        # leave it for next time
+    my $id = $self->id;
+    my $was = $$V;
+    $$V = 'ready';
+    if ($was eq 'complete') {
+        return 1;
+    } elsif ($was eq 'overdue') {
+        warn "_own_provoke($id): waitVariable completed late";
         return 1;
     } else {
-        my $was = $$V;
-        $$V = 'complete'; # reset for next time
-        die 'Failed to Own selection '.$self->id.": _own_var=$was";
+        die "Failed to Own selection $id: _own_var=$was";
     }
 }
 
