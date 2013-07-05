@@ -150,7 +150,7 @@ sub owndestroy_tt {
     }
     is(scalar @warn, 1, 'produces warnings')
       or diag explain \@warn;
-    like($warn[0], qr{PropertyNotify on destroyed}, 'ordering of destory');
+    like($warn[0], qr{PropertyNotify\(me_local\) on destroyed}, 'ordering of destory');
 
     return;
 }

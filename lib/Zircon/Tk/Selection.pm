@@ -188,12 +188,14 @@ sub _own_provoke {
 # recent timestamp.  The timestamp is re-used by pTk for SelectionOwn.
 sub _own_timestamped {
     my ($self, @arg) = @_;
+    my $V = \$self->{'_own_var'};
+    my $id = $self->id;
 
     my $w = $self->widget;
     if (!Tk::Exists($w)) {
         # I suspect it can't happen.  While trying to write an
         # automated test for it, the result was sometimes a segfault.
-        warn "PropertyNotify on destroyed window?!";
+        warn "PropertyNotify($id) on destroyed window?!";
         $self->{'_own_var'} = 'destroyed';
         return;
         # there is nothing useful we can do without the widget
@@ -204,12 +206,19 @@ sub _own_timestamped {
 
     # Tk:Ev(d) gives property name, but use property value instead
     # because documentation doesn't promise data for PropertyNotify
-    $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s', @arg, $propval);
-    if ($propval eq $self->id) {
-        $self->{'_own_var'} = 'complete';
+    $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s; _own_var=%s',
+                        @arg, $propval, $$V);
+
+    if ($propval ne $id) {
+        # event is not for us
+        return;
+    } elsif ($$V eq 'waiting') {
+        $$V = 'complete';
         $w->SelectionOwn
-          ('-selection' => $self->id,
+          ('-selection' => $id,
            '-command' => $self->callback('owner_callback'));
+    } else {
+        warn "_own_timestamped($id): _own_var=$$V => too late!  no-op";
     }
 
     return;
