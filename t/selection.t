@@ -100,7 +100,7 @@ sub mkselection {
 }
 
 sub own_timeouts_tt {
-    plan tests => 5;
+    plan tests => 12;
     my $M = mkwidg();
     my $tick = $M->repeat(100, sub { });
     my ($handler, $sel) = mkselection($M);
@@ -109,15 +109,21 @@ sub own_timeouts_tt {
     my $t0 = [ gettimeofday() ];
     local $SIG{__WARN__} = sub {
         my ($msg) = @_;
-        push @warn, $msg;
-        printf STDERR "[logged after %.4fs] %s", tv_interval($t0), $msg;
+        if ($msg =~ m{^selection: Bob: }) {
+            # trace - not part of the test
+        } else {
+            push @warn, $msg;
+        }
+        printf STDERR "[logged after %.4fs] %s", tv_interval($t0), $msg
+          if $ENV{ZIRCON_SELECTION_TRACE} || $ENV{TEST_NOISE};
     };
-
-    local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3; # rapid for testing
 
     $sel->clear;
     $M->after(0, [ \&__hang_around, $M, 0.25e3 ]);
-    my $got = try_err { $sel->own };
+    my $got = try_err {
+        local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3;
+        $sel->own;
+    };
     is(scalar @warn, 4, "tangled waitVariable - warning count");
     like($warn[0], # 0.0111s
          qr/hang_around: start/, '  tangle');
@@ -127,7 +133,45 @@ sub own_timeouts_tt {
          qr/hang_around: stop/, '  untangle');
     like($warn[3], # 0.2615s
          qr/waitVariable completed late/, 'exit late');
+    ok($sel->owns, '  expects to be owned');
+    my $want = "clipboard content chosen later; $sel";
+    $sel->content($want);
+    $got = do_clipboard(read => $sel, 1);
+    is($got, $want, '  transfers OK');
+
     @warn = ();
+    $t0 = [ gettimeofday() ];
+
+    $sel->clear;
+    $got = try_err {
+        local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0;
+        $sel->content('should not be seen');
+        $sel->own;
+        # SelectionOwn should not happen, because safety timeout is first
+    };
+    like($got, qr{^ERR:Failed to Own .* _own_var=timeout},
+         'no SelectionOwn after insta-safety');
+    ok(!$sel->owns, '  does not expect to be owned');
+    is(scalar @warn, 1, '  warn count');
+    like($warn[0], qr{_own_provoke.*: safety timeout!}, '  timeout noted');
+
+    # ...that PropertyNotify is still in the pipeline...
+
+#     Some idempotence or efficiency in the XServer, Xlib or Tk
+#     dispatcher already prevents _own_timestamped being called twice.
+#     Cannot test the 'too late!' clause.
+
+#    # Cause another tangle, to extend _own_provoke's waitVariable
+#    $M->after(0, [ \&__hang_around, $M, 0.25e3 ]);
+#
+#    $got = try_err {
+#        local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3;
+#        $sel->own; # two PropertyNotify delivered
+#    };
+#    ok($sel->owns, '  expects to be owned');
+
+    $got = do_clipboard(read => $sel, 1);
+    like($got, qr{^ERR:.*selection doesn't exist}, '  no selection');
 
     $tick->cancel;
     $M->destroy;

@@ -204,7 +204,7 @@ sub _own_timestamped {
 
     my $propkey = $arg[3];
     my $propval = try { $w->property('get', $propkey) } catch { "absent: $_" };
-    $propval =~ s{\x00}{}; # probably comes back NUL-terminated
+    $propval =~ s{(\x00|\n)$}{}; # probably comes back NUL-terminated
 
     # Tk:Ev(d) gives property name, but use property value instead
     # because documentation doesn't promise data for PropertyNotify
