@@ -16,7 +16,7 @@ use SelectionHandler;
 
 sub main {
     have_display();
-    do_subtests(qw( clipboard_ops_tt ));
+    do_subtests(qw( clipboard_ops_tt own_timeouts_tt ));
     return 0;
 }
 
@@ -24,7 +24,7 @@ main();
 
 
 sub clipboard_ops_tt {
-    plan tests => 8;
+    plan tests => 10;
     my $M = mkwidg();
 
     # ensure a steady flow of events, so the timeout mechanism in
@@ -49,12 +49,19 @@ sub clipboard_ops_tt {
     is($got, $want, 'clipboard is empty string');
     is(scalar $handler->take_callbacks, 0, 'no callbacks');
 
+    $sel->clear;
+    $got = do_clipboard(read => $sel, 1);
+    like($got, qr{^ERR:.*selection doesn't exist}, 'cleared');
+    is(scalar $handler->take_callbacks, 0, 'cleared: no callbacks on us');
+
     $want = "text supplied by child_clipboard for $$";
     $got = 'no read yet';
     $M->after(1250, sub { $got = try_err { $sel->get } });
     do_clipboard(own => $sel, 2, 1500, $want);
     is($got, $want, 'read from child_clipboard');
 
+    $sel->content('mine again');
+    $sel->own;
     $got = do_clipboard(own => $sel, 1, 0, 'junk text');
     is($got, '0', 'child own: it sees no callbacks');
     is(scalar $handler->take_callbacks, 1, 'we saw owner callback');
@@ -90,6 +97,54 @@ sub mkselection {
        -handler => $handler);
 
     return ($handler, $sel);
+}
+
+sub own_timeouts_tt {
+    plan tests => 5;
+    my $M = mkwidg();
+    my $tick = $M->repeat(100, sub { });
+    my ($handler, $sel) = mkselection($M);
+
+    my @warn;
+    my $t0 = [ gettimeofday() ];
+    local $SIG{__WARN__} = sub {
+        my ($msg) = @_;
+        push @warn, $msg;
+        printf STDERR "[logged after %.4fs] %s", tv_interval($t0), $msg;
+    };
+
+    local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3; # rapid for testing
+
+    $sel->clear;
+    $M->after(0, [ \&__hang_around, $M, 0.25e3 ]);
+    my $got = try_err { $sel->own };
+    is(scalar @warn, 4, "tangled waitVariable - warning count");
+    like($warn[0], # 0.0111s
+         qr/hang_around: start/, '  tangle');
+    like($warn[1], # 0.2005s
+         qr/safety timeout.*tangled/, '  safety timeout');
+    like($warn[2], # 0.2613s
+         qr/hang_around: stop/, '  untangle');
+    like($warn[3], # 0.2615s
+         qr/waitVariable completed late/, 'exit late');
+    @warn = ();
+
+    $tick->cancel;
+    $M->destroy;
+}
+
+
+# Generate a waitVariable context on the top of the stack, preventing
+# return of any lower down (which I then call "tangled") for $delay
+# millisec.
+sub __hang_around {
+    my ($w, $delay) = @_;
+    my $flag = 0;
+    my $timer = $w->after($delay, sub { $flag ++ });
+    warn sprintf "__hang_around: start(%.3fs)\n", $delay/1E3;
+    $w->waitVariable(\$flag);
+    warn "__hang_around: stop\n";
+    return;
 }
 
 

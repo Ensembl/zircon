@@ -13,6 +13,7 @@ use Time::HiRes qw( usleep );
 use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_SELECTION_TRACE';
 our $DELAY_FILE_KEY = 'ZIRCON_DEBUG_DELAY';
+our $OWN_SAFETY_TIMEOUT = 10e3; # 10 sec, arbitrarily chosen
 
 sub new {
     my ($pkg, %args) = @_;
@@ -147,7 +148,7 @@ sub _own_provoke {
                                map { Tk::Ev($_) } @event_info ]);
 
     my $after = $w->after
-      (10e3, # 10 sec timeout is an arbitrarily chosen safety feature
+      ($OWN_SAFETY_TIMEOUT,
        sub {
            my $id = $self->id;
            if ($$V eq 'complete') {
@@ -201,7 +202,8 @@ sub _own_timestamped {
         # there is nothing useful we can do without the widget
     }
 
-    my $propval = try { $w->property('get', 'Zircon_Own') } catch { "absent: $_" };
+    my $propkey = $arg[3];
+    my $propval = try { $w->property('get', $propkey) } catch { "absent: $_" };
     $propval =~ s{\x00}{}; # probably comes back NUL-terminated
 
     # Tk:Ev(d) gives property name, but use property value instead
@@ -209,7 +211,7 @@ sub _own_timestamped {
     $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s; _own_var=%s',
                         @arg, $propval, $$V);
 
-    if ($propval ne $id) {
+    if ($propkey ne 'Zircon_Own' || $propval ne $id) {
         # event is not for us
         return;
     } elsif ($$V eq 'waiting') {
