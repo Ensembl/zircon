@@ -8,6 +8,7 @@ use Carp qw( croak cluck );
 use Scalar::Util qw( refaddr );
 use Zircon::Tk::Selection;
 use Zircon::Tk::WindowExists;
+use Zircon::Tk::MonkeyPatches;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
 
@@ -32,9 +33,10 @@ sub init {
 # platform
 sub platform { return 'Tk'; }
 
-# nb. we cannot see calls to $w->update
 sub stack_tangle {
     my ($self) = @_;
+    # This may be rather specific to the Perl-Tk version,
+    # but it has tests.
 
     my @stack;
     for (my $i=0; 1; $i++) { # exit via last
@@ -57,16 +59,28 @@ sub stack_tangle {
             }
         }
         push @trace, "$subroutine called from $package at $filename line $line";
+#print STDERR "  $trace[-1]\n";
 
         next unless $subroutine =~
           m{^(
                 Tk::Widget::wait(Variable|Visibility|Window)| # they call tkwait
-                Tk::(MainLoop|updateWidgets)| # they call DoOneEvent
-                Tk::(idletasks|Widget::(B|Unb)usy) # they call update
+                Zircon::Tk::MonkeyPatches::(DoOneEvent|update) # extra stack frames for XS subs
             )$}x;
          my ($wait_type) = $subroutine =~ m{::([^:]+)$};
 
-        push @wait, "$subroutine from $stack[$i+1][3] at $filename line $line";
+        my $caller_sub = $stack[$i+1][3];
+        my $via = '';
+        if ($caller_sub =~
+            m{^(
+                  Tk::(MainLoop|updateWidgets)| # they call DoOneEvent
+                  Tk::(idletasks|Widget::(B|Unb)usy) # they call update
+              )$}x) {
+            $via = " via $caller_sub";
+            $i++;
+            $caller_sub = $stack[$i+1][3];
+        }
+
+        push @wait, "$wait_type$via from $caller_sub at $filename line $line";
     }
 
     return @wait;

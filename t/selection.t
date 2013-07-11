@@ -288,7 +288,7 @@ sub own_recurse_tt {
 
 
 sub tangle_spotting_tt {
-    plan tests => 7;
+    plan tests => 8;
     is(Tk::MainWindow->Count, 0, 'other subtests not leaving windows around')
       or return;
 
@@ -318,12 +318,12 @@ sub tangle_spotting_tt {
 
     # Check the expected nesting of event handlers is seen
     my @wait_like =
-      (qr{idletasks from .*ANON},
-       qr{waitWindow from .*__wait_window},
-       qr{waitVariable from .*__wait_for_stop},
-       qr{waitVariable from .*__hang_around},
-       # __my_waiter is invisible
-       qr{MainLoop from .*tangle_spotting_tt});
+      (qr{^update via Tk::idletasks from .*ANON},
+       qr{^waitWindow from .*__wait_window},
+       qr{^waitVariable from .*__wait_for_stop},
+       qr{^waitVariable from .*__hang_around},
+       qr{^DoOneEvent from .*__my_waiter},
+       qr{^DoOneEvent via Tk::MainLoop from .*tangle_spotting_tt});
     my $ok = 1;
     is(scalar @wait, scalar @wait_like, 'event loop contexts spotted') or $ok=0;
     for (my $i=0; $i<@wait_like; $i++) {
