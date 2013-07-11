@@ -68,6 +68,17 @@ sub init {
     return;
 }
 
+
+# It is an error to re-enter this method [unless the selection is
+# still owned].  Re-entrance can be caused by "tangled" waitVariables
+# at multiple levels of the call stack.
+#
+# See 're-entrancy - does this need fixing?' in t/selection.t
+#
+# It is probably fixable, because waitVariable exit is triggered by
+# change not state, but a) getting the exit code right will need
+# internal work and b) allowing subsequent code to run in correct
+# order needs an API change towards callbacks.
 sub own {
     my ($self) = @_;
     if (! $self->owns) {
@@ -82,7 +93,7 @@ sub own {
         my $owner = try { $W->SelectionOwner('-selection' => $id) };
         my $name = defined $owner ? $owner->PathName : 'external';
         warn "SelectionOwn($id) failed, owner=$name; collision?\n"
-          unless $owner == $W;
+          unless defined $owner && $owner == $W;
 
         $self->owns(1);
     }

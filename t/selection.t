@@ -16,7 +16,7 @@ use SelectionHandler;
 
 sub main {
     have_display();
-    do_subtests(qw( clipboard_ops_tt own_timeouts_tt ));
+    do_subtests(qw( clipboard_ops_tt own_timeouts_tt own_recurse_tt ));
     return 0;
 }
 
@@ -196,6 +196,90 @@ sub __hang_around {
     warn sprintf "__hang_around: start(%.3fs)\n", $delay/1E3;
     $w->waitVariable(\$flag);
     warn "__hang_around: stop\n";
+    return;
+}
+
+
+sub own_recurse_tt {
+    plan tests => 8;
+    my $M = mkwidg();
+    my $tick = $M->repeat(100, sub { });
+    my ($handler, $sel) = mkselection($M);
+
+    my @warn;
+    my $t0 = [ gettimeofday() ];
+    local $SIG{__WARN__} = __warn_handler(\$t0, \@warn);
+
+    my %when =
+      (before => [ 0.15e3, # re-own before safety timeout
+                   qr{
+ ^
+ !own\s       # outer
+ !clear\s     # inner
+ ERR:recursive.*_own_var=complete[^!]+ # own failure + stacktrace
+ !done_inner\s
+ !own_outer   # success there
+ \z
+                 }x ],
+
+
+       after => [ 0.25e3, # re-own after safety timeout
+                  qr{
+ ^
+ !own\s       # outer
+ !clear\s     # inner
+ ERR:recursive.*_own_var=overdue[^!]+ # own failure + stacktrace
+ !done_inner\s
+ !own_outer   # success there
+ \z
+                }x ],
+
+      );
+
+    foreach my $when (sort keys %when) {
+        my ($delay, $regex) = @{ $when{$when} };
+
+        @warn = ();
+        $t0 = [ gettimeofday() ];
+
+        my @got;
+        $sel->clear;
+        $M->after(0, [ \&__hang_around, $M, 0.3e3 ]);
+
+        local *Tk::SelectionOwn = sub {
+            push @got, '!own';
+        }; # redefinition warning is eaten by @warn
+
+        my $again = sub {
+            $sel->clear;
+            push @got, '!clear';
+            push @got, try_err { $sel->own; '!own_again' };
+            push @got, '!done_inner';
+        };
+
+        $M->after($delay, $again);
+
+        push @got, try_err {
+            local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3;
+            $sel->own;
+            '!own_outer';
+        };
+
+        like("@got", $regex, "$when: own again after ${delay}ms");
+
+        like("@warn", qr{SelectionOwn.*failed, owner=external; collision\?}, '  we were warned');
+        like("@warn", qr{safety timeout due to tangled waitVariable}, '  and for why');
+
+        local $TODO = 're-entrancy - does this need fixing?';
+        my $want = "clipboard content chosen later; $sel/$when";
+        $sel->content($want);
+        my $got = do_clipboard(read => $sel, 1);
+        chomp $got;
+        is($got, $want, '  transfers OK');
+    }
+
+    $tick->cancel;
+    $M->destroy;
     return;
 }
 
