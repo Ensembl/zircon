@@ -32,6 +32,46 @@ sub init {
 # platform
 sub platform { return 'Tk'; }
 
+# nb. we cannot see calls to $w->update
+sub stack_tangle {
+    my ($self) = @_;
+
+    my @stack;
+    for (my $i=0; 1; $i++) { # exit via last
+        my @frame = caller($i);
+        last if !@frame;
+        push @stack, \@frame;
+    }
+
+    my (@wait, @trace);
+    for (my $i=0; $i < @stack; $i++) {
+        my ($package, $filename, $line, $subroutine, undef,
+            undef, $evaltext, $is_require) = @{ $stack[$i] };
+        if ($subroutine eq '(eval)') {
+            if ($is_require) {
+                $subroutine = '(require)';
+            } elsif (defined $evaltext) {
+                $subroutine = 'eval""';
+            } else {
+                $subroutine = 'eval{}';
+            }
+        }
+        push @trace, "$subroutine called from $package at $filename line $line";
+
+        next unless $subroutine =~
+          m{^(
+                Tk::Widget::wait(Variable|Visibility|Window)| # they call tkwait
+                Tk::(MainLoop|updateWidgets)| # they call DoOneEvent
+                Tk::(idletasks|Widget::(B|Unb)usy) # they call update
+            )$}x;
+         my ($wait_type) = $subroutine =~ m{::([^:]+)$};
+
+        push @wait, "$subroutine from $stack[$i+1][3] at $filename line $line";
+    }
+
+    return @wait;
+}
+
 # selections
 
 sub selection_new {

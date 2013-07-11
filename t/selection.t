@@ -8,6 +8,7 @@ use Tk;
 use Time::HiRes qw( gettimeofday tv_interval );
 use IO::Handle;
 use Zircon::Tk::Selection;
+use Zircon::Tk::Context;
 
 use lib "t/lib";
 use TestShared qw( have_display do_subtests try_err mkwidg );
@@ -16,7 +17,7 @@ use SelectionHandler;
 
 sub main {
     have_display();
-    do_subtests(qw( clipboard_ops_tt own_timeouts_tt own_recurse_tt ));
+    do_subtests(qw( clipboard_ops_tt own_timeouts_tt own_recurse_tt tangle_spotting_tt ));
     return 0;
 }
 
@@ -190,12 +191,14 @@ sub own_timeouts_tt {
 # return of any lower down (which I then call "tangled") for $delay
 # millisec.
 sub __hang_around {
-    my ($w, $delay) = @_;
+    my ($w, $delay, $quiet) = @_;
     my $flag = 0;
     my $timer = $w->after($delay, sub { $flag ++ });
-    warn sprintf "__hang_around: start(%.3fs)\n", $delay/1E3;
+    warn sprintf "__hang_around: start(%.3fs)\n", $delay/1E3
+      unless $quiet;
     $w->waitVariable(\$flag);
-    warn "__hang_around: stop\n";
+    warn "__hang_around: stop\n"
+      unless $quiet;
     return;
 }
 
@@ -280,6 +283,77 @@ sub own_recurse_tt {
 
     $tick->cancel;
     $M->destroy;
+    return;
+}
+
+
+sub tangle_spotting_tt {
+    plan tests => 7;
+    is(Tk::MainWindow->Count, 0, 'other subtests not leaving windows around')
+      or return;
+
+    my $M = mkwidg();
+    my $lbl = $M->Label(-text => 'junk')->pack;
+
+    my $stop;
+    my @wait;
+    my $fill_wait = sub {
+        @wait = Zircon::Tk::Context->stack_tangle;
+    };
+    my $finisher = sub {
+        $M->afterIdle( $fill_wait);
+        $M->idletasks;
+        $stop ++; # liberates __wait_for_stop
+        $M->destroy; # liberates waitWindow & MainLoop
+    };
+
+    # Set up a big stack of assorted event loops
+    $M->after(500, # nb. __hang_around needs an $M->after to escape
+              $finisher);
+    $M->after(  0, [ \&__my_waiter, $M, 100 ]);
+    $M->after( 50, [ \&__hang_around, $M, 150, 'q' ]);
+    $M->after(100, [ \&__wait_for_stop, $M, \$stop ]);
+    $M->after(150, [ \&__wait_window, $lbl ]);
+    Tk::MainLoop;
+
+    # Check the expected nesting of event handlers is seen
+    my @wait_like =
+      (qr{idletasks from .*ANON},
+       qr{waitWindow from .*__wait_window},
+       qr{waitVariable from .*__wait_for_stop},
+       qr{waitVariable from .*__hang_around},
+       # __my_waiter is invisible
+       qr{MainLoop from .*tangle_spotting_tt});
+    my $ok = 1;
+    is(scalar @wait, scalar @wait_like, 'event loop contexts spotted') or $ok=0;
+    for (my $i=0; $i<@wait_like; $i++) {
+        next unless defined $wait[$i];
+        like($wait[$i], $wait_like[$i], "  $wait_like[$i]") or $ok=0;
+    }
+    diag explain \@wait unless $ok;
+    return;
+}
+
+sub __wait_window {
+    my ($widget) = @_;
+    $widget->waitWindow;
+    return;
+}
+
+sub __wait_for_stop {
+    my ($widget, $stopref) = @_;
+    $widget->waitVariable($stopref);
+    return;
+}
+
+sub __my_waiter { # differs from __hang_around by processing the events here
+    my ($widget, $delay) = @_;
+    my $t0 = [ gettimeofday() ];
+    my $ticker = $widget->after(10, sub {}); # event stream for prompt exit
+    while (tv_interval($t0) < $delay/1000) {
+        Tk::DoOneEvent;
+    }
+    $ticker->cancel;
     return;
 }
 
