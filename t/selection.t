@@ -99,32 +99,39 @@ sub mkselection {
     return ($handler, $sel);
 }
 
+sub __warn_handler {
+    my ($t0_ref, $warns_ref) = @_;
+    return sub {
+        my ($msg) = @_;
+        if ($msg =~ m{^selection: Bob: }) {
+            # trace - not part of the test
+        } else {
+            push @$warns_ref, $msg;
+        }
+        printf STDERR "[logged after %.4fs] %s", tv_interval($$t0_ref), $msg
+          if $ENV{ZIRCON_SELECTION_TRACE} || $ENV{TEST_NOISE};
+    };
+}
+
 sub own_timeouts_tt {
-    plan tests => 12;
+    plan tests => 13;
     my $M = mkwidg();
     my $tick = $M->repeat(100, sub { });
     my ($handler, $sel) = mkselection($M);
 
     my @warn;
     my $t0 = [ gettimeofday() ];
-    local $SIG{__WARN__} = sub {
-        my ($msg) = @_;
-        if ($msg =~ m{^selection: Bob: }) {
-            # trace - not part of the test
-        } else {
-            push @warn, $msg;
-        }
-        printf STDERR "[logged after %.4fs] %s", tv_interval($t0), $msg
-          if $ENV{ZIRCON_SELECTION_TRACE} || $ENV{TEST_NOISE};
-    };
+    local $SIG{__WARN__} = __warn_handler(\$t0, \@warn);
 
     $sel->clear;
     $M->after(0, [ \&__hang_around, $M, 0.25e3 ]);
     my $got = try_err {
         local $Zircon::Tk::Selection::OWN_SAFETY_TIMEOUT = 0.2e3;
         $sel->own;
+        'done_own';
     };
-    is(scalar @warn, 4, "tangled waitVariable - warning count");
+    is($got, 'done_own', 'own, in tangled waitVariable');
+    is(scalar @warn, 4, '  warning count');
     like($warn[0], # 0.0111s
          qr/hang_around: start/, '  tangle');
     like($warn[1], # 0.2005s
@@ -175,6 +182,7 @@ sub own_timeouts_tt {
 
     $tick->cancel;
     $M->destroy;
+    return;
 }
 
 
