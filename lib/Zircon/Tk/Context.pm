@@ -45,7 +45,7 @@ sub stack_tangle {
         push @stack, \@frame;
     }
 
-    my (@wait, @trace);
+    my (@wait, @trace, %skip);
     for (my $i=0; $i < @stack; $i++) {
         my ($package, $filename, $line, $subroutine, undef,
             undef, $evaltext, $is_require) = @{ $stack[$i] };
@@ -59,16 +59,18 @@ sub stack_tangle {
             }
         }
         push @trace, "$subroutine called from $package at $filename line $line";
-#print STDERR "  $trace[-1]\n";
+#print STDERR "TRACE   $trace[-1]\n";
+
+        next if $skip{$i}; # mentioned in previous line
 
         next unless $subroutine =~
           m{^(
                 Tk::Widget::wait(Variable|Visibility|Window)| # they call tkwait
                 Zircon::Tk::MonkeyPatches::(DoOneEvent|update) # extra stack frames for XS subs
             )$}x;
-         my ($wait_type) = $subroutine =~ m{::([^:]+)$};
+        my ($wait_type) = $subroutine =~ m{::([^:]+)$};
 
-        my $caller_sub = $stack[$i+1][3];
+        my $caller_sub = defined $stack[$i+1] ? $stack[$i+1][3] : '(script)';
         my $via = '';
         if ($caller_sub =~
             m{^(
@@ -76,8 +78,10 @@ sub stack_tangle {
                   Tk::(idletasks|Widget::(B|Unb)usy) # they call update
               )$}x) {
             $via = " via $caller_sub";
-            $i++;
-            $caller_sub = $stack[$i+1][3];
+            $skip{$i+1} = 1;
+
+            (undef, $filename, $line) = @{ $stack[$i+1] } if $stack[$i+1];
+            $caller_sub = $stack[$i+2] ? $stack[$i+2][3] : '(script)';
         }
 
         push @wait, "$wait_type$via from $caller_sub at $filename line $line";

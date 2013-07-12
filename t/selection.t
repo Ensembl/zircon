@@ -9,19 +9,20 @@ use Time::HiRes qw( gettimeofday tv_interval );
 use IO::Handle;
 use Zircon::Tk::Selection;
 use Zircon::Tk::Context;
+use Sub::Name;
 
 use lib "t/lib";
 use TestShared qw( have_display do_subtests try_err mkwidg );
 use SelectionHandler;
 
 
+our %tk_ln; # used in tangle_spotting_tt
+
 sub main {
     have_display();
-    do_subtests(qw( clipboard_ops_tt own_timeouts_tt own_recurse_tt tangle_spotting_tt ));
+    do_subtests(qw( clipboard_ops_tt own_timeouts_tt own_recurse_tt tangle_spotting_tt stack_bottom_level_tt ));
     return 0;
 }
-
-main();
 
 
 sub clipboard_ops_tt {
@@ -190,6 +191,7 @@ sub own_timeouts_tt {
 # Generate a waitVariable context on the top of the stack, preventing
 # return of any lower down (which I then call "tangled") for $delay
 # millisec.
+$tk_ln{__hang_around} = __LINE__ + 7;
 sub __hang_around {
     my ($w, $delay, $quiet) = @_;
     my $flag = 0;
@@ -288,24 +290,48 @@ sub own_recurse_tt {
 
 
 sub tangle_spotting_tt {
-    plan tests => 8;
+    plan tests => 14;
     is(Tk::MainWindow->Count, 0, 'other subtests not leaving windows around')
       or return;
 
     my $M = mkwidg();
     my $lbl = $M->Label(-text => 'junk')->pack;
 
-    my $stop;
+
+    is(scalar Zircon::Tk::Context->stack_tangle,
+       0, 'initially no tangles');
+
+
     my @wait;
-    my $fill_wait = sub {
-        @wait = Zircon::Tk::Context->stack_tangle;
-    };
+    my $fill_wait = sub { @wait = Zircon::Tk::Context->stack_tangle };
+    subname '$fill_wait', $fill_wait;
+
+    my $fn = __FILE__;
+    $M->after(0, $fill_wait);
+    my $ln_update = __LINE__; $M->update;
+    is(scalar @wait, 1, 'event handler ran (single update)');
+    like($wait[0],
+         qr{^update from main::tangle_spotting_tt at \Q$fn\E line $ln_update\z},
+         '  update shows with trace line');
+
+    $M->afterIdle($fill_wait);
+    $ln_update = __LINE__; $M->idletasks;
+    is(scalar @wait, 1, 'event handler ran (single idletasks)');
+    like($wait[0],
+         qr{^update via Tk::idletasks from main::tangle_spotting_tt at \Q$fn\E line $ln_update\z},
+         '  idletasks shows with trace line');
+
+
+    my $stop;
+    @wait = ('junk');
+    my $ln_finisher = __LINE__ + 3;
     my $finisher = sub {
         $M->afterIdle( $fill_wait);
         $M->idletasks;
         $stop ++; # liberates __wait_for_stop
         $M->destroy; # liberates waitWindow & MainLoop
     };
+    subname '$finisher', $finisher;
 
     # Set up a big stack of assorted event loops
     $M->after(500, # nb. __hang_around needs an $M->after to escape
@@ -314,16 +340,17 @@ sub tangle_spotting_tt {
     $M->after( 50, [ \&__hang_around, $M, 150, 'q' ]);
     $M->after(100, [ \&__wait_for_stop, $M, \$stop ]);
     $M->after(150, [ \&__wait_window, $lbl ]);
-    Tk::MainLoop;
+    my $ln_mainloop = __LINE__; Tk::MainLoop;
+    isnt($wait[0], 'junk', 'event stack is done');
 
     # Check the expected nesting of event handlers is seen
     my @wait_like =
-      (qr{^update via Tk::idletasks from .*ANON},
-       qr{^waitWindow from .*__wait_window},
-       qr{^waitVariable from .*__wait_for_stop},
-       qr{^waitVariable from .*__hang_around},
-       qr{^DoOneEvent from .*__my_waiter},
-       qr{^DoOneEvent via Tk::MainLoop from .*tangle_spotting_tt});
+      (qr{^update via Tk::idletasks from main::\$finisher at \Q$fn\E line $ln_finisher\z},
+       qr{^waitWindow from main::__wait_window .* line $tk_ln{__wait_window}$},
+       qr{^waitVariable from main::__wait_for_stop .* line $tk_ln{__wait_for_stop}$},
+       qr{^waitVariable from main::__hang_around .* line $tk_ln{__hang_around}$},
+       qr{^DoOneEvent from main::__my_waiter .* line $tk_ln{__my_waiter}$},
+       qr{^DoOneEvent via Tk::MainLoop from main::tangle_spotting_tt .* line $ln_mainloop$});
     my $ok = 1;
     is(scalar @wait, scalar @wait_like, 'event loop contexts spotted') or $ok=0;
     for (my $i=0; $i<@wait_like; $i++) {
@@ -334,18 +361,21 @@ sub tangle_spotting_tt {
     return;
 }
 
+$tk_ln{__wait_window} = __LINE__ + 3;
 sub __wait_window {
     my ($widget) = @_;
     $widget->waitWindow;
     return;
 }
 
+$tk_ln{__wait_for_stop} = __LINE__ + 3;
 sub __wait_for_stop {
     my ($widget, $stopref) = @_;
     $widget->waitVariable($stopref);
     return;
 }
 
+$tk_ln{__my_waiter} = __LINE__ + 6;
 sub __my_waiter { # differs from __hang_around by processing the events here
     my ($widget, $delay) = @_;
     my $t0 = [ gettimeofday() ];
@@ -357,6 +387,36 @@ sub __my_waiter { # differs from __hang_around by processing the events here
     return;
 }
 
+
+{
+    # This needs to run in the script-body context, not a sub.
+    # Test the results later with the enclosed subtest.
+    my @wait;
+    my $M = mkwidg();
+    $M->after(0, sub { @wait = Zircon::Tk::Context->stack_tangle });
+    my $ln_update = __LINE__; $M->update;
+
+    $M->after(0, sub {
+                  push @wait, Zircon::Tk::Context->stack_tangle;
+                  $M->destroy;
+              });
+    my $ln_mainloop = __LINE__; Tk::MainLoop;
+
+    sub stack_bottom_level_tt {
+        plan tests => 3;
+        # Check the corner-case at the bottom of the stack, which most
+        # normal scripts will provoke.
+        my $fn = __FILE__;
+        is(scalar @wait, 2, 'wait filled');
+        like($wait[0],
+             qr{^update from \(script\) at \Q$fn\E line $ln_update$},
+             '  bottom level of stack visible');
+        like($wait[1],
+             qr{^DoOneEvent via Tk::MainLoop from \(script\) at \Q$fn\E line $ln_mainloop$},
+             '  bottom level of stack visible with via');
+        return;
+    }
+}
 
 # Spawn child process to do (stuff),
 # read input without blocking our event loop,
@@ -445,5 +505,8 @@ sub child_clipboard {
  }
 CODE
 }
+
+
+main(); # at the bottom so %tk_ln is filled
 
 1;
