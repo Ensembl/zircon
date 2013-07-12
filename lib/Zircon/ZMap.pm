@@ -116,6 +116,11 @@ sub waitVariable_with_fail {
     $self->context->timeout($fail_timeout, $wait_finish);
     $self->zircon_trace('startWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
+
+    local $Zircon::Tk::Context::TANGLE_ACK{'Z:Z:waitVariable_with_fail'} = 1;
+    # Justify one extra level of event-loop.
+    # Re-entering this code will provoke warnings.
+
     $self->waitVariable($var_ref);
     $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
