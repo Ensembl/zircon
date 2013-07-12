@@ -10,6 +10,8 @@ use Try::Tiny;
 use File::Slurp qw( slurp );
 use Time::HiRes qw( usleep );
 
+use Zircon::Tk::Context;
+
 use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_SELECTION_TRACE';
 our $DELAY_FILE_KEY = 'ZIRCON_DEBUG_DELAY';
@@ -171,6 +173,7 @@ sub _own_provoke {
            }
        });
 
+    Zircon::Tk::Context->warn_if_tangled; # before waitVariable
     $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
     $w->waitVariable($V); # protected by local after (10sec)
     $after->cancel;
@@ -202,6 +205,8 @@ sub _own_timestamped {
     my ($self, @arg) = @_;
     my $V = \$self->{'_own_var'};
     my $id = $self->id;
+
+    Zircon::Tk::Context->warn_if_tangled(+1); # again from the inside
 
     my $w = $self->widget;
     if (!Tk::Exists($w)) {
@@ -262,6 +267,7 @@ sub get {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to get selection with destroyed widget";
+    Zircon::Tk::Context->warn_if_tangled; # SelectionGet contains an event loop, to emulate a synchronous call
     $self->debug_delay('get');
     my $get = $w->SelectionGet(
             '-selection' => $self->id);
@@ -274,6 +280,7 @@ sub owner_callback {
     $self->zircon_trace;
     $self->owns(0);
     $self->debug_delay('lost');
+    Zircon::Tk::Context->warn_if_tangled; # central callback point for incoming "selection taken"
     $self->handler->selection_owner_callback(
         $self->handler_data);
     return;

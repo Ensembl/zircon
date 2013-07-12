@@ -34,7 +34,7 @@ sub init {
 sub platform { return 'Tk'; }
 
 sub stack_tangle {
-    my ($self) = @_;
+    my ($pkg, $trace_return) = @_;
     # This may be rather specific to the Perl-Tk version,
     # but it has tests.
 
@@ -59,7 +59,6 @@ sub stack_tangle {
             }
         }
         push @trace, "$subroutine called from $package at $filename line $line";
-#print STDERR "TRACE   $trace[-1]\n";
 
         next if $skip{$i}; # mentioned in previous line
 
@@ -87,7 +86,36 @@ sub stack_tangle {
         push @wait, "$wait_type$via from $caller_sub at $filename line $line";
     }
 
+    @$trace_return = @trace if defined $trace_return;
     return @wait;
+}
+
+our %TANGLE_ACK = (MainLoop => 1);
+sub warn_if_tangled {
+    my ($pkg, $extra_threshold) = @_;
+    my (undef, $fn, $ln) = caller();
+
+    my ($max_wait_frames, @max) = (0);
+    local $TANGLE_ACK{extra} = $extra_threshold;
+    foreach my $k (sort keys %TANGLE_ACK) {
+        my $v = $TANGLE_ACK{$k};
+        next unless defined $v;
+        $max_wait_frames += $v;
+        push @max, sprintf('%s:%+d', $k, $v);
+    }
+
+    my @trace;
+    my @wait = $pkg->stack_tangle(\@trace);
+    my $d = @wait;
+    if (@wait > $max_wait_frames) {
+        warn join '',
+          "Event handling loop depth $d > (@max = $max_wait_frames) exceeded, as seen at $fn line $ln\n",
+            map {"  $_\n"} @wait;
+        warn join '', "Full trace\n", map {"  $_\n"} @trace;
+    }
+#    else { warn "Event handling loop depth $d <= (@max = $max_wait_frames) OK, as seen at $fn line $ln\n" }
+
+    return;
 }
 
 # selections
@@ -123,7 +151,9 @@ sub waitVariable {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to waitVariable with destroyed widget";
+
     $self->zircon_trace('startWAIT(0x%x) for %s=%s', refaddr($self), $var, $$var);
+    $self->warn_if_tangled;
     $w->waitVariable($var); # traced
     $self->zircon_trace('stopWAIT(0x%x) with %s=%s', refaddr($self), $var, $$var);
     Tk::Exists($w)

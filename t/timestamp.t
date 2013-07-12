@@ -128,6 +128,7 @@ sub instruct {
     $self->state_bump('instructed');
 
     # wait here until TestWin is gone, in context of ButtonPress
+    local $Zircon::Tk::Context::TANGLE_ACK{'TestWin::instruct'} = 1;
     while (Tk::Exists($self)) {
         Tk::DoOneEvent();
     }
