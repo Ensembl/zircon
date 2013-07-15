@@ -391,6 +391,7 @@ sub __my_waiter { # differs from __hang_around by processing the events here
 {
     # This needs to run in the script-body context, not a sub.
     # Test the results later with the enclosed subtest.
+    have_display();
     my @wait;
     my $M = mkwidg();
     $M->after(0, sub { @wait = Zircon::Tk::Context->stack_tangle });
