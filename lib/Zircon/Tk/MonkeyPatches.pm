@@ -38,4 +38,6 @@ sub patch {
 patch(qw( Tk DoOneEvent ));
 patch(qw( Tk::Widget update ));
 
+patch(qw( Tk::Widget SelectionGet )); # can't provoke this in test
+
 1;

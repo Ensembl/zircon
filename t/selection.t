@@ -306,6 +306,7 @@ sub tangle_spotting_tt {
     my $fill_wait = sub { @wait = Zircon::Tk::Context->stack_tangle };
     subname '$fill_wait', $fill_wait;
 
+    # update
     my $fn = __FILE__;
     $M->after(0, $fill_wait);
     my $ln_update = __LINE__; $M->update;
@@ -314,6 +315,7 @@ sub tangle_spotting_tt {
          qr{^update from main::tangle_spotting_tt at \Q$fn\E line $ln_update\z},
          '  update shows with trace line');
 
+    # idletasks
     $M->afterIdle($fill_wait);
     $ln_update = __LINE__; $M->idletasks;
     is(scalar @wait, 1, 'event handler ran (single idletasks)');
@@ -321,7 +323,20 @@ sub tangle_spotting_tt {
          qr{^update via Tk::idletasks from main::tangle_spotting_tt at \Q$fn\E line $ln_update\z},
          '  idletasks shows with trace line');
 
+#    # SelectionGet
+#    @wait = ();
+#    $M->bind('<Property>' => $fill_wait);
+#    $M->property(set => junk => "STRING", 8, 'junk');
+#    my $ln_SelGet = __LINE__+1;
+#    my $txt = $M->SelectionGet(qw( -selection PRIMARY -type STRING ));
+#$txt='undef' unless defined $txt; warn "txt=$txt\n";
+#    is(scalar @wait, 1, 'SelectionGet visible in stack + handler ran');
+#    like($wait[0],
+#         qr{^SelectionGet from main::tangle_spotting_tt at \Q$fn\E line $ln_SelGet\z},
+#         '  SelectionGet shows with trace line');
 
+
+    # Set up a big stack of assorted event loops
     my $stop;
     @wait = ('junk');
     my $ln_finisher = __LINE__ + 3;
@@ -333,7 +348,6 @@ sub tangle_spotting_tt {
     };
     subname '$finisher', $finisher;
 
-    # Set up a big stack of assorted event loops
     $M->after(500, # nb. __hang_around needs an $M->after to escape
               $finisher);
     $M->after(  0, [ \&__my_waiter, $M, 100 ]);
