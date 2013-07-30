@@ -181,11 +181,9 @@ sub _own_timestamped {
     if ($propkey ne 'Zircon_Own' || $propval ne $id) {
         # event is not for us
         return;
-    } elsif ($self->{'_own_timer'}) {
-        $self->{'_own_timer'}->cancel;
-        delete $self->{'_own_timer'};
     } else {
-        warn "_own_timestamped($id): happens late";
+        $self->_own_timer_clear or
+          warn "_own_timestamped($id): happens late";
     }
 
     $w->SelectionOwn
@@ -195,6 +193,13 @@ sub _own_timestamped {
     try { $w->property('delete', 'Zircon_Own') }; # ready for next
 
     return;
+}
+
+sub _own_timer_clear {
+    my ($self) = @_;
+    my $t = delete $self->{'_own_timer'};
+    $t->cancel if $t;
+    return $t;
 }
 
 sub clear {
@@ -347,6 +352,7 @@ sub widget {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace;
+    $self->_own_timer_clear;
     return;
 }
 
