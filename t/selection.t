@@ -64,7 +64,8 @@ sub clipboard_ops_tt {
 
     $sel->content('mine again');
     $sel->own;
-    $got = do_clipboard(own => $sel, 1, 0, 'junk text');
+    __hang_around($M, 100, 'q'); # wait for our own to happen
+    $got = do_clipboard(own => $sel, 1, 100, 'junk text');
     is($got, '0', 'child own: it sees no callbacks');
     is(scalar $handler->take_callbacks, 1, 'we saw owner callback');
     # child didn't hang around to serve its clipboard to next reader
