@@ -56,6 +56,7 @@ sub init {
         weaken $self->{$key};
     }
 
+    $self->trace_env_update;
     $self->state('inactive');
     $self->update;
     $self->zircon_trace('Initialised');
