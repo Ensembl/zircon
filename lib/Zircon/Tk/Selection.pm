@@ -128,13 +128,13 @@ sub _own_provoke {
     # When timer is set, indicates that we are already waiting for
     # _own_timestamped to happen
     if (defined $self->{'_own_timer'}) {
-        warn "Previous ->own($id) call didn't happen yet";
+        warn "SelectionOwn for previous ->own($id) call didn't happen yet - timer still running";
     } else {
         # Set the timer to inform us when things are not happening.
         $self->{'_own_timer'} = $w->after
           ($OWN_SAFETY_TIMEOUT,
            sub {
-               warn "Requested ->own($id) has not happened after ${OWN_SAFETY_TIMEOUT}ms";
+               warn "Requested SelectionOwn($id) has not happened after ${OWN_SAFETY_TIMEOUT}ms";
                delete $self->{'_own_timer'};
            });
     }
