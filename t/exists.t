@@ -15,7 +15,7 @@ use Zircon::Connection;
 
 sub main {
     have_display();
-    do_subtests(qw( extwindow_tt predestroy_tt postdestroy_tt waitdestroy_tt owndestroy_tt ));
+    do_subtests(qw( extwindow_tt predestroy_tt postdestroy_tt waitdestroy_tt ));
     return 0;
 }
 
@@ -119,43 +119,6 @@ sub waitdestroy_tt {
 }
 
 
-sub owndestroy_tt {
-    plan tests => 4;
-    my $M = mkwidg();
-    my $handler = init_zircon_conn($M, qw( me_local me_remote ));
-
-    my $sel = $handler->zconn->selection('local');
-    bless $sel, 'Selection::Footshooting'; # rebless
-
-    my ($flag, @warn) = (0);
-    local $SIG{ALRM} = sub {
-        $flag='boom';
-    };
-
-    alarm(2);
-    my $got = try_err {
-        local $SIG{__WARN__} = # in scope above, this causes Tk.so segfault!?
-          sub { push @warn, "@_" };
-        $sel->owns(0);
-        $sel->own();
-        "flag=$flag";
-    };
-    alarm(0);
-    ok(!Tk::Exists($M), 'window was destroyed');
-
-    like($got, qr{destroyed during waitVariable at}, 'own with destruction during');
-    if (2 == @warn) {
-        # extra noise from zircon_trace
-        @warn = ($warn[1]);
-    }
-    is(scalar @warn, 1, 'produces warnings')
-      or diag explain \@warn;
-    like($warn[0], qr{PropertyNotify\(me_local\) on destroyed}, 'ordering of destory');
-
-    return;
-}
-
-
 sub extwindow_tt {
     plan tests => 5;
     my $M = mkwidg();
@@ -202,21 +165,4 @@ CHILD
     is($got, 0, "we see child process window is gone (attempt $retry)");
 
     return;
-}
-
-
-package Selection::Footshooting;
-use strict;
-use warnings;
-
-use base 'Zircon::Tk::Selection';
-
-sub widget {
-    my ($self, @arg) = @_;
-    my $w = $self->SUPER::widget;
-    my $caller = (caller(1))[3];
-    if ($caller =~ m{_own_timestamped$} && Tk::Exists($w)) {
-        $self->widget->destroy;
-    }
-    return $w;
 }
