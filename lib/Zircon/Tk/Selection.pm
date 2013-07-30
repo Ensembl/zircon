@@ -215,6 +215,9 @@ sub _own_timer_clear {
     return $t;
 }
 
+# Likely to be ineffective when called in the context of a ButtonPress
+# or KeyPress, e.g. in a nesting waitVisibility event loop.
+# See commit 32891420.
 sub clear {
     my ($self) = @_;
     $self->zircon_trace($self->owns ? 'have it - will clear' : 'not mine - nop');
@@ -223,8 +226,12 @@ sub clear {
         Tk::Exists($w)
             or croak "Attempt to clear selection with destroyed widget";
         $self->debug_delay('clear');
+
+        # We cannot use $self->own for this SelectionOwn call, it
+        # would have effect after the SelectionClear.
         $self->widget->SelectionOwn(
             '-selection' => $self->id);
+
         $self->widget->SelectionClear(
             '-selection' => $self->id);
         $self->owns(0);
