@@ -141,12 +141,15 @@ sub _own_provoke {
 
     try { $w->property('delete', 'Zircon_Own') }; # belt&braces
 
-    # Can only have one callback bound to widget, but we probably have
-    # two selections to manage.  Re-bind each time we need it.
+    # Can only have one callback bound to widget, but it has two
+    # selections to manage.  We remove the bind after doing the work.
+    # Bind each time we need it, prepare to do multiple operations.
     $w->bind('<Property>' => [ $self, '_own_timestamped',
                                map { Tk::Ev($_) } @event_info ]);
+    my $own_set = $w->{_z_t_sel_own} ||= {};
+    $own_set->{$self} = $self;
 
-    $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
+    $w->property('set', 'Zircon_Own', "STRING", 8, $own_set);
 
     # It should happen "later".  Return now.
     return;
@@ -156,14 +159,15 @@ sub _own_provoke {
 # recent timestamp.  The timestamp is re-used by pTk for SelectionOwn.
 sub _own_timestamped {
     my ($self, @arg) = @_;
-    my $id = $self->id;
+    my $w = $self->widget;
+    my $own_set = $w->{_z_t_sel_own} ||= {};
 
     Zircon::Tk::Context->warn_if_tangled;
 
-    my $w = $self->widget;
     if (!Tk::Exists($w)) {
         # I suspect it can't happen.  While trying to write an
         # automated test for it, the result was sometimes a segfault.
+        my $id = $self->id; # at least this one is affected
         warn "PropertyNotify($id) on destroyed window?!";
         return;
         # there is nothing useful we can do without the widget
@@ -178,17 +182,26 @@ sub _own_timestamped {
     $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s',
                         @arg, $propval);
 
-    if ($propkey ne 'Zircon_Own' || $propval ne $id) {
+    if ($propkey ne 'Zircon_Own' || $propval ne $own_set) {
         # event is not for us
         return;
-    } else {
-        $self->_own_timer_clear or
-          warn "_own_timestamped($id): happens late";
     }
 
-    $w->SelectionOwn
-      ('-selection' => $id,
-       '-command' => $self->callback('owner_callback'));
+    # May be more than one Z:T:Selection object with pending
+    # SelectionOwn, hanging off this $w
+    undef $self; # avoid using it accidentally
+
+    foreach my $selection (values %$own_set) {
+        my $id = $selection->id;
+        $selection->_own_timer_clear or
+          warn "_own_timestamped($id): happens late";
+
+        $w->SelectionOwn
+          ('-selection' => $id,
+           '-command' => $selection->callback('owner_callback'));
+    }
+    %$own_set = ();
+
     $w->bind('<Property>' => ''); # cancel
     try { $w->property('delete', 'Zircon_Own') }; # ready for next
 
