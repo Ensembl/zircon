@@ -176,6 +176,7 @@ sub zircon_server_log {
     my ($self, $message) = @_;
     $zircon_message =
         sprintf 'Server: %s', $message;
+    warn "$zircon_message\n";
     return;
 }
 
