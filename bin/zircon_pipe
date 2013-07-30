@@ -4,12 +4,12 @@ use strict;
 use warnings;
 
 use IO::Handle;
-use Time::HiRes qw( gettimeofday tv_interval );
 use Getopt::Long;
 use Tk;
 
 use Zircon::Tk::Context;
 use Zircon::Connection;
+use Zircon::Trace;
 
 my $t0;
 sub main {
@@ -23,18 +23,13 @@ sub main {
 Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     my ($local_selection, $remote_selection) = @ARGV;
 
-    $SIG{__WARN__} = sub {
-        my ($msg) = @_;
-        chomp $msg;
-        $msg =~ s{\n}{\\N}g; # protect the ability to sort(1) out output
-        my $clr = $local_selection gt $remote_selection ? 33 : 36;
-        $msg = qq{\x1B[${clr}m$msg\x1b[00m} if $coloured;
-        print tstamp().": $msg\n";
-    };
-    $SIG{__WARN__} = sub {
-        my ($msg) = @_;
-        # ignore
-    } if $quiet;
+    $ENV{ZIRCON_TRACE} = join ',',
+      ($coloured ? ('colour') : (),
+       $quiet    ? ('silent') : (),
+       'sortable', 'stamp',
+       split /,/, ($ENV{ZIRCON_TRACE} || ''));
+    Zircon::Trace->trace_env_update;
+
 
     my $M = MainWindow->new;
     $M->title("$0 pid=$$");
@@ -66,11 +61,6 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     MainLoop();
     warn "MainLoop finished (pid=$$).\n";
     return 0;
-}
-
-sub tstamp {
-    my ($tv) = @_;
-    return sprintf('%11.6f', tv_interval($t0, $tv));
 }
 
 main();
@@ -252,6 +242,8 @@ package My::Handler;
 use strict;
 use warnings;
 
+use Time::HiRes qw( tv_interval );
+
 use base 'Zircon::Connection::Handler';
 
 
@@ -277,10 +269,15 @@ sub on_timeout {
 sub zircon_connection_request {
     my ($self, $request) = @_;
     warn "<=   $request\n";
-    my $reply = main::tstamp().' ack';
+    my $reply = tstamp().' ack';
     warn " ->  $reply\n";
     $self->zconn->after(sub { $self->zcreq_done($reply) });
     return $reply;
+}
+
+sub tstamp {
+    my ($tv) = @_;
+    return sprintf('%11.6f', tv_interval($t0, $tv));
 }
 
 sub zircon_connection_reply {
