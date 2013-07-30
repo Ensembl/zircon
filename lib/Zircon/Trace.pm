@@ -80,8 +80,14 @@ sub __warn_handler {
     $msg =~ s{\n}{\\N}g # Protect the ability to sort(1) output
       if $TRACE{sortable};
 
-    my $clr = $TRACE{child} ? 36 : 33;
-    $msg = qq{\x1B[${clr}m$msg\x1B[00m} if $TRACE{colour};
+    if ($TRACE{colour}) {
+        my $clr = $TRACE{child} ? 36 : 33;
+        if (my $ptn = $TRACE{bold}) {
+            $TRACE{bold} = $ptn = qr{$ptn} unless ref($ptn);
+            $msg =~ s{($ptn)}{\x1B[01m${1}\x1B[00;${clr}m}g;
+        }
+        $msg = qq{\x1B[${clr}m$msg\x1B[00m};
+    }
 
     $msg = sprintf('%11.6f: %s', Time::HiRes::tv_interval([ $TRACE{t0}, 0 ]),
                    $msg) if $TRACE{stamp};
