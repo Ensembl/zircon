@@ -71,32 +71,20 @@ sub init {
 }
 
 
-# It is an error to re-enter this method [unless the selection is
-# still owned].  Re-entrance can be caused by "tangled" waitVariables
-# at multiple levels of the call stack.
+# Cause SelectionOwn to happen.  Call returns [nothing] before the
+# SelectionOwn message has been sent to Xserver.
 #
-# See 're-entrancy - does this need fixing?' in t/selection.t
-#
-# It is probably fixable, because waitVariable exit is triggered by
-# change not state, but a) getting the exit code right will need
-# internal work and b) allowing subsequent code to run in correct
-# order needs an API change towards callbacks.
+# Calling this method again before the previous call has taken effect
+# is likely to be ineffective and will generate warnings, but that
+# should not affect what the Xserver ultimately sees.
 sub own {
     my ($self) = @_;
     if (! $self->owns) {
         $self->debug_delay('own');
         $self->zircon_trace('provoking timestamped event');
         $self->_own_provoke;
-        $self->zircon_trace('did SelectionOwn');
 
-        # check we got it - does not notice if the XServer binned our
-        # ownership due e.g. to timestamp staleness
-        my ($id, $W) = ($self->id, $self->widget);
-        my $owner = try { $W->SelectionOwner('-selection' => $id) };
-        my $name = defined $owner ? $owner->PathName : 'external';
-        warn "SelectionOwn($id) failed, owner=$name; collision?\n"
-          unless defined $owner && $owner == $W;
-
+        # A little early, but the state represents the intention
         $self->owns(1);
     }
     return;
@@ -131,89 +119,56 @@ my @event_info;
 sub _own_provoke {
     my ($self) = @_;
 
-    my $V = \$self->{'_own_var'};
-    # values:
-    #   (absent)=ready=unused
-    #   waiting
-    #   complete (awaiting exit from waitVariable)
-    #   overdue  (complete, and the safety timer fired)
-    #   (other)=fail
-
     my $w = $self->widget;
+    my $id = $self->id;
 
     Tk::Exists($w)
-        or croak "Attempt to own selection with destroyed widget";
+        or croak "Attempt to own selection $id with destroyed widget";
 
-    if (!defined $$V or $$V eq 'ready') {
-        # unused or previous call complete - continue
-        $$V = 'waiting';
+    # When timer is set, indicates that we are already waiting for
+    # _own_timestamped to happen
+    if (defined $self->{'_own_timer'}) {
+        warn "SelectionOwn for previous ->own($id) call didn't happen yet - timer still running";
     } else {
-        confess "recursive ->own call? _own_var=$$V";
-        # May be caused by: own dies, catch in Zircon::Connection
-        # _do_safely, which issues a reset, which calls ->own again.
+        # Set the timer to inform us when things are not happening.
+        $self->{'_own_timer'} = $w->after
+          ($OWN_SAFETY_TIMEOUT,
+           sub {
+               warn "Requested SelectionOwn($id) has not happened after ${OWN_SAFETY_TIMEOUT}ms";
+               delete $self->{'_own_timer'};
+           });
     }
 
     try { $w->property('delete', 'Zircon_Own') }; # belt&braces
 
-    # Can only have one callback bound to widget, but we probably have
-    # two selections to manage.  Re-bind each time we need it.
+    # Can only have one callback bound to widget, but it has two
+    # selections to manage.  We remove the bind after doing the work.
+    # Bind each time we need it, prepare to do multiple operations.
     $w->bind('<Property>' => [ $self, '_own_timestamped',
                                map { Tk::Ev($_) } @event_info ]);
+    my $own_set = $w->{_z_t_sel_own} ||= {};
+    $own_set->{$self} = $self;
 
-    my $after = $w->after
-      ($OWN_SAFETY_TIMEOUT,
-       sub {
-           my $id = $self->id;
-           if ($$V eq 'complete') {
-               $$V = 'overdue';
-               warn "_own_provoke($id): safety timeout due to tangled waitVariable; no-op";
-           } else {
-               $$V = 'timeout';
-               warn "_own_provoke($id): safety timeout!";
-           }
-       });
+    $w->property('set', 'Zircon_Own', "STRING", 8, $own_set);
 
-    Zircon::Tk::Context->warn_if_tangled; # before waitVariable
-    $w->property('set', 'Zircon_Own', "STRING", 8, $self->id);
-    $w->waitVariable($V); # protected by local after (10sec)
-    $after->cancel;
-
-    if (Tk::Exists($w)) {
-        $w->bind('<Property>' => ''); # cancel
-        try { $w->property('delete', 'Zircon_Own') }; # ready for next
-    } else {
-        die "Widget $w destroyed during waitVariable";
-        # leave $$V broken
-    }
-
-    my $id = $self->id;
-    my $was = $$V;
-    $$V = 'ready';
-    if ($was eq 'complete') {
-        return 1;
-    } elsif ($was eq 'overdue') {
-        warn "_own_provoke($id): waitVariable completed late";
-        return 1;
-    } else {
-        die "Failed to Own selection $id: _own_var=$was";
-    }
+    # It should happen "later".  Return now.
+    return;
 }
 
 # This callback runs in the context of the PropertyNotify, which has a
 # recent timestamp.  The timestamp is re-used by pTk for SelectionOwn.
 sub _own_timestamped {
     my ($self, @arg) = @_;
-    my $V = \$self->{'_own_var'};
-    my $id = $self->id;
-
-    Zircon::Tk::Context->warn_if_tangled(+1); # again from the inside
-
     my $w = $self->widget;
+    my $own_set = $w->{_z_t_sel_own} ||= {};
+
+    Zircon::Tk::Context->warn_if_tangled;
+
     if (!Tk::Exists($w)) {
         # I suspect it can't happen.  While trying to write an
         # automated test for it, the result was sometimes a segfault.
+        my $id = $self->id; # at least this one is affected
         warn "PropertyNotify($id) on destroyed window?!";
-        $self->{'_own_var'} = 'destroyed';
         return;
         # there is nothing useful we can do without the widget
     }
@@ -224,24 +179,45 @@ sub _own_timestamped {
 
     # Tk:Ev(d) gives property name, but use property value instead
     # because documentation doesn't promise data for PropertyNotify
-    $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s; _own_var=%s',
-                        @arg, $propval, $$V);
+    $self->zircon_trace('PropertyNotify(#=%s t=%s E=%s d=%s) => %s',
+                        @arg, $propval);
 
-    if ($propkey ne 'Zircon_Own' || $propval ne $id) {
+    if ($propkey ne 'Zircon_Own' || $propval ne $own_set) {
         # event is not for us
         return;
-    } elsif ($$V eq 'waiting') {
-        $$V = 'complete';
+    }
+
+    # May be more than one Z:T:Selection object with pending
+    # SelectionOwn, hanging off this $w
+    undef $self; # avoid using it accidentally
+
+    foreach my $selection (values %$own_set) {
+        my $id = $selection->id;
+        $selection->_own_timer_clear or
+          warn "_own_timestamped($id): happens late";
+
         $w->SelectionOwn
           ('-selection' => $id,
-           '-command' => $self->callback('owner_callback'));
-    } else {
-        warn "_own_timestamped($id): _own_var=$$V => too late!  no-op";
+           '-command' => $selection->callback('owner_callback'));
     }
+    %$own_set = ();
+
+    $w->bind('<Property>' => ''); # cancel
+    try { $w->property('delete', 'Zircon_Own') }; # ready for next
 
     return;
 }
 
+sub _own_timer_clear {
+    my ($self) = @_;
+    my $t = delete $self->{'_own_timer'};
+    $t->cancel if $t;
+    return $t;
+}
+
+# Likely to be ineffective when called in the context of a ButtonPress
+# or KeyPress, e.g. in a nesting waitVisibility event loop.
+# See commit 32891420.
 sub clear {
     my ($self) = @_;
     $self->zircon_trace($self->owns ? 'have it - will clear' : 'not mine - nop');
@@ -250,8 +226,12 @@ sub clear {
         Tk::Exists($w)
             or croak "Attempt to clear selection with destroyed widget";
         $self->debug_delay('clear');
+
+        # We cannot use $self->own for this SelectionOwn call, it
+        # would have effect after the SelectionClear.
         $self->widget->SelectionOwn(
             '-selection' => $self->id);
+
         $self->widget->SelectionClear(
             '-selection' => $self->id);
         $self->owns(0);
@@ -392,6 +372,7 @@ sub widget {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace;
+    $self->_own_timer_clear;
     return;
 }
 
