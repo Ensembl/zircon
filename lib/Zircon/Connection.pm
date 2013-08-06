@@ -246,6 +246,7 @@ sub selection_id {
                 '-handler'      => $self,
                 '-handler_data' => $key,
             );
+        $self->context->window_declare($self) if $key eq 'local';
         $self->zircon_trace("['%s'] set = '%s'", $key, $id);
         $self->update;
     }
