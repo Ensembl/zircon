@@ -124,11 +124,13 @@ sub extwindow_tt {
     my $M = mkwidg();
     my $handler = init_zircon_conn($M, qw( me_local me_remote ));
 
-    my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD';
+    my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD', 'me_remote';
   my $M = MainWindow->new(-title => "Child for extwindow_tt");
   $M->withdraw;
   $M->after(1500, \&late);
   my $w = $M->Label(-text => "foo");
+  $w->property('set', shift(@ARGV), 'STRING', 8, $$);
+  $w->update;
   print "made ", $w->id,  ": ", $M->id, "\n";
   $SIG{INT} = sub { $M->destroy; print "gone\n" };
   MainLoop;
@@ -140,11 +142,12 @@ CHILD
     my ($extid) = $info =~ m{(0x\w+)};
     # diag explain { pid => $pid, info => $info, extid => $extid };
 
-    my $got = try_err { $handler->zconn->context->window_exists($extid) };
-    is($got, 1, 'we notice child process window');
+    $handler->zconn->xid_remote($extid);
+    my $got = try_err { $handler->zconn->remote_window_exists };
+    is($got, $pid, 'we notice child process window');
 
-    $got = try_err { $handler->zconn->context->window_exists($extid) };
-    is($got, 1, 'we see child process window');
+    $got = try_err { $handler->zconn->remote_window_exists };
+    is($got, $pid, 'we see child process window');
     kill 'INT', $pid
       or warn "kill child failed: $!";
 
@@ -156,7 +159,7 @@ CHILD
         # to reach the XServer, so wait a while for the "right" answer
         my ($out, $n);
         for ($n=0; $n <= 10; $n++) {
-            $out = $handler->zconn->context->window_exists($extid);
+            $out = $handler->zconn->remote_window_exists;
             last if $out == 0;
             usleep(10e3); # 10ms
         }

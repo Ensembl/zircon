@@ -15,7 +15,7 @@ use Zircon::Tk::WindowExists;
 
 sub main {
     have_display();
-    do_subtests(qw( clean_exit_tt destroy_tt tied_handles_tt ));
+    do_subtests(qw( here_and_gone_tt tied_handles_tt ));
     return 0;
 }
 
@@ -29,7 +29,7 @@ sub is_wait {
     for (my $n=0; $n<10; $n++) {
         $got_val = $code->();
         $tries = $n;
-        last if $want_val == $got_val;
+        last if $want_val eq $got_val;
         usleep 100e3;
     }
 
@@ -37,51 +37,21 @@ sub is_wait {
 }
 
 
-sub clean_exit_tt {
-    plan tests => 5;
+sub here_and_gone_tt {
+    plan tests => 2;
     my $M = mkwidg();
 
     # Check for exit code
-    my $we = Zircon::Tk::WindowExists->new;
+    my $we = 'Zircon::Tk::WindowExists';
     my $gone = $M->Frame->pack;
     my $gone_id = $gone->id;
+    $gone->property(qw( set win_exist STRING 8 value ));
+    my $q = sub { $we->query($gone_id, 'win_exist') };
     $gone->update;
-    is_wait(1, 'see frame beforehand', sub { $we->query( $gone_id ) });
+    is_wait('value', 'see frame beforehand', $q);
     $gone->destroy;
     $M->update;
-    is_wait(0, 'see absence of gone-frame', sub { $we->query( $gone_id ) });
-    my $exit = $we->tidy;
-    is(sprintf('0x%X', $exit), '0x100', 'child exit code: Xlib exit');
-
-    # Check for clean exit
-    $we = Zircon::Tk::WindowExists->new;
-    is($we->query( $M->id ), 1, "see our MainWindow")
-      or diag explain { id => $M->id, exists => Tk::Exists($M) };
-    close $we->out; # emulate the parent closing
-    sleep 1; # bodge delay, giving child time to see EOF
-    $exit = $we->tidy; # sends SIGINT to be sure
-    is(sprintf('0x%X', $exit), '0x0', 'child exit code: EOF');
-
-    return;
-}
-
-
-sub destroy_tt {
-    plan tests => 3;
-
-    my $dut = Zircon::Tk::WindowExists->new; # device under test
-    my $M = mkwidg();
-    my $winid = $M->id;
-    is($dut->query($winid), 1, 'sees our window');
-
-    my $pid = $dut->pid;
-    undef $dut;
-
-    undef $!;
-    my $count = kill KILL => $pid;
-    my $rc = $!;
-    is($count, 0, 'pid gone after undef'); # gone = dead + reaped
-    is(0+$rc, 3, "pid not killed ($rc)");
+    is_wait(0, 'see absence of gone-frame', $q);
 
     return;
 }
@@ -91,6 +61,8 @@ sub tied_handles_tt {
     plan tests => 3;
     my $M = mkwidg();
     my $winid = $M->id;
+    $M->property(qw( set tied_exist STRING 8 knot ));
+    $M->update;
 
     # Need to emulate Bio::Otter::LogFile and Bio::Otter::Log::TieHandle
     # without upsetting how prove gets its results
@@ -107,9 +79,9 @@ sub tied_handles_tt {
     my $tied_in = tie *STDIN, 'KnottyFh', 'in'
       or die "tie failed ($!)";
 
-    my $dut = Zircon::Tk::WindowExists->new; # device under test
-    my $got = try_err { $dut->query($winid) };
-    is($got, 1, 'child process sees our window');
+    my $dut = 'Zircon::Tk::WindowExists'; # device under test
+    my $got = try_err { $dut->query($winid, 'tied_exist') };
+    is($got, 'knot', 'child process sees our window');
 
     my $w2 = $M->Label(-text => 'talk to XServer now')->pack;
     $M->update;

@@ -177,11 +177,11 @@ sub widget_xid {
 # other app's windows
 
 sub window_exists {
-    my ($self, $win_id) = @_;
+    my ($self, $win_id, $prop) = @_;
 
     # Another process does the checking
-    my $we = $self->{_window_exists} ||= Zircon::Tk::WindowExists->new;
-    return $we->query($win_id);
+    return Zircon::Tk::WindowExists->query($win_id, $prop);
+}
 }
 
 

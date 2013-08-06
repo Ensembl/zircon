@@ -301,12 +301,12 @@ sub timeout_maybe_callback {
     my $again = 0;
     if ($retries && $xid_remote) {
         # If the remote's window still exists, they're just busy
-        $again = 1 if $self->context->window_exists($xid_remote);
+        $again = $self->remote_window_exists;
 
         $self->zircon_trace
           ('remote window %s %s, %d retr%s left',
            $xid_remote,
-           ($again ? 'still exists' : 'gone'),
+           ($again ? "still exists ($again)" : 'gone'),
            $retries, $retries == 1 ? 'y' : 'ies');
     } elsif ($retries) {
         # Assume we are waiting for handshake, benefit of the doubt
@@ -321,6 +321,11 @@ sub timeout_maybe_callback {
         $self->timeout_callback;
     }
     return;
+}
+
+sub remote_window_exists {
+    my ($self) = @_;
+    return $self->context->window_exists($self->xid_remote, $self->remote_selection_id);
 }
 
 sub timeout_callback {
