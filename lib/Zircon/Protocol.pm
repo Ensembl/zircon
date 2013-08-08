@@ -122,6 +122,12 @@ sub _gotele_peer {
     defined $window_id or die 'missing attribute: window_id';
 
     $self->xid_remote($window_id);
+    my $check = $self->connection->remote_window_exists;
+    if ($check) {
+        $self->zircon_trace('Remote window %s exists, %s', $window_id, $check);
+    } else {
+        warn "Remote window $window_id seems to be absent";
+    }
 
     return ($app_id, $unique_id, $window_id);
 }
