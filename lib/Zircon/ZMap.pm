@@ -146,6 +146,10 @@ sub _new_view_from_result {
 
 sub view_destroyed {
     my ($self, $view) = @_;
+
+    my $wait = 0;
+    my $wait_finish_ok = sub { $wait = 'ok' };
+
     my $result;
     $self->protocol->send_command(
         'close_view',
@@ -153,12 +157,13 @@ sub view_destroyed {
         undef,
         sub {
             ($result) = @_;
-            $self->protocol->connection->after(
-                sub { $self->wait_finish; });
+            $self->protocol->connection->after($wait_finish_ok);
         });
-    $self->wait;
-    ($result && $result->success)
+
+    $self->waitVariable_with_fail(\ $wait);
+    ($wait eq 'ok' && $result && $result->success)
         or die "close_view: failed";
+
     return;
 }
 
