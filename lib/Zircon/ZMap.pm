@@ -451,6 +451,10 @@ sub launch_zmap_wait_finish {
 
 sub DESTROY {
     my ($self) = @_;
+
+    my $wait = 0;
+    my $wait_finish_ok = sub { $wait = 'ok' };
+
     try {
         $self->protocol->send_command(
             'shutdown',
@@ -458,13 +462,12 @@ sub DESTROY {
             undef,
             sub {
                 my ($result) = @_;
-                $self->protocol->connection->after(
-                    sub {
-                        $self->wait_finish;
-                    });
+                $self->protocol->connection->after($wait_finish_ok);
                 die "shutdown: failed" unless $result->success;
             });
-        $self->wait;
+
+        $self->waitVariable_with_fail(\ $wait);
+        $wait eq 'ok' or die "&send_command_and_xml: timeout";
     }
     catch { warn $_; };
     return;
