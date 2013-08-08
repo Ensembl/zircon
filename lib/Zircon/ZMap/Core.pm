@@ -98,33 +98,12 @@ sub add_view {
 
 # waiting
 
-sub wait {
-    my ($self) = @_;
-    my $val = $self->{'_wait'};
-    $self->{'_wait'} = 1;
-    $self->zircon_trace('startWAIT(0x%x), var %s old=%s, new=%s',
-                        refaddr($self), \$self->{'_wait'},
-                        defined $val ? $val : '(undef)', $self->{'_wait'});
-    $self->waitVariable(\ $self->{'_wait'}); # traced
-    $val = $self->{'_wait'};
-    $self->zircon_trace('stopWAIT(0x%x), val=%s', refaddr($self),
-                        defined $val ? $val : '(undef)');
-    return;
-}
-
 sub waitVariable {
     my ($self, $var) = @_;
     die sprintf
         "waitVariable() is not implemented in %s, "
         . "derived classes must implement it"
         , __PACKAGE__;
-}
-
-sub wait_finish {
-    my ($self) = @_;
-    $self->{'_wait'} = 0;
-    delete $self->{'_wait'};
-    return;
 }
 
 # attributes
