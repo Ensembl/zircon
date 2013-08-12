@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 use Carp qw( croak cluck );
-use Scalar::Util qw( refaddr );
+use Scalar::Util qw( weaken refaddr );
 use Zircon::Tk::Selection;
 use Zircon::Tk::WindowExists;
 use Zircon::Tk::MonkeyPatches;
@@ -23,6 +23,7 @@ sub new {
 
 sub init {
     my ($self, $args) = @_;
+    $self->{'waitVariable_hash'} = { };
     my $widget = $args->{'-widget'};
     defined $widget or die 'missing -widget argument';
     $self->{'widget'} = $widget;
@@ -148,6 +149,8 @@ sub timeout {
 
 sub waitVariable {
     my ($self, $var) = @_;
+    $self->waitVariable_hash->{$var} = $var;
+    weaken $self->waitVariable_hash->{$var};
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to waitVariable with destroyed widget";
@@ -167,6 +170,12 @@ sub widget {
     my ($self) = @_;
     my $widget = $self->{'widget'};
     return $widget;
+}
+
+sub waitVariable_hash {
+    my ($self) = @_;
+    my $waitVariable_hash = $self->{'waitVariable_hash'};
+    return $waitVariable_hash;
 }
 
 sub widget_xid {
