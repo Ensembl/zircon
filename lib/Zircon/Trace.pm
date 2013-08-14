@@ -82,10 +82,16 @@ sub __warn_handler {
 
     if ($TRACE{colour}) {
         my $clr = $TRACE{child} ? 36 : 33;
+
+        my $caller = (caller(1))[3];
+        $clr = "$clr;07"
+          if $caller ne 'Zircon::Trace::zircon_trace'; # non-trace warn in reverse video
+
         if (my $ptn = $TRACE{bold}) {
             $TRACE{bold} = $ptn = qr{$ptn} unless ref($ptn);
             $msg =~ s{($ptn)}{\x1B[01m${1}\x1B[00;${clr}m}g;
         }
+
         $msg = qq{\x1B[${clr}m$msg\x1B[00m};
     }
 
