@@ -9,7 +9,7 @@ use IO::Handle;
 
 sub query {
     my ($pkg, $window_id, $prop) = @_;
-    $prop ||= 'WM_NAME';
+    die "Need window_id and property name" unless $window_id && $prop;
 
     my @cmd = ($pkg->_xprop, '-id' => $window_id, $prop);
     my $pid = open my $out, '-|';

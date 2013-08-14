@@ -80,6 +80,7 @@ sub send_handshake {
             my ($app_id, $unique_id, $window_id) =
               $self->_gotele_peer(@{ $data->[2] });
             $self->zircon_trace('Handshake reply from remote (clipboard %s)', $unique_id);
+            $self->_handshaking_check_window;
         }
         $orig_callback->($result) if $orig_callback;
     };
@@ -122,15 +123,22 @@ sub _gotele_peer {
     defined $window_id or die 'missing attribute: window_id';
 
     $self->xid_remote($window_id);
+    return ($app_id, $unique_id, $window_id);
+}
+
+sub _handshaking_check_window {
+    my ($self) = @_;
+
+    my $window_id = $self->xid_remote || 'unset';
     my $check = $self->connection->remote_window_exists;
     if ($check) {
         $self->zircon_trace('Remote window %s exists, %s', $window_id, $check);
     } else {
-        warn "Remote window $window_id seems to be absent";
+        die "Remote window $window_id seems to be absent";
     }
-
-    return ($app_id, $unique_id, $window_id);
+    return;
 }
+
 
 sub send_ping {
     my ($self, $callback) = @_;
@@ -206,6 +214,7 @@ sub _request {
             $self->connection->remote_selection_id($unique_id);
             $self->server->zircon_server_handshake($unique_id);
             $self->zircon_trace('Handshake request from remote (clipboard %s)', $unique_id);
+            $self->_handshaking_check_window;
 
             my $message = sprintf
                 "Handshake successful with peer '%s', id '%s', xid '%s'"
