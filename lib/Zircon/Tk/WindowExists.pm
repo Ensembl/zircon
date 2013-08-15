@@ -22,6 +22,8 @@ sub query {
             # 'PropName(STRING) = "foo"' + returncode 0
             $in =~ s{^"|"\n$}{}g; # trim wrappings, leave taint
             return $in;
+        } elsif ($in =~ m{^$pkg: }m) {
+            die $in;
         } else {
             # 'PropName' + returncode 1 (window is gone)
             # 'PropName: not found' + returncode 0 (not this window)
@@ -34,7 +36,7 @@ sub query {
         open STDERR, '>', '/dev/null'; # or we may emit noise
 
         { exec @cmd };
-        print "$pkg: failed to exec @cmd";
+        print "$pkg: failed to exec @cmd: $!";
         try { close STDOUT }; # for flush
         POSIX::_exit(127); # avoid DESTROY and END actions
     }
