@@ -79,7 +79,7 @@ sub postdestroy_tt {
     alarm(0);
     like($got, want_re('waitVariable'), 'waitVariable after destroy');
 
-    $got = try_err { $handler->zconn->context->window_exists(1234) };
+    $got = try_err { $handler->zconn->context->window_exists(1234, 'WM_NAME') };
     like($got, qr/^[01]$/, 'window_exists after destroy');
 
     $got = try_err { $handler->zconn->reset; 'done' };
