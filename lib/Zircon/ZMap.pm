@@ -357,9 +357,10 @@ sub _command_feature_details {
         $handler->zircon_zmap_view_feature_details_xml(
             $name, $tag_feature_body_hash);
     my $reply =
-        [ undef, # ok
-          $feature_details_xml, # raw xml
-        ];
+        $feature_details_xml
+        ? [ undef, $feature_details_xml ] # ok, with raw xml
+        : $self->protocol->message_command_failed('no feature details...failed');
+        ;
     return $reply;
 }
 
