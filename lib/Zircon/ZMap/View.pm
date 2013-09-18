@@ -43,6 +43,14 @@ sub load_features {
     return;
 }
 
+sub hide_features {
+    my ($self, @featuresets) = @_;
+    my $xml = $self->handler->zircon_zmap_view_hide_features_xml(@featuresets);    
+    my $result = $self->send_command_and_xml('hide_features', $xml);
+    $result->success or die "&hide_features: failed";
+    return;
+}
+
 sub delete_featuresets {
     my ($self, @featuresets) = @_;
     my $xml = $self->handler->zircon_zmap_view_delete_featuresets_xml(@featuresets);
