@@ -270,7 +270,8 @@ sub selection_callback {
     my ($self, $offset, $bytes) = @_;
     my $content = $self->content;
     my $size = (length $content) - $offset;
-    $self->zircon_trace("Get for [$offset,$bytes) of $size bytes remaining");
+    $self->zircon_trace("Get for [%d,%d) of %d bytes remaining",
+                        $offset, $offset+$bytes, $size);
     if ($size <= $bytes) {
         # peer has read the content
         $self->debug_delay('taken');
