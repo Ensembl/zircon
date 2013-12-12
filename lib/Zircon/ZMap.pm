@@ -315,8 +315,11 @@ sub _command_feature_loading_complete {
     my $featureset_list = $featureset_attribute_hash->{'names'};
     defined $featureset_list or die "missing featureset list";
     my @featureset_list = split /[[:space:]]*;[[:space:]]*/, $featureset_list;
-    $handler->zircon_zmap_view_features_loaded(
+
+    my $after_sub = $handler->zircon_zmap_view_features_loaded(
         $status, $message, $feature_count, @featureset_list);
+    $self->protocol->connection->after($after_sub) if $after_sub;
+
     my $protocol_message = 'got features loaded...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
     return $reply;
