@@ -299,11 +299,16 @@ sub _command_feature_loading_complete {
     my ($self, $handler, $tag_entity_hash) = @_;
     my $status_entity = $tag_entity_hash->{'status'};
     $status_entity or die "missing status entity";
-    my $status_attribute_hash = $status_entity->[1];
+    my (undef, $status_attribute_hash, $status_sub_entity_list) = @{$status_entity};
     my $status = $status_attribute_hash->{'value'};
     defined $status or die "missing status";
-    my $message = $status_attribute_hash->{'message'};
+    my $status_sub_entity_hash = { map { $_->[0] => $_ } @{$status_sub_entity_list} };
+    my $message_entity = $status_sub_entity_hash->{'message'};
+    defined $message_entity or die "missing message entity";
+    my $message = $message_entity->[2];
     defined $message or die "missing message";
+    my $feature_count = $status_attribute_hash->{'features_loaded'};
+    defined $feature_count or die "missing feature count";
     my $featureset_entity = $tag_entity_hash->{'featureset'};
     $featureset_entity or die "missing featureset entity";
     my $featureset_attribute_hash = $featureset_entity->[1];
@@ -311,7 +316,7 @@ sub _command_feature_loading_complete {
     defined $featureset_list or die "missing featureset list";
     my @featureset_list = split /[[:space:]]*;[[:space:]]*/, $featureset_list;
     $handler->zircon_zmap_view_features_loaded(
-        $status, $message, @featureset_list);
+        $status, $message, $feature_count, @featureset_list);
     my $protocol_message = 'got features loaded...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
     return $reply;
