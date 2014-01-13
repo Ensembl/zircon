@@ -45,8 +45,8 @@ my $connection = Zircon::Connection->new(
     '-name'    => $tag,
     '-handler' => $handler,
     '-context' => $context,
+    '-local_endpoint' => $local_endpoint,
     );
-$connection->local_endpoint($local_endpoint);
 $connection->remote_endpoint($remote_endpoint);
 
 my $test_frame =

@@ -58,7 +58,15 @@ sub init {
     }
 
     $self->trace_env_update;
-    $self->context->local_endpoint_init;   # deferred to here in case we're setting local_endpoint
+
+    # deferred to here in case we're setting local_endpoint
+    $self->context->transport_init(
+        sub {
+            my ($request) = @_;
+            return $self->_server_callback($request);
+        }
+        );
+
     $self->state('inactive');
     $self->update;
     $self->zircon_trace('Initialised');
@@ -96,10 +104,14 @@ sub send {
 
     $self->state eq 'inactive'
         or die 'Zircon: busy connection';
-    $self->selection('remote')->content($request);
-    $self->state('client_request');
-    $self->update;
-    $self->timeout_start;
+
+    my $reply;
+    if ($self->context->send($request, \$reply, $self->timeout_interval)) {
+        $self->zircon_trace("client got reply '%s'", $reply);
+        $self->handler->zircon_connection_reply($reply);
+    } else {
+        $self->zircon_trace('client failed or timed out');
+    }
 
     $self->zircon_trace("finish");
 
@@ -166,53 +178,16 @@ sub go_client {
 # server
 
 sub _server_callback {
-    my ($self) = @_;
+    my ($self, $request) = @_;
 
-    $self->zircon_trace("start: state = '%s'", $self->state);
-    my $taken = $self->selection_call(local => 'taken');
+    $self->zircon_trace("start:   state = '%s'", $self->state);
 
-    for ($self->state) {
+    $self->zircon_trace("request: '%s'", $request);
+    my $reply = $self->handler->zircon_connection_request($request);
 
-        when ('inactive') {
-            # Client makes request
-            my $request = $self->selection_call('local', 'get');
-            die "Client tried to paste our finish" if $taken;
-            $self->request($request);
-            $self->state('server_request');
+    $self->zircon_trace("finish:  state = '%s'", $self->state);
 
-            # We are about to Own, for ACK.  Don't let that be
-            # mistaken for a reply.
-            $self->selection_call(local => content => "pid=$$: received request");
-        }
-
-        when ('server_request') {
-            # Client received our ACK
-            die "Client tried to paste our request ACK" if $taken;
-            my $request = $self->request;
-            my $reply = $self->handler->zircon_connection_request($request);
-            $self->selection('local')->content($reply);
-            $self->state('server_reply');
-        }
-
-        when ('server_reply') {
-            die "Client ACKed our reply without reading it" unless $taken;
-            $self->state('inactive');
-
-            # We are about to Own, in readiness for next request.
-            # Don't let that be mistaken for a reply.
-            $self->selection_call(local => content => "pid=$$: inactive");
-        }
-
-        default {
-            die sprintf
-                "invalid connection state '%s'", $_;
-        }
-
-    }
-
-    $self->zircon_trace("finish: state = '%s'", $self->state);
-
-    return;
+    return $reply;
 }
 
 sub go_server {
@@ -226,12 +201,13 @@ sub go_server {
 
 sub local_endpoint {
     my ($self, @args) = @_;
-    return $self->selection_id('local', @args);
+    warn 'setting local_endpoint' if @args;
+    return $self->context->local_endpoint(@args)
 }
 
 sub remote_endpoint {
     my ($self, @args) = @_;
-    return $self->selection_id('remote', @args);
+    return $self->context->remote_endpoint(@args);
 }
 
 sub selection_id {

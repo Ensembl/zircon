@@ -5,11 +5,12 @@ use strict;
 use warnings;
 
 use Carp qw( croak cluck );
+use Errno qw(EAGAIN);
 use Readonly;
 use Scalar::Util qw( weaken refaddr );
 
 use ZMQ::LibZMQ3;
-use ZMQ::Constants qw(ZMQ_REP ZMQ_LAST_ENDPOINT);
+use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT EFSM);
 
 use Zircon::Tk::Selection;
 use Zircon::Tk::WindowExists;
@@ -38,8 +39,8 @@ sub init {
     return;
 }
 
-sub local_endpoint_init {
-    my ($self) = @_;
+sub transport_init {
+    my ($self, $request_callback) = @_;
 
     my $zmq_context = zmq_init;
     $self->zmq_context($zmq_context);
@@ -52,11 +53,67 @@ sub local_endpoint_init {
     $self->local_endpoint($endpoint);
     $self->zircon_trace('local_endpoint: %s', $endpoint);
 
+    my $fh = zmq_getsockopt($responder, ZMQ_FD);
+    open my $dup_fh, '<&', $fh;
+
+    $self->widget->fileevent($dup_fh, 'readable',
+                             sub {
+                                 my $msg = zmq_msg_init;
+                                 ZMQ: while (1) {
+                                     my $rv = zmq_msg_recv($msg, $responder, ZMQ_DONTWAIT);
+                                     if ($rv < 0) {
+                                         last ZMQ if $! == EAGAIN or $! == EFSM; # nothing to do for now
+
+                                         my $err = zmq_strerror($!);
+                                         warn "zmq_msg_recv error: '$err' [$!] ($rv)";
+                                         last ZMQ;
+                                     }
+                                     unless ($msg) {
+                                         warn "zmq_msg_recv: no message";
+                                         last ZMQ;
+                                     }
+                                     my $request = zmq_msg_data($msg);
+                                     $self->zircon_trace("request: '%s'", $request);
+                                     my $reply = $request_callback->($request);
+                                     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
+                                     zmq_send($responder, $reply // '');
+                                 }
+                                 $self->zircon_trace('Done with 0MQ for this event');
+                             }
+        );
+
     return;
 }
 
 # platform
 sub platform { return 'ZMQ'; }
+
+sub send {
+    my ($self, $request, $reply_ref, $timeout) = @_;
+    my $requester = $self->zmq_requester;
+    zmq_send($requester, $request);
+    $self->zircon_trace('send: waiting for reply');
+
+    my $reply_msg;
+    my %pollitem = (
+        socket  => $requester,
+        events  => ZMQ_POLLIN,
+        callback => sub {
+            $reply_msg = zmq_recvmsg($requester);
+            return;
+        },
+    );
+    my $rv = zmq_poll([ \%pollitem ], $timeout);
+    if ($rv == -1) {
+        warn "zmq_poll failed: $!";
+        return;
+    } elsif (not defined $reply_msg) {
+        warn "no reply (timeout?)";
+    } else {
+        $$reply_ref = zmq_msg_data($reply_msg);
+        return 1;
+    }
+}
 
 sub stack_tangle {
     my ($pkg, $trace_return) = @_;
@@ -241,6 +298,17 @@ sub zmq_responder {
     ($self->{'zmq_responder'}) = @args if @args;
     my $zmq_responder = $self->{'zmq_responder'};
     return $zmq_responder;
+}
+
+sub zmq_requester {
+    my ($self) = @_;
+    my $zmq_requester = $self->{'zmq_requester'};
+    return $zmq_requester if $zmq_requester;
+
+    $zmq_requester = zmq_socket($self->zmq_context, ZMQ_REQ);
+    zmq_connect($zmq_requester, $self->remote_endpoint);
+
+    return $self->{'zmq_requester'} = $zmq_requester;
 }
 
 sub local_endpoint {
