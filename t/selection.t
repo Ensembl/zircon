@@ -8,7 +8,7 @@ use Tk;
 use Time::HiRes qw( gettimeofday tv_interval );
 use IO::Handle;
 use Zircon::Tk::Selection;
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Sub::Name;
 
 use lib "t/lib";
@@ -142,12 +142,12 @@ sub tangle_spotting_tt {
     my $lbl = $M->Label(-text => 'junk')->pack;
 
 
-    is(scalar Zircon::Tk::Context->stack_tangle,
+    is(scalar Zircon::TkZMQ::Context->stack_tangle,
        0, 'initially no tangles');
 
 
     my @wait;
-    my $fill_wait = sub { @wait = Zircon::Tk::Context->stack_tangle };
+    my $fill_wait = sub { @wait = Zircon::TkZMQ::Context->stack_tangle };
     subname '$fill_wait', $fill_wait;
 
     # update
@@ -252,11 +252,11 @@ sub __my_waiter { # differs from __hang_around by processing the events here
     have_display();
     my @wait;
     my $M = mkwidg();
-    $M->after(0, sub { @wait = Zircon::Tk::Context->stack_tangle });
+    $M->after(0, sub { @wait = Zircon::TkZMQ::Context->stack_tangle });
     my $ln_update = __LINE__; $M->update;
 
     $M->after(0, sub {
-                  push @wait, Zircon::Tk::Context->stack_tangle;
+                  push @wait, Zircon::TkZMQ::Context->stack_tangle;
                   $M->destroy;
               });
     my $ln_mainloop = __LINE__; Tk::MainLoop;

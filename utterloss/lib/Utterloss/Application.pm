@@ -11,7 +11,7 @@ use Tk::Pane;
 use Tk::Button;
 use Tk::Radiobutton;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 
 use Utterloss::Session;
 
@@ -51,7 +51,7 @@ sub window_create {
 sub zircon_context_create {
     my ($self) = @_;
     $self->{'zircon_context'} =
-        Zircon::Tk::Context->new(
+        Zircon::TkZMQ::Context->new(
             '-widget' => $self->window,
         );
     return;

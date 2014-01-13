@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use Tk;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 
 use lib "t/lib";
@@ -128,7 +128,7 @@ sub instruct {
     $self->state_bump('instructed');
 
     # wait here until TestWin is gone, in context of ButtonPress
-    local $Zircon::Tk::Context::TANGLE_ACK{'TestWin::instruct'} = 1;
+    local $Zircon::TkZMQ::Context::TANGLE_ACK{'TestWin::instruct'} = 1;
     while (Tk::Exists($self)) {
         Tk::DoOneEvent();
     }

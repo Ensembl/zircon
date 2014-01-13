@@ -7,7 +7,7 @@ use feature qw( switch );
 use Getopt::Long;
 use Tk;
 use Zircon::Protocol;
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 
 my $app_id = 'ZapMop';
 
@@ -25,7 +25,7 @@ $main_window->title($peer_name);
 
 # create the Zircon connection
 my $server = Server->new;
-my $context = Zircon::Tk::Context->new(
+my $context = Zircon::TkZMQ::Context->new(
     '-widget' => $main_window);
 my $selection_id =
     sprintf "zapmop_%s_%06d"

@@ -544,7 +544,7 @@ An opaque object that provides an interface to X selections and the
 application's event loop.
 
 Perl/Tk applications create this object by calling
-C<Zircon::Tk::Context-E<gt>new()>.
+C<Zircon::TkZMQ::Context-E<gt>new()>.
 
 =item C<$handler> (mandatory)
 

@@ -9,7 +9,7 @@ use Test::More;
 use Time::HiRes qw( usleep );
 use Tk;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 
 

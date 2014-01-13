@@ -8,7 +8,7 @@ use Getopt::Long;
 use Try::Tiny;
 use Tk;
 use Zircon::Protocol;
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 
 # parse the command line
 my $remote_selection_id;
@@ -32,7 +32,7 @@ my $selection_id =
     sprintf 'zircon_protocol_test_%s_%06d'
     , $main_window->id, int(rand(1_000_000));
 my $server = Server->new;
-my $context = Zircon::Tk::Context->new(
+my $context = Zircon::TkZMQ::Context->new(
     '-widget' => $main_window);
 my $protocol = Zircon::Protocol->new(
     '-app_id'       => $app_id,

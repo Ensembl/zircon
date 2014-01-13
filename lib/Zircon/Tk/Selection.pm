@@ -10,7 +10,7 @@ use Try::Tiny;
 use File::Slurp qw( slurp );
 use Time::HiRes qw( usleep );
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 
 use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_SELECTION_TRACE';
@@ -162,7 +162,7 @@ sub _own_timestamped {
     my $w = $self->widget;
     my $own_set = $w->{_z_t_sel_own} ||= {};
 
-    Zircon::Tk::Context->warn_if_tangled;
+    Zircon::TkZMQ::Context->warn_if_tangled;
 
     if (!Tk::Exists($w)) {
         # I suspect it can't happen.  While trying to write an
@@ -247,7 +247,7 @@ sub get {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to get selection with destroyed widget";
-    Zircon::Tk::Context->warn_if_tangled; # SelectionGet contains an event loop, to emulate a synchronous call
+    Zircon::TkZMQ::Context->warn_if_tangled; # SelectionGet contains an event loop, to emulate a synchronous call
     $self->debug_delay('get');
     my $get = $w->SelectionGet(
             '-selection' => $self->id);
@@ -260,7 +260,7 @@ sub owner_callback {
     $self->zircon_trace;
     $self->owns(0);
     $self->debug_delay('lost');
-    Zircon::Tk::Context->warn_if_tangled; # central callback point for incoming "selection taken"
+    Zircon::TkZMQ::Context->warn_if_tangled; # central callback point for incoming "selection taken"
     $self->handler->selection_owner_callback(
         $self->handler_data);
     return;

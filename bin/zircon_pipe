@@ -7,7 +7,7 @@ use IO::Handle;
 use Getopt::Long;
 use Tk;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 use Zircon::Trace;
 
@@ -35,7 +35,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     $M->title("$0 pid=$$");
     $M->Entry(-text => "$local_selection => $remote_selection")->pack;
 
-    my $context = Zircon::Tk::Context->new(-widget => $M);
+    my $context = Zircon::TkZMQ::Context->new(-widget => $M);
 
     my $handler = My::Handler->new();
     my $reader = My::StdinReader->new($M);
