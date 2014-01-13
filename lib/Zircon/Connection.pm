@@ -23,6 +23,7 @@ my $optional_args = {
     'timeout_retries_initial' => 10,
     'rolechange_wait' => 500,
     'connection_id'    => __PACKAGE__,
+    'local_endpoint' => undef,
 };
 
 my @weak_args = qw(
@@ -49,7 +50,7 @@ sub init {
     while (my ($key, $default) = each %{$optional_args}) {
         my $value = $args->{"-${key}"};
         defined $value or $value = $default;
-        $self->$key($value);
+        $self->$key($value) if defined $value;
     }
 
     for my $key (@weak_args) {
@@ -57,6 +58,7 @@ sub init {
     }
 
     $self->trace_env_update;
+    $self->context->local_endpoint_init;   # deferred to here in case we're setting local_endpoint
     $self->state('inactive');
     $self->update;
     $self->zircon_trace('Initialised');

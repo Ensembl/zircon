@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use Carp qw( croak cluck );
+use Readonly;
 use Scalar::Util qw( weaken refaddr );
 
 use ZMQ::LibZMQ3;
@@ -17,6 +18,7 @@ use Zircon::Tk::MonkeyPatches;
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
 
+Readonly my $ZMQ_DEFAULT_ENDPOINT => 'tcp://127.0.0.1:*';
 
 sub new {
     my ($pkg, %args) = @_;
@@ -33,18 +35,17 @@ sub init {
     defined $widget or die 'missing -widget argument';
     $self->{'widget'} = $widget;
     $self->zircon_trace;
-    $self->_zmq_init;
     return;
 }
 
-sub _zmq_init {
+sub local_endpoint_init {
     my ($self) = @_;
 
     my $zmq_context = zmq_init;
     $self->zmq_context($zmq_context);
 
     my $responder = zmq_socket($zmq_context, ZMQ_REP);
-    zmq_bind($responder, 'tcp://127.0.0.1:*');
+    zmq_bind($responder, $self->local_endpoint);
     $self->zmq_responder($responder);
 
     my $endpoint = zmq_getsockopt($responder, ZMQ_LAST_ENDPOINT);
@@ -245,7 +246,7 @@ sub zmq_responder {
 sub local_endpoint {
     my ($self, @args) = @_;
     ($self->{'local_endpoint'}) = @args if @args;
-    my $local_endpoint = $self->{'local_endpoint'};
+    my $local_endpoint = $self->{'local_endpoint'} ||= $ZMQ_DEFAULT_ENDPOINT;
     return $local_endpoint;
 }
 
