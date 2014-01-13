@@ -249,6 +249,13 @@ sub local_endpoint {
     return $local_endpoint;
 }
 
+sub remote_endpoint {
+    my ($self, @args) = @_;
+    ($self->{'remote_endpoint'}) = @args if @args;
+    my $remote_endpoint = $self->{'remote_endpoint'};
+    return $remote_endpoint;
+}
+
 # tracing
 
 sub zircon_trace_prefix {
