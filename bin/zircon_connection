@@ -20,15 +20,15 @@ use Zircon::Connection;
 my (
     $tag,
     $name,
-    $local_selection,
-    $remote_selection,
+    $local_endpoint,
+    $remote_endpoint,
     );
 
 GetOptions(
     'tag=s'              => \$tag,
     'name=s'             => \$name,
-    'local_selection=s'  => \$local_selection,
-    'remote_selection=s' => \$remote_selection,
+    'local_endpoint=s'   => \$local_endpoint,
+    'remote_endpoint=s'  => \$remote_endpoint,
     ) or die 'command line error';
 
 my $main_window = MainWindow->new;
@@ -46,8 +46,8 @@ my $connection = Zircon::Connection->new(
     '-handler' => $handler,
     '-context' => $context,
     );
-$connection->local_selection_id($local_selection);
-$connection->remote_selection_id($remote_selection);
+$connection->local_endpoint($local_endpoint);
+$connection->remote_endpoint($remote_endpoint);
 
 my $test_frame =
     $main_window
@@ -233,8 +233,8 @@ sub run_peer {
         exec "$0"
             , '-tag'              => $peer_tag
             , '-name'             => $name
-            , '-local_selection'  => $remote_selection
-            , '-remote_selection' => $local_selection
+            , '-local_endpoint'   => $remote_endpoint
+            , '-remote_endpoint'  => $local_endpoint
             ;
         die "run_peer(): exec() failed\n";
     }

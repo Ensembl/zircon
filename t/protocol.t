@@ -52,14 +52,14 @@ sub init_zircon_proto {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $sel_id = join _ => $name, int(rand(1e6));
-    $M->title($sel_id);
+    my $endpoint = join _ => $name, int(rand(1e6));
+    $M->title($endpoint);
 
     my $context = Zircon::TkZMQ::Context->new(-widget => $M);
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,
-       -selection_id => $sel_id,
+       -endpoint => $endpoint,
        -server => $server);
 
     return ($M, $proto);
@@ -77,7 +77,7 @@ sub zirpro_tt {
     my ($M, $proto) = init_zircon_proto($server);
 
     my @cmd = ('bin/zircon_protocol_test',
-               -remote_selection => $proto->connection->local_selection_id);
+               -remote_endpoint => $proto->connection->local_endpoint);
     my $pid = open my $fh, '-|', @cmd;
     isnt(0, $pid, "Pipe from @cmd") or diag "Failed: $!";
     return unless $pid;

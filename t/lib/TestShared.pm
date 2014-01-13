@@ -56,8 +56,8 @@ sub init_zircon_conn {
                                              -context => $context);
     $handler->zconn($connection);
 
-    $connection->local_selection_id($id[0]);
-    $connection->remote_selection_id($id[1]);
+    $connection->local_endpoint($id[0]);
+    $connection->remote_endpoint($id[1]);
 
     return $handler;
 }

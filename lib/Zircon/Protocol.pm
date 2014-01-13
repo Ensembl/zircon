@@ -32,7 +32,7 @@ sub _init {
     $self->{'is_open'} = 1;
     $self->{'request_id'} = 0;
 
-    for (qw( app_id context selection_id server )) {
+    for (qw( app_id context endpoint server )) {
         my $attribute = $arg_hash->{"-$_"};
         defined $attribute
             or die "missing -$_ parameter";
@@ -42,8 +42,8 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my ($context, $selection_id, $timeout_ms, $timeout_retries, $rolechange_wait) =
-        @{$arg_hash}{qw( -context -selection_id -connection_timeout -timeout_retries -rolechange_wait )};
+    my ($context, $endpoint, $timeout_ms, $timeout_retries, $rolechange_wait) =
+        @{$arg_hash}{qw( -context -endpoint -connection_timeout -timeout_retries -rolechange_wait )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
     my $connection = Zircon::Connection->new(
         '-connection_id' => $connection_id,
@@ -55,17 +55,17 @@ sub _init {
         '-rolechange_wait' => $rolechange_wait, # XXX: temporary, awaiting RT#324544
         );
     $self->{'connection'} = $connection;
-    $connection->local_selection_id($selection_id);
+    $connection->local_endpoint($endpoint);
 
-    $self->zircon_trace('Initialised local (clipboard %s)', $selection_id);
+    $self->zircon_trace('Initialised local (clipboard %s)', $endpoint);
 
     return;
 }
 
 sub send_handshake {
-    my ($self, $remote_selection_id, $callback) = @_;
+    my ($self, $remote_endpoint, $callback) = @_;
 
-    $self->connection->remote_selection_id($remote_selection_id);
+    $self->connection->remote_endpoint($remote_endpoint);
 
     my $request = $self->_mkele_peer;
 
@@ -95,7 +95,7 @@ sub _mkele_peer {
     my ($self) = @_;
 
     my $app_id = $self->app_id;
-    my $unique_id = $self->connection->local_selection_id;
+    my $unique_id = $self->connection->local_endpoint;
 
     return
         [ 'peer',
@@ -211,7 +211,7 @@ sub _request {
 
             my ($app_id, $unique_id, $window_id) =
               $self->_gotele_peer($request_element);
-            $self->connection->remote_selection_id($unique_id);
+            $self->connection->remote_endpoint($unique_id);
             $self->server->zircon_server_handshake($unique_id);
             $self->zircon_trace('Handshake request from remote (clipboard %s)', $unique_id);
             $self->_handshaking_check_window;

@@ -19,9 +19,9 @@ sub main {
     GetOptions('colour|C' => \$coloured, 'quiet|Q' => \$quiet)
       or @ARGV=();
 
-    die "Syntax: $0 [ -Q | -C ] <local_selection> <remote_selection>\n
+    die "Syntax: $0 [ -Q | -C ] <local_endpoint> <remote_endpoint>\n
 Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
-    my ($local_selection, $remote_selection) = @ARGV;
+    my ($local_endpoint, $remote_endpoint) = @ARGV;
 
     $ENV{ZIRCON_TRACE} = join ',',
       ($coloured ? ('colour') : (),
@@ -33,7 +33,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
 
     my $M = MainWindow->new;
     $M->title("$0 pid=$$");
-    $M->Entry(-text => "$local_selection => $remote_selection")->pack;
+    $M->Entry(-text => "$local_endpoint => $remote_endpoint")->pack;
 
     my $context = Zircon::TkZMQ::Context->new(-widget => $M);
 
@@ -46,8 +46,8 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     $handler->zconn($connection); # to call ->after for incoming request
     $handler->on_timeout(sub { $reader->try_send_soon });
 
-    $connection->local_selection_id($local_selection);
-    $connection->remote_selection_id($remote_selection);
+    $connection->local_endpoint($local_endpoint);
+    $connection->remote_endpoint($remote_endpoint);
     # now ready to send & receive
 
     $reader->zconn($connection);  # so it can call ->send, which is now ready
@@ -192,7 +192,7 @@ sub try_send {
         #
         # Availability of this was postponed, because when we had
         # STDIN queued on startup we tried to send before setting
-        #     $connection->remote_selection_id($remote_selection);
+        #     $connection->remote_endpoint($remote_endpoint);
     } elsif (!@$Q) {
         # nothing to send
     } elsif ((my $S = $zconn->state) ne 'inactive') {

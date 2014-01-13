@@ -6,13 +6,13 @@ use warnings;
 use Tk;
 
 sub create_child {
-    my ($tag, $name, $local_selection, $remote_selection) = @_;
+    my ($tag, $name, $local_endpoint, $remote_endpoint) = @_;
     fork == 0 or return;
     exec 'zircon_connection'
-        , '-tag'              => $tag
-        , '-name'             => $name
-        , '-local_selection'  => $local_selection
-        , '-remote_selection' => $remote_selection
+        , '-tag'             => $tag
+        , '-name'            => $name
+        , '-local_endpoint'  => $local_endpoint
+        , '-remote_endpoint' => $remote_endpoint
         ;
 }
 

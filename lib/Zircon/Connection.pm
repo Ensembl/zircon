@@ -222,12 +222,12 @@ sub go_server {
 
 # selections
 
-sub local_selection_id {
+sub local_endpoint {
     my ($self, @args) = @_;
     return $self->selection_id('local', @args);
 }
 
-sub remote_selection_id {
+sub remote_endpoint {
     my ($self, @args) = @_;
     return $self->selection_id('remote', @args);
 }
@@ -326,7 +326,7 @@ sub timeout_maybe_callback {
 
 sub remote_window_exists {
     my ($self) = @_;
-    return $self->context->window_exists($self->xid_remote, $self->remote_selection_id);
+    return $self->context->window_exists($self->xid_remote, $self->remote_endpoint);
 }
 
 sub timeout_callback {
@@ -575,14 +575,14 @@ complete.
 
 =back
 
-=head2 C<local_selection_id()>, C<remote_selection_id()>
+=head2 C<local_endpoint()>, C<remote_endpoint()>
 
-Get/set selection IDs.
+Get/set endpoint addresses (selection IDs for pre-ZMQ).
 
-    my $id = $connection->local_selection_id;
-    $connection->local_selection_id($id);
-    my $id = $connection->remote_selection_id;
-    $connection->remote_selection_id($id);
+    my $id = $connection->local_endpoint;
+    $connection->local_endpoint($id);
+    my $id = $connection->remote_endpoint;
+    $connection->remote_endpoint($id);
 
 Setting the local selection ID makes the connection respond to
 requests from clients using that selection.

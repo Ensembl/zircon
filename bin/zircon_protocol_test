@@ -11,13 +11,13 @@ use Zircon::Protocol;
 use Zircon::TkZMQ::Context;
 
 # parse the command line
-my $remote_selection_id;
+my $remote_endpoint;
 GetOptions(
-    'remote_selection_id=s' => \$remote_selection_id,
+    'remote_endpoint=s' => \$remote_endpoint,
     ) or die 'command line error';
 my $is_child =
-    defined $remote_selection_id
-    && $remote_selection_id ne '';
+    defined $remote_endpoint
+    && $remote_endpoint ne '';
 
 my $app_id =
     sprintf 'Zircon Protocol (%s)'
@@ -28,7 +28,7 @@ my $main_window = Tk::MainWindow->new;
 $main_window->title($app_id);
 
 # create the Zircon connection
-my $selection_id =
+my $endpoint =
     sprintf 'zircon_protocol_test_%s_%06d'
     , $main_window->id, int(rand(1_000_000));
 my $server = Server->new;
@@ -37,7 +37,7 @@ my $context = Zircon::TkZMQ::Context->new(
 my $protocol = Zircon::Protocol->new(
     '-app_id'       => $app_id,
     '-context'      => $context,
-    '-selection_id' => $selection_id,
+    '-endpoint'     => $endpoint,
     '-server'       => $server,
     );
 
@@ -122,7 +122,7 @@ $main_window
 if ($is_child) {
     $zircon_message = '';
     $protocol->send_handshake(
-        $remote_selection_id,
+        $remote_endpoint,
         sub {
             my ($result) = @_;
             $zircon_message =
@@ -136,7 +136,7 @@ else {
         or die 'fork() failed';
     unless ($pid) {
         # child, so exec()
-        exec $0, @ARGV, '-remote_selection' => $selection_id;
+        exec $0, @ARGV, '-remote_endpoint' => $endpoint;
         die 'exec() failed';
     }
 }

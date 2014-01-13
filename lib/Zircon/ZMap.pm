@@ -32,7 +32,7 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
 
     my $peer_name = $self->app_id;
     my $peer_clipboard =
-        $self->protocol->connection->local_selection_id;
+        $self->protocol->connection->local_endpoint;
     push @{$self->{'_arg_list'}}, # for zmap_command, used later in new
     "--peer-name=${peer_name}",
     "--peer-clipboard=${peer_clipboard}",
