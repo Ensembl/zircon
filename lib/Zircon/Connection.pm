@@ -201,12 +201,13 @@ sub go_server {
 
 sub local_endpoint {
     my ($self, @args) = @_;
-    warn 'setting local_endpoint' if @args;
+    warn "setting local_endpoint to '", $args[0], "'" if @args;
     return $self->context->local_endpoint(@args)
 }
 
 sub remote_endpoint {
     my ($self, @args) = @_;
+    $self->zircon_trace("setting remote_endpoint to '%s'", $args[0]) if @args;
     return $self->context->remote_endpoint(@args);
 }
 
