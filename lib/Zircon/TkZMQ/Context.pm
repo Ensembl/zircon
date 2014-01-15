@@ -380,6 +380,25 @@ sub zircon_trace_prefix {
     return sprintf('Z:T:Context: widget=%s', $path);
 }
 
+sub disconnect {
+    my ($self) = @_;
+    $self->zircon_trace;
+    if (my $responder = $self->zmq_responder) {
+        zmq_unbind($responder, $self->local_endpoint);
+        zmq_close($responder);
+    }
+    my $ctx = $self->zmq_context;
+    zmq_ctx_destroy($ctx) if $ctx;
+    return;
+}
+
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+    $self->disconnect;
+    return;
+}
+
 1;
 
 =head1 AUTHOR
