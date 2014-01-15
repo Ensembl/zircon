@@ -85,7 +85,7 @@ sub __warn_handler {
 
         my $caller = (caller(1))[3];
         $clr = "$clr;07"
-          if $caller ne 'Zircon::Trace::zircon_trace'; # non-trace warn in reverse video
+          if $caller and $caller ne 'Zircon::Trace::zircon_trace'; # non-trace warn in reverse video
 
         if (my $ptn = $TRACE{bold}) {
             $TRACE{bold} = $ptn = qr{$ptn} unless ref($ptn);
