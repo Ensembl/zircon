@@ -56,11 +56,11 @@ sub transport_init {
     $self->zmq_responder($responder);
 
     $local_endpoint = zmq_getsockopt($responder, ZMQ_LAST_ENDPOINT);
+    $local_endpoint =~ s/\0$//; # strip trailing null, if any.
     $local_endpoint or die "failed to get actual endpoint: $!";
     $self->local_endpoint($local_endpoint);
-    $self->zircon_trace('local_endpoint: %s', $local_endpoint);
+    $self->zircon_trace("local_endpoint: '%s'", $local_endpoint);
 
-    my $responder = $self->zmq_responder;
     my $fh = zmq_getsockopt($responder, ZMQ_FD);
     $fh or die "failed to get socket fd: $!";
     open my $dup_fh, '<&', $fh;
