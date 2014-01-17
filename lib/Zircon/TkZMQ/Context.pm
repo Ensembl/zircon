@@ -93,7 +93,7 @@ sub transport_init {
                                      $self->zircon_trace("request: '%s' [%d]", $request, $rv);
                                      my $reply = $request_callback->($request);
                                      $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
-                                     zmq_send($responder, $reply // '');
+                                     zmq_msg_send($reply // '', $responder);
                                  }
                                  zmq_msg_close($msg);
                                  $self->zircon_trace('Done with 0MQ for this event');
@@ -110,7 +110,7 @@ sub send {
     my ($self, $request, $reply_ref, $timeout) = @_;
 
     my $requester = $self->zmq_requester;
-    my $rv = zmq_send($requester, $request);
+    my $rv = zmq_msg_send($request, $requester);
     if ($rv < 0) {
         my $err = zmq_strerror($!);
         warn "Zircon::TkZMQ::Context::send: zmq_send failed: $err";
