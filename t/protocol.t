@@ -90,9 +90,6 @@ sub zirpro_tt {
       or diag explain $server;
     like($server->[0], qr{^handshake: id}, 'handshake happened');
 
-    like($proto->xid_local,  $WINDOW_ID_RE, 'have local XWin');
-    like($proto->xid_remote, $WINDOW_ID_RE, 'have remote XWin');
-
     # XXX: grubby workaround: $server is told of request before request-ack
     $M->waitVariable(\$proto->connection->{'state'}) # PRIVATE!
       if $proto->connection->state eq 'server_reply';
