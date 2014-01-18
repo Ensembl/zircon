@@ -126,7 +126,7 @@ sub send {
     if ($rv < 0) {
         my $err = zmq_strerror($!);
         warn "Zircon::TkZMQ::Context::send: zmq_send failed: $err";
-        return;
+        return -1;
     } elsif ($rv != length($request)) {
         warn "Zircon::TkZMQ::Context::send: length mismatch, sent $rv, should have been ", length($request);
     } else {
@@ -150,22 +150,26 @@ sub send {
 
     unless (scalar(@prv)) {
         warn "zmq_poll failed: $!";
-        return;
+        return -1;
     }
 
     unless ($prv[0]) {
-        warn "timeout or error";
-        return;
+        if ($! == EAGAIN) {
+            warn "timeout";
+            return 0;
+        }
+        warn "zmq_poll error: $!";
+        return -1;
     }
 
     unless ($reply_msg) {
         warn "no reply";
-        return;
+        return 0;
     }
 
     # Should have something now :-)
     $$reply_ref = zmq_msg_data($reply_msg);
-    return 1;
+    return length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
 }
 
 sub stack_tangle {

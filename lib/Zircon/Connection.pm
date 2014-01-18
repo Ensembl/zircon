@@ -106,11 +106,15 @@ sub send {
         or die 'Zircon: busy connection';
 
     my $reply;
-    if ($self->context->send($request, \$reply, $self->timeout_interval)) {
+    my $rv = $self->context->send($request, \$reply, $self->timeout_interval);
+    if ($rv > 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply);
+    } elsif ($rv == 0) {
+        $self->zircon_trace('client timed out');
+        $self->timeout_maybe_callback;
     } else {
-        $self->zircon_trace('client failed or timed out');
+        $self->zircon_trace('client failed');
     }
 
     $self->zircon_trace("finish");
