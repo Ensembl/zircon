@@ -64,7 +64,10 @@ sub init {
         sub {
             my ($request) = @_;
             return $self->_server_callback($request);
-        }
+        },
+        sub {
+            return $self->_fire_after;
+        },
         );
 
     $self->state('inactive');
@@ -117,8 +120,19 @@ sub send {
         $self->zircon_trace('client failed');
     }
 
+    $self->_fire_after;
     $self->zircon_trace("finish");
 
+    return;
+}
+
+sub _fire_after {
+    my ($self) = @_;
+    if (my $after = $self->after) {
+        $self->zircon_trace;
+        $self->after->();
+        $self->after(undef);
+    }
     return;
 }
 

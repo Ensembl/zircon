@@ -40,7 +40,7 @@ sub init {
 }
 
 sub transport_init {
-    my ($self, $request_callback) = @_;
+    my ($self, $request_callback, $after_callback) = @_;
     $self->zircon_trace;
 
     my $zmq_context = zmq_ctx_new;
@@ -108,6 +108,7 @@ sub transport_init {
                                      }
                                  }
                                  zmq_msg_close($msg);
+                                 $after_callback->() if $after_callback;
                                  $self->zircon_trace('Done with 0MQ for this event');
                              }
         );
