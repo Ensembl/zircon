@@ -12,7 +12,6 @@ use Scalar::Util qw( weaken refaddr );
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT EFSM);
 
-use Zircon::Tk::Selection;
 use Zircon::Tk::WindowExists;
 use Zircon::Tk::MonkeyPatches;
 
@@ -256,19 +255,6 @@ sub warn_if_tangled {
 #    else { warn "Event handling loop depth $d <= (@max = $max_wait_frames) OK, as seen at $fn line $ln\n" }
 
     return;
-}
-
-# selections
-
-sub selection_new {
-    my ($self, @args) = @_;
-    $self->zircon_trace('for (%s)', "@args");
-    my $selection =
-        Zircon::Tk::Selection->new(
-            '-platform' => $self->platform,
-            '-widget'   => $self->widget,
-            @args);
-    return $selection;
 }
 
 # timeouts

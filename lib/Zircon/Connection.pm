@@ -21,7 +21,6 @@ my @mandatory_args = qw(
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
     'timeout_retries_initial' => 10,
-    'rolechange_wait' => 500,
     'connection_id'    => __PACKAGE__,
     'local_endpoint' => undef,
 };
@@ -70,31 +69,12 @@ sub init {
         },
         );
 
-    $self->state('inactive');
-    $self->update;
+    $self->state('inactive');   # state now redundant?
+    $self->request('');
+    $self->reply('');
+
     $self->zircon_trace('Initialised');
 
-    return;
-}
-
-sub selection_owner_callback {
-    my ($self, $key) = @_;
-    $self->_do_safely(
-        sub { $self->_selection_owner_callback($key); });
-    return;
-}
-
-sub _selection_owner_callback {
-    my ($self, $key) = @_;
-    for ($key) {
-        when ('local')  { $self->_server_callback; }
-        when ('remote') { $self->_client_callback; }
-        default {
-            die sprintf
-                "invalid selection owner callback key: '%s'"
-                , $key;
-        }
-    }
     return;
 }
 
@@ -104,9 +84,6 @@ sub send {
     my ($self, $request) = @_;
 
     $self->zircon_trace("start");
-
-    $self->state eq 'inactive'
-        or die 'Zircon: busy connection';
 
     my $reply;
     my $rv = $self->context->send($request, \$reply, $self->timeout_interval);
@@ -136,86 +113,22 @@ sub _fire_after {
     return;
 }
 
-sub _client_callback {
-    my ($self) = @_;
-
-    $self->zircon_trace("start: state = '%s'", $self->state);
-    my $taken = $self->selection_call(remote => 'taken');
-
-    for ($self->state) {
-
-        when ('client_request') {
-            # Remote should have already pasted.  This is ACK of our
-            # request.
-            $self->state('client_waiting');
-            die "Server ACKed our request without reading it" unless $taken;
-
-            # We are about to Own.  Don't let that be mistaken for a
-            # valid request!
-            $self->selection_call('remote', 'content', "pid=$$: made my request, you should have got it already");
-        }
-
-        when ('client_waiting') {
-            # Result of get should be a reply.
-            die "Server tried to paste after request ACKed" if $taken;
-            my $reply = $self->selection_call('remote', 'get');
-            $self->reply($reply);
-            $self->state('client_reply');
-
-            # We are about to Own.  Don't let that be mistake for a
-            # valid request or ACK - it should not be pasted.
-            $self->selection_call(remote => content => "pid=$$: thank you for the reply");
-        }
-
-        when ('client_reply') {
-            die "Server tried to paste our reply ACK" if $taken;
-            my $reply = $self->reply;
-            $self->handler->zircon_connection_reply($reply);
-            $self->state('inactive');
-        }
-
-        default {
-            die sprintf
-                "invalid connection state '%s'", $_;
-        }
-
-    }
-
-    $self->zircon_trace("finish: state = '%s'", $self->state);
-
-    return;
-}
-
-sub go_client {
-    my ($self) = @_;
-    $self->selection_call('local', 'clear');
-    $self->selection_call('remote', 'own');
-    return;
-}
-
 # server
 
 sub _server_callback {
     my ($self, $request) = @_;
 
-    $self->zircon_trace("start:   state = '%s'", $self->state);
+    $self->zircon_trace('start');
 
     $self->zircon_trace("request: '%s'", $request);
     my $reply = $self->handler->zircon_connection_request($request);
 
-    $self->zircon_trace("finish:  state = '%s'", $self->state);
+    $self->zircon_trace('finish');
 
     return $reply;
 }
 
-sub go_server {
-    my ($self) = @_;
-    $self->selection_call('remote', 'clear');
-    $self->selection_call('local', 'own');
-    return;
-}
-
-# selections
+# endpoints
 
 sub local_endpoint {
     my ($self, @args) = @_;
@@ -227,44 +140,6 @@ sub remote_endpoint {
     my ($self, @args) = @_;
     $self->zircon_trace("setting remote_endpoint to '%s'", $args[0]) if @args;
     return $self->context->remote_endpoint(@args);
-}
-
-sub selection_id {
-    my ($self, $key, @args) = @_;
-    if (@args) {
-        my ($id) = @args;
-        ( defined $id && $id ne '' )
-            or die 'undefined/empty selection ID';
-        my $name = sprintf '%s [%s]', $self->name, $key;
-        $self->{'selection'}{$key} =
-            $self->context->selection_new(
-                '-name'         => $name,
-                '-id'           => $id,
-                '-handler'      => $self,
-                '-handler_data' => $key,
-            );
-        $self->context->window_declare($self) if $key eq 'local';
-        $self->zircon_trace("['%s'] set = '%s'", $key, $id);
-        $self->update;
-    }
-    my $selection = $self->{'selection'}{$key};
-    my $id = defined $selection ? $selection->id : undef;
-    return $id;
-}
-
-sub selection {
-    my ($self, $key) = @_;
-    my $selection = $self->{'selection'}{$key};
-    defined $selection
-        or die sprintf "Zircon: no selection for key '%s'", $key;
-    return $selection;
-}
-
-sub selection_call {
-    my ($self, $key, $method, @args) = @_;
-    my $selection = $self->{'selection'}{$key};
-    return unless defined $selection;
-    return $selection->$method(@args);
 }
 
 # timeouts
@@ -295,7 +170,7 @@ sub timeout_cancel {
 sub timeout_maybe_callback {
     my ($self) = @_;
     my $retries = $self->timeout_retries;
-    my $xid_remote = $self->xid_remote;
+    my $xid_remote = $self->xid_remote; # FIXME xid_remote now redundant? Not set by Protocol?
     my $again = 0;
     if ($retries && $xid_remote) {
         # If the remote's window still exists, they're just busy
@@ -361,12 +236,6 @@ sub timeout_retries_initial {
     return $self->{'timeout_retries_initial'};
 }
 
-sub rolechange_wait {
-    my ($self, @args) = @_;
-    ($self->{'rolechange_wait'}) = @args if @args;
-    return $self->{'rolechange_wait'};
-}
-
 sub timeout {
     my ($self, @args) = @_;
     my $timeout_handle =
@@ -392,66 +261,11 @@ sub _callback {
     return $callback;
 }
 
-sub _do_safely {
-    my ($self, $callback) = @_;
-    try {
-        $self->timeout_cancel;
-        $callback->();
-        $self->update;
-        if ($self->state eq 'inactive'
-            and my $after = $self->after
-           ) {
-            $self->timeout($self->rolechange_wait, # RT#324544
-                           sub { $after->(); });
-            # When $rolechange_wait can go back to zero, why not run
-            # the $after->() here+now?  Originally in 2d8bbeb
-        }
-    }
-    catch {
-        my $msg = $_;
-        $msg =~ s/\.?\s*\n*$//;
-        $msg .= sprintf(', via _do_safely(state=%s, name=%s)', $self->state, $self->name);
-        $self->reset;
-        die $msg; # propagate any error
-    }
-    finally {
-        $self->after(undef)
-            if $self->state eq 'inactive';
-        $self->timeout_start
-            unless $self->state eq 'inactive';
-    };
-    return;
-}
-
-sub update {
-    my ($self) = @_;
-    for ($self->state) {
-        when ('inactive') { $self->go_inactive; }
-        when (/^client_/) { $self->go_client; }
-        when (/^server_/) { $self->go_server; }
-        default {
-            die sprintf
-                "invalid connection state '%s'", $_;
-        }
-    }
-    return;
-}
-
 sub reset {
     my ($self) = @_;
-    $self->zircon_trace("old state = '%s'", $self->state);
-    $self->state('inactive');
-    $self->go_inactive;
-    return;
-}
-
-sub go_inactive {
-    my ($self) = @_;
+    $self->zircon_trace;
     $self->request('');
     $self->reply('');
-    $self->selection_call('local',  'empty');
-    $self->selection_call('remote', 'empty');
-    $self->go_server;
     return;
 }
 
@@ -537,8 +351,8 @@ Create a Zircon connection.
 
 =item C<$context> (mandatory)
 
-An opaque object that provides an interface to X selections and the
-application's event loop.
+An opaque object that provides an interface to the transport layer
+and the application's event loop.
 
 Perl/Tk applications create this object by calling
 C<Zircon::TkZMQ::Context-E<gt>new()>.
@@ -574,18 +388,18 @@ complete.
 
 =head2 C<local_endpoint()>, C<remote_endpoint()>
 
-Get/set endpoint addresses (selection IDs for pre-ZMQ).
+Get/set endpoint addresses.
 
     my $id = $connection->local_endpoint;
     $connection->local_endpoint($id);
     my $id = $connection->remote_endpoint;
     $connection->remote_endpoint($id);
 
-Setting the local selection ID makes the connection respond to
-requests from clients using that selection.
+Setting the local endpoint makes the connection respond to
+requests from clients using that address.
 
-Setting the remote selection ID allows the connection to send requests
-to a server using that selection.
+Setting the remote endpoint allows the connection to send requests
+to a server using that address.
 
 =head2 C<send()>
 
@@ -593,7 +407,7 @@ Send a request to the server.
 
     $connection->send($request);
 
-This requires the remote selection ID to be set.
+This requires the remote endpoint to be set.
 
 $request is a string.
 
@@ -637,7 +451,7 @@ be run after the client acknowledges receiving the reply.
 If this raises a Perl error then the connection resets.  The error is
 propagated to the application's main loop.
 
-This will only be called if the local selection ID is set.
+This will only be called if the local endpoint is set.
 
 $request and $reply are strings.
 
@@ -650,7 +464,7 @@ Process a reply from the server (when acting as a client).
 If this raises a Perl error then the connection resets.  The error is
 propagated to the application's main loop.
 
-This will only be called if the local selection ID is set.
+This will only be called if the local endpoint is set.
 
 $reply is a string.
 
