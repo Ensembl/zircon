@@ -172,6 +172,8 @@ sub send {
     return length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
 }
 
+# stack_tangle, etc., may now be redundant but we need to check ZMap layer usage of waitVariable.
+#
 sub stack_tangle {
     my ($pkg, $trace_return) = @_;
     # This may be rather specific to the Perl-Tk version,
