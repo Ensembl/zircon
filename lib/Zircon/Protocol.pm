@@ -32,7 +32,7 @@ sub _init {
     $self->{'is_open'} = 1;
     $self->{'request_id'} = 0;
 
-    for (qw( app_id context endpoint server )) {
+    for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
         defined $attribute
             or die "missing -$_ parameter";
@@ -45,7 +45,7 @@ sub _init {
     my ($context, $endpoint, $timeout_ms, $timeout_retries, $rolechange_wait) =
         @{$arg_hash}{qw( -context -endpoint -connection_timeout -timeout_retries -rolechange_wait )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
-    my $connection = Zircon::Connection->new(
+    my %connection_args = (
         '-connection_id' => $connection_id,
         '-name'    => $self->app_id,
         '-context' => $context,
@@ -54,10 +54,11 @@ sub _init {
         '-timeout_retries_initial' => $timeout_retries,
         '-rolechange_wait' => $rolechange_wait, # XXX: temporary, awaiting RT#324544
         );
+    $connection_args{'-local_endpoint'} = $endpoint if $endpoint;
+    my $connection = Zircon::Connection->new(%connection_args);
     $self->{'connection'} = $connection;
-    $connection->local_endpoint($endpoint);
 
-    $self->zircon_trace('Initialised local (clipboard %s)', $endpoint);
+    $self->zircon_trace('Initialised local (endpoint %s)', $connection->local_endpoint);
 
     return;
 }
@@ -80,7 +81,7 @@ sub send_handshake {
             my ($app_id, $unique_id, $window_id) =
               $self->_gotele_peer(@{ $data->[2] });
             $self->zircon_trace('Handshake reply from remote (clipboard %s)', $unique_id);
-            $self->_handshaking_check_window;
+            # $self->_handshaking_check_window;
         }
         $orig_callback->($result) if $orig_callback;
     };
@@ -214,7 +215,7 @@ sub _request {
             $self->connection->remote_endpoint($unique_id);
             $self->server->zircon_server_handshake($unique_id);
             $self->zircon_trace('Handshake request from remote (clipboard %s)', $unique_id);
-            $self->_handshaking_check_window;
+            # $self->_handshaking_check_window;
 
             my $message = sprintf
                 "Handshake successful with peer '%s', id '%s', xid '%s'"
