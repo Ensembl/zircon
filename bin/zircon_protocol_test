@@ -134,7 +134,7 @@ else {
     my $pid = fork;
     defined $pid
         or die 'fork() failed';
-    if ($pid) {
+    unless ($pid) {
         # child, so exec()
         exec $0, @ARGV, '-remote_selection' => $selection_id;
         die 'exec() failed';
