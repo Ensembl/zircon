@@ -1,0 +1,36 @@
+ZeroMQ transport
+================
+
+
+To use Michael's deskpro ZeroMQ installation:
+--------------------------------------------
+
+export OTTER_HOME=/software/anacode/otter/otter_live
+source /software/anacode/bin/setup_anacode_env
+eval $(/software/perl-5.12.2/bin/perl -I~mg13/perl5/lib/perl5 -Mlocal::lib)
+
+export ANACODE_ZIRCON=$PWD
+source $ANACODE_ZIRCON/profile.sh
+
+
+Further work:
+------------
+
+* Revisit zircon_connection and Zircon::Connection to reinstate hooks
+  and evaluate performance under timeout and errors.
+
+* Consider implementing 'Lazy pirate' error and timeout handling in
+  Z:TkZMQ::Context->send().
+
+  See: http://zguide.zeromq.org/page:all#toc89
+
+* Investigate whether Zircon::ZMap still needs to make use of
+  Z:TkZMQ->waitVariable().
+
+
+References:
+----------
+
+http://zeromq.org/
+http://zguide.zeromq.org/page:all#toc1
+https://metacpan.org/pod/ZMQ::LibZMQ3
