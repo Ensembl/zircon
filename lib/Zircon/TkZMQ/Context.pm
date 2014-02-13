@@ -126,6 +126,7 @@ sub send {
     if ($rv < 0) {
         my $err = zmq_strerror($!);
         warn "Zircon::TkZMQ::Context::send: zmq_send failed: $err";
+        $self->destroy_zmq_requester;
         return -1;
     } elsif ($rv != length($request)) {
         warn "Zircon::TkZMQ::Context::send: length mismatch, sent $rv, should have been ", length($request);
@@ -150,12 +151,14 @@ sub send {
 
     unless (scalar(@prv)) {
         warn "zmq_poll failed: $!";
+        $self->destroy_zmq_requester;
         return -1;
     }
 
     unless ($prv[0]) {
         if ($! == EAGAIN) {
             warn "timeout";
+            $self->destroy_zmq_requester;
             return 0;
         }
         warn "zmq_poll error: $!";
@@ -360,6 +363,18 @@ sub zmq_requester {
     $self->zircon_trace("requester connected to '%s'", $remote);
 
     return $self->{'zmq_requester'} = $zmq_requester;
+}
+
+sub destroy_zmq_requester {
+    my ($self) = @_;
+    my $zmq_requester = $self->zmq_requester;
+    $zmq_requester or return;
+
+    $self->zircon_trace('destroying ZMQ_REQ socket');
+    zmq_close($zmq_requester);
+
+    $self->{'zmq_requester'} = undef;
+    return;
 }
 
 sub local_endpoint {
