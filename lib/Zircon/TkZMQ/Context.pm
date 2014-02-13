@@ -65,54 +65,62 @@ sub transport_init {
     open my $dup_fh, '<&', $fh;
     $dup_fh or die "failed to dup socket fd: $!";
 
-    $self->widget->fileevent($dup_fh, 'readable',
-                             sub {
-                                 $self->zircon_trace('Start server callback');
-                                 my $msg = zmq_msg_init;
-                                 ZMQ: while (1) {
-                                     my $rv = zmq_msg_recv($msg, $responder, ZMQ_DONTWAIT);
-                                     unless(defined($rv)) {
-                                         warn "zmq_msg_recv: return undef";
-                                         last ZMQ;
-                                     }
-                                     if ($rv < 0) {
-                                         if ($! == EAGAIN or $! == EFSM) {
-                                             # nothing to do for now
-                                         } else {
-                                             my $err = zmq_strerror($!);
-                                             warn "zmq_msg_recv error: '$err' [$!] ($rv)";
-                                         }
-                                         last ZMQ;
-                                     }
-                                     my $request = zmq_msg_data($msg);
-                                     unless(defined $request) {
-                                         warn "no request retrieved from msg";
-                                         last ZMQ;
-                                     }
-                                     $self->zircon_trace("request: '%s' [%d]", $request, $rv);
-
-                                     my $reply = $request_callback->($request);
-                                     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
-
-                                     $rv = zmq_msg_send($reply // '', $responder);
-                                     if ($rv < 0) {
-                                         my $err = zmq_strerror($!);
-                                         warn "Zircon::TkZMQ::Context::callback: zmq_send failed: $err";
-                                         return;
-                                     } elsif ($rv != length($reply)) {
-                                         warn "Zircon::TkZMQ::Context::callback: length mismatch, ",
-                                              "sent $rv, should have been ", length($reply);
-                                     } else {
-                                         $self->zircon_trace('callback: reply sent %d', $rv);
-                                     }
-                                 }
-                                 zmq_msg_close($msg);
-                                 $after_callback->() if $after_callback;
-                                 $self->zircon_trace('Done with 0MQ for this event');
-                             }
+    $self->widget->fileevent(
+        $dup_fh, 'readable',
+        sub { return $self->_server_callback($request_callback, $after_callback); },
         );
 
     return;
+}
+
+sub _server_callback {
+    my ($self, $request_callback, $after_callback) = @_;
+
+    $self->zircon_trace('Start server callback');
+
+    my $responder = $self->zmq_responder;
+
+    my $msg = zmq_msg_init;
+  ZMQ: while (1) {
+      my $rv = zmq_msg_recv($msg, $responder, ZMQ_DONTWAIT);
+      unless(defined($rv)) {
+          warn "zmq_msg_recv: return undef";
+          last ZMQ;
+      }
+      if ($rv < 0) {
+          if ($! == EAGAIN or $! == EFSM) {
+              # nothing to do for now
+          } else {
+              my $err = zmq_strerror($!);
+              warn "zmq_msg_recv error: '$err' [$!] ($rv)";
+          }
+          last ZMQ;
+      }
+      my $request = zmq_msg_data($msg);
+      unless(defined $request) {
+          warn "no request retrieved from msg";
+          last ZMQ;
+      }
+      $self->zircon_trace("request: '%s' [%d]", $request, $rv);
+
+      my $reply = $request_callback->($request);
+      $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
+
+      $rv = zmq_msg_send($reply // '', $responder);
+      if ($rv < 0) {
+          my $err = zmq_strerror($!);
+          warn "Zircon::TkZMQ::Context::callback: zmq_send failed: $err";
+          return;
+      } elsif ($rv != length($reply)) {
+          warn "Zircon::TkZMQ::Context::callback: length mismatch, ",
+          "sent $rv, should have been ", length($reply);
+      } else {
+          $self->zircon_trace('callback: reply sent %d', $rv);
+      }
+  }
+    zmq_msg_close($msg);
+    $after_callback->() if $after_callback;
+    $self->zircon_trace('Done with 0MQ for this event');
 }
 
 # platform
