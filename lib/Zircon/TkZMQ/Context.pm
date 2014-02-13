@@ -38,6 +38,14 @@ sub init {
     return;
 }
 
+sub set_connection_params {
+    my ($self, %args) = @_;
+    while (my ($key, $value) = each %args) {
+        $self->$key($value) if $self->can($key);
+    }
+    return;
+}
+
 sub transport_init {
     my ($self, $request_callback, $after_callback) = @_;
     $self->zircon_trace;
@@ -127,7 +135,7 @@ sub _server_callback {
 sub platform { return 'ZMQ'; }
 
 sub send {
-    my ($self, $request, $reply_ref, $timeout) = @_;
+    my ($self, $request, $reply_ref) = @_;
 
     my $requester = $self->zmq_requester;
     my $rv = zmq_msg_send($request, $requester);
@@ -155,7 +163,7 @@ sub send {
         },
     );
 
-    my @prv = zmq_poll([ \%pollitem ], $timeout);
+    my @prv = zmq_poll([ \%pollitem ], $self->timeout_interval);
 
     unless (scalar(@prv)) {
         warn "zmq_poll failed: $!";
@@ -397,6 +405,20 @@ sub remote_endpoint {
     ($self->{'remote_endpoint'}) = @args if @args;
     my $remote_endpoint = $self->{'remote_endpoint'};
     return $remote_endpoint;
+}
+
+sub timeout_interval {
+    my ($self, @args) = @_;
+    ($self->{'timeout_interval'}) = @args if @args;
+    my $timeout_interval = $self->{'timeout_interval'};
+    return $timeout_interval;
+}
+
+sub timeout_retries_initial {
+    my ($self, @args) = @_;
+    ($self->{'timeout_retries_initial'}) = @args if @args;
+    my $timeout_retries_initial = $self->{'timeout_retries_initial'};
+    return $timeout_retries_initial;
 }
 
 # tracing

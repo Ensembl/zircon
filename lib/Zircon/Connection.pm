@@ -58,6 +58,11 @@ sub init {
 
     $self->trace_env_update;
 
+    $self->context->set_connection_params(
+        timeout_interval        => $self->timeout_interval,
+        timeout_retries_initial => $self->timeout_retries_initial,
+        );
+
     # deferred to here in case we're setting local_endpoint
     $self->context->transport_init(
         sub {
@@ -86,7 +91,7 @@ sub send {
     $self->zircon_trace("start");
 
     my $reply;
-    my $rv = $self->context->send($request, \$reply, $self->timeout_interval);
+    my $rv = $self->context->send($request, \$reply);
     if ($rv > 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply);
