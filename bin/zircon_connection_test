@@ -8,7 +8,8 @@ use Tk;
 
 sub create_child {
     my ($tag, $name, $local_endpoint, $remote_endpoint) = @_;
-    fork == 0 or return;
+    my $pid = fork;
+    $pid == 0 or return $pid;
     exec 'zircon_connection'
         , '-tag'             => $tag
         , '-name'            => $name
@@ -20,14 +21,16 @@ sub create_child {
 my $id;
 my $count = 0;
 
+my ($pid_a, $pid_b);
+
 sub run {
     my ($tmpfile_a, $tmpfile_b) = @_;
     $count++;
     my $name = $count;
     my $endpoint_a = "ipc://${tmpfile_a}";
     my $endpoint_b = "ipc://${tmpfile_b}";
-    create_child 'A', $name, $endpoint_a, $endpoint_b;
-    create_child 'B', $name, $endpoint_b, $endpoint_a;
+    $pid_a = create_child 'A', $name, $endpoint_a, $endpoint_b;
+    $pid_b = create_child 'B', $name, $endpoint_b, $endpoint_a;
     return;
 }
 
@@ -47,6 +50,16 @@ $main_window
     ->pack(
     '-expand' => 1,
     '-fill'   => 'both');
+
+$main_window
+    ->Button(
+    '-text'    => 'Collide',
+    '-command' => sub { return kill 'USR1', $pid_a, $pid_b; }
+    )
+    ->pack(
+    '-expand' => 1,
+    '-fill'   => 'both');
+
 
 MainLoop();
 

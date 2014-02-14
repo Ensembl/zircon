@@ -17,6 +17,8 @@ use Tk::Label;
 use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 
+use sigtrap qw/handler signal_handler USR1/;
+
 my (
     $tag,
     $name,
@@ -162,6 +164,12 @@ sub zircon_send {
     return;
 }
 
+sub signal_handler {
+    $zircon_send = "Interrupt $tag";
+    $connection->send($zircon_send);
+    return;
+}
+
 sub widget_row {
     my ($text, $text_variable) = @{$_};
     my $row = [
@@ -296,7 +304,7 @@ sub _process {
     my ($state) = @_;
     if (defined $when && $state eq $when) {
         for ($action) {
-            when ('hang') { $main_window->after(5000); }
+            when ('hang') { $main_window->after(3000); $action = 'ok'; }
             when ('die')  { die "die: as requested\n" }
             when ('exit') { exit }
         }
