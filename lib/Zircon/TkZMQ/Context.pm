@@ -137,58 +137,73 @@ sub platform { return 'ZMQ'; }
 sub send {
     my ($self, $request, $reply_ref) = @_;
 
-    my $requester = $self->zmq_requester;
-    my $rv = zmq_msg_send($request, $requester);
-    if ($rv < 0) {
-        my $err = zmq_strerror($!);
-        warn "Zircon::TkZMQ::Context::send: zmq_send failed: $err";
-        $self->destroy_zmq_requester;
-        return -1;
-    } elsif ($rv != length($request)) {
-        warn "Zircon::TkZMQ::Context::send: length mismatch, sent $rv, should have been ", length($request);
-    } else {
-        $self->zircon_trace('send: sent %d', $rv);
-    }
+    my $error = 'unset';
+    my $zerr;
 
-    $self->zircon_trace('send: waiting for reply');
+  RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
-    my $reply_msg;
-    my %pollitem = (
-        socket  => $requester,
-        events  => ZMQ_POLLIN,
-        callback => sub {
-            $reply_msg = zmq_recvmsg($requester);
-            $reply_msg or warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $!";
-            return;
-        },
-    );
+      $zerr = undef;
+      my $requester = $self->zmq_requester;
 
-    my @prv = zmq_poll([ \%pollitem ], $self->timeout_interval);
+      my $rv = zmq_msg_send($request, $requester);
+      if ($rv < 0) {
+          $zerr = zmq_strerror($!);
+          $error = 'zmq_send failed';
+          next RETRY;
+      } elsif ($rv != length($request)) {
+          warn "Zircon::TkZMQ::Context::send: length mismatch, sent $rv, should have been ", length($request);
+      } else {
+          $self->zircon_trace('send: sent %d (attempt %d)', $rv, $attempt);
+      }
 
-    unless (scalar(@prv)) {
-        warn "zmq_poll failed: $!";
-        $self->destroy_zmq_requester;
-        return -1;
-    }
+      my $reply_msg;
+      my %pollitem = (
+          socket  => $requester,
+          events  => ZMQ_POLLIN,
+          callback => sub {
+              $reply_msg = zmq_recvmsg($requester);
+              $reply_msg or warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $!";
+              return;
+          },
+          );
 
-    unless ($prv[0]) {
-        if ($! == EAGAIN) {
-            warn "timeout";
-            $self->destroy_zmq_requester;
-            return 0;
-        }
-        warn "zmq_poll error: $!";
-        return -1;
-    }
+      $self->zircon_trace('send: waiting for reply');
+      my @prv = zmq_poll([ \%pollitem ], $self->timeout_interval);
 
-    unless ($reply_msg) {
-        warn "no reply";
-        return 0;
-    }
+      unless (@prv) {
+          $zerr = zmq_strerror($!);
+          $error = "zmq_poll failed";
+          next RETRY;
+      }
 
-    # Should have something now :-)
-    $$reply_ref = zmq_msg_data($reply_msg);
-    return length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
+      unless ($prv[0]) {
+          if ($! == EAGAIN) {
+              $self->zircon_trace('send: timeout awaiting reply');
+              $error = 'zmq_poll timeout';
+              next RETRY;
+          } else {
+              $zerr = zmq_strerror($!);
+              $error = 'zmq_poll error';
+              next RETRY;
+          }
+      }
+
+      unless ($reply_msg) {
+          warn "no reply";
+          return 0;
+      }
+
+      # Should have something now :-)
+      $$reply_ref = zmq_msg_data($reply_msg);
+      return length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
+
+  } continue { # RETRY
+      $self->destroy_zmq_requester;
+  }
+
+    $error = "$error: '$zerr'" if $zerr;
+    warn $error;
+    return -1;
 }
 
 # stack_tangle, etc., may now be redundant but we need to check ZMap layer usage of waitVariable.
