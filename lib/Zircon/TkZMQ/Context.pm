@@ -4,13 +4,16 @@ package Zircon::TkZMQ::Context;
 use strict;
 use warnings;
 
+use feature 'state';
+
 use Carp qw( croak cluck );
-use Errno qw(EAGAIN);
+use Errno qw(EAGAIN ENODATA);
 use Readonly;
 use Scalar::Util qw( weaken refaddr );
+use Time::HiRes qw( gettimeofday );
 
 use ZMQ::LibZMQ3;
-use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT EFSM);
+use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE EFSM);
 
 use Zircon::Tk::WindowExists;
 use Zircon::Tk::MonkeyPatches;
@@ -81,6 +84,44 @@ sub transport_init {
     return;
 }
 
+sub _send_msg {
+    my ($self, $msg, $socket, $flags) = @_;
+
+    my $error;
+    my $exp = length $msg;
+
+    my $rv = zmq_msg_send($msg, $socket, $flags || 0);
+    if ($rv < 0) {
+        my $zerr = zmq_strerror($!);
+        $error = "zmq_msg_send failed: '$zerr'";
+    }
+    elsif ($rv != $exp) {
+        $error = "zmq_msg_send length mismatch, sent $rv, should have been $exp";
+    }
+    # else okay
+
+    return $error;
+}
+
+sub _recv_msg {
+    my ($self, $socket, $flags) = @_;
+
+    state $msg = zmq_msg_init;
+
+    my $rv = zmq_msg_recv($msg, $socket, $flags);
+    if ($rv < 0) {
+        my $zerr = zmq_strerror($!);
+        return (undef, $!, "zmq_recv_msg failed: '$zerr'");
+    }
+
+    my $payload = zmq_msg_data($msg);
+    unless (defined $payload) {
+        return (undef, ENODATA, "_recv_msg: error retrieving data");
+    }
+
+    return ($payload, 0, undef);
+}
+
 sub _server_callback {
     my ($self, $request_callback, $after_callback) = @_;
 
@@ -88,45 +129,41 @@ sub _server_callback {
 
     my $responder = $self->zmq_responder;
 
-    my $msg = zmq_msg_init;
   ZMQ: while (1) {
-      my $rv = zmq_msg_recv($msg, $responder, ZMQ_DONTWAIT);
-      unless(defined($rv)) {
-          warn "zmq_msg_recv: return undef";
-          last ZMQ;
-      }
-      if ($rv < 0) {
-          if ($! == EAGAIN or $! == EFSM) {
+      my ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
+      unless (defined $header) {
+          if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
               # nothing to do for now
           } else {
-              my $err = zmq_strerror($!);
-              warn "zmq_msg_recv error: '$err' [$!] ($rv)";
+              warn "_recv_msg(header) error: '$error'";
           }
           last ZMQ;
       }
-      my $request = zmq_msg_data($msg);
-      unless(defined $request) {
-          warn "no request retrieved from msg";
+      $self->zircon_trace("header: '%s'", $header);
+
+      my $request;
+      ($request, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
+      unless (defined $request) {
+          if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
+              warn "_recv_msg(request) error: request not there!";
+          } else {
+              warn "_recv_msg error: '$error'";
+          }
           last ZMQ;
       }
-      $self->zircon_trace("request: '%s' [%d]", $request, $rv);
+      $self->zircon_trace("request: '%s'", $request);
 
       my $reply = $request_callback->($request);
       $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
-      $rv = zmq_msg_send($reply // '', $responder);
-      if ($rv < 0) {
-          my $err = zmq_strerror($!);
-          warn "Zircon::TkZMQ::Context::callback: zmq_send failed: $err";
+      if (my $e = $self->_send_msg($reply // '', $responder)) {
+          warn "Zircon::TkZMQ::Context::callback: zmq_send failed: $e";
           return;
-      } elsif ($rv != length($reply)) {
-          warn "Zircon::TkZMQ::Context::callback: length mismatch, ",
-          "sent $rv, should have been ", length($reply);
       } else {
-          $self->zircon_trace('callback: reply sent %d', $rv);
+          $self->zircon_trace('callback: reply sent');
       }
   }
-    zmq_msg_close($msg);
+
     $after_callback->() if $after_callback;
     $self->zircon_trace('Done with 0MQ for this event');
 }
@@ -135,26 +172,32 @@ sub _server_callback {
 sub platform { return 'ZMQ'; }
 
 sub send {
-    my ($self, $request, $reply_ref) = @_;
+    my ($self, $request, $reply_ref, $request_id) = @_;
 
     my $error = 'unset';
     my $zerr;
+
+    my ($sec, $usec) = gettimeofday;
+    my $header = sprintf('%d %d,%d', $request_id, $sec, $usec);
+    $self->zircon_trace("header '%s'", $header);
 
   RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
       $zerr = undef;
       my $requester = $self->zmq_requester;
 
-      my $rv = zmq_msg_send($request, $requester);
-      if ($rv < 0) {
-          $zerr = zmq_strerror($!);
-          $error = 'zmq_send failed';
+      if (my $e = $self->_send_msg($header, $requester, ZMQ_SNDMORE)) {
+          $error = "$e (header)";
           next RETRY;
-      } elsif ($rv != length($request)) {
-          warn "Zircon::TkZMQ::Context::send: length mismatch, sent $rv, should have been ", length($request);
-      } else {
-          $self->zircon_trace('send: sent %d (attempt %d)', $rv, $attempt);
       }
+      $self->zircon_trace('header, attempt %d', $attempt);
+
+      if (my $e = $self->_send_msg($request, $requester)) {
+          $error = "$e (body)";
+          next RETRY;
+      }
+      $self->zircon_trace('body, attempt %d', $attempt);
+
 
       my $reply_msg;
       my %pollitem = (
@@ -167,7 +210,7 @@ sub send {
           },
           );
 
-      $self->zircon_trace('send: waiting for reply');
+      $self->zircon_trace('waiting for reply');
       my @prv = zmq_poll([ \%pollitem ], $self->timeout_interval);
 
       unless (@prv) {
@@ -178,7 +221,7 @@ sub send {
 
       unless ($prv[0]) {
           if ($! == EAGAIN) {
-              $self->zircon_trace('send: timeout awaiting reply');
+              $self->zircon_trace('timeout awaiting reply');
               $error = 'zmq_poll timeout';
               next RETRY;
           } else {

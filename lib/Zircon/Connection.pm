@@ -56,6 +56,8 @@ sub init {
         weaken $self->{$key};
     }
 
+    $self->{request_id} //= 0;
+
     $self->trace_env_update;
 
     $self->context->set_connection_params(
@@ -86,15 +88,24 @@ sub init {
 # client
 
 sub send {
-    my ($self, $request) = @_;
+    my ($self, $request, $request_id) = @_;
+
+    if ($request_id) {
+        $request_id >= $self->request_id
+            or die sprintf('request_id [%d] out of sync, exp [%d]', $request_id, $self->request_id);
+        $self->request_id($request_id);
+    } else {
+        $request_id = $self->request_id;
+    }
 
     $self->zircon_trace("start");
 
     my $reply;
-    my $rv = $self->context->send($request, \$reply);
+    my $rv = $self->context->send($request, \$reply, $request_id);
     if ($rv > 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply);
+        $self->request_id(++$request_id);
     } elsif ($rv == 0) {
         $self->zircon_trace('client timed out');
         $self->timeout_maybe_callback;
@@ -309,6 +320,13 @@ sub request {
     my ($self, @args) = @_;
     ($self->{'request'}) = @args if @args;
     return $self->{'request'};
+}
+
+sub request_id {
+    my ($self, @args) = @_;
+    ($self->{'request_id'}) = @args if @args;
+    my $request_id = $self->{'request_id'};
+    return $request_id;
 }
 
 sub reply {
