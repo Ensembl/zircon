@@ -13,7 +13,7 @@ use Scalar::Util qw( weaken refaddr );
 use Time::HiRes qw( gettimeofday );
 
 use ZMQ::LibZMQ3;
-use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE EFSM);
+use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE ZMQ_LINGER EFSM);
 
 use Zircon::Tk::WindowExists;
 use Zircon::Tk::MonkeyPatches;
@@ -580,6 +580,8 @@ sub zmq_requester {
 
     $zmq_requester = zmq_socket($self->zmq_context, ZMQ_REQ);
     $zmq_requester or die "failed to get ZMQ_REQ socket: $!";
+
+    zmq_setsockopt($zmq_requester, ZMQ_LINGER, 0); # so we can exit without hanging
 
     my $remote = $self->remote_endpoint;
     my $rv = zmq_connect($zmq_requester, $remote);
