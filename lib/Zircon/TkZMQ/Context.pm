@@ -196,7 +196,7 @@ sub _process_server_request {
 
     $self->zircon_trace('start (collision: %s)', $collision_result // 'none');
 
-    my $reply = $self->_request_callback->($self->_request_body, $collision_result);
+    my $reply = $self->_request_callback->($self->_request_body, $self->_parse_header, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
     if (my $e = $self->_send_msg($reply // '', $self->zmq_responder)) {

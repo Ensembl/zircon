@@ -56,7 +56,7 @@ sub init {
         weaken $self->{$key};
     }
 
-    $self->{request_id} //= 0;
+    $self->{my_request_id} //= 0;
 
     $self->trace_env_update;
 
@@ -90,11 +90,11 @@ sub send {
     my ($self, $request, $request_id) = @_;
 
     if ($request_id) {
-        $request_id >= $self->request_id
-            or die sprintf('request_id [%d] out of sync, exp [%d]', $request_id, $self->request_id);
-        $self->request_id($request_id);
+        $request_id >= $self->my_request_id
+            or die sprintf('request_id [%d] out of sync, exp [%d]', $request_id, $self->my_request_id);
+        $self->my_request_id($request_id);
     } else {
-        $request_id = $self->request_id;
+        $request_id = $self->my_request_id;
     }
 
     $self->zircon_trace("start");
@@ -114,7 +114,7 @@ sub send {
     if ($rv >= 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply, $collision_result);
-        $self->request_id(++$request_id);
+        $self->my_request_id(++$request_id);
     } else {
         $self->zircon_trace('client timed out after retrying');
         $self->timeout_maybe_callback;
@@ -143,12 +143,28 @@ sub _fire_after {
 # server
 
 sub _server_callback {
-    my ($self, $request, $collision_result) = @_;
+    my ($self, $request, $header, $collision_result) = @_;
 
-    $self->zircon_trace('start (collision: %s)', $collision_result // 'none');
+    my $request_id = $header->{request_id};
+    my $attempt    = $header->{request_attempt};
 
+    $self->zircon_trace('start (req %d/%d, collision: %s)', $request_id, $attempt, $collision_result // 'none');
     $self->zircon_trace("request: '%s'", $request);
-    my $reply = $self->handler->zircon_connection_request($request, $collision_result);
+
+    my $reply;
+
+    my $rrid = $self->remote_request_id;
+    if ($attempt > 1 and $rrid and $rrid == $request_id and $self->last_reply) {
+        # Retransmit
+        $self->zircon_trace('retransmit');
+        $reply = $self->last_reply;
+    } else {
+        # Not seen this request before
+        warn "Out of sequence: last ${rrid}, this ${request_id}" if ($rrid and $request_id <= $rrid);
+        $reply = $self->handler->zircon_connection_request($request, $collision_result);
+        $self->remote_request_id($request_id);
+        $self->last_reply($reply);
+    }
 
     $self->zircon_trace('finish');
 
@@ -333,11 +349,25 @@ sub request {
     return $self->{'request'};
 }
 
-sub request_id {
+sub my_request_id {
     my ($self, @args) = @_;
-    ($self->{'request_id'}) = @args if @args;
-    my $request_id = $self->{'request_id'};
-    return $request_id;
+    ($self->{'my_request_id'}) = @args if @args;
+    my $my_request_id = $self->{'my_request_id'};
+    return $my_request_id;
+}
+
+sub remote_request_id {
+    my ($self, @args) = @_;
+    ($self->{'remote_request_id'}) = @args if @args;
+    my $remote_request_id = $self->{'remote_request_id'};
+    return $remote_request_id;
+}
+
+sub last_reply {
+    my ($self, @args) = @_;
+    ($self->{'last_reply'}) = @args if @args;
+    my $last_reply = $self->{'last_reply'};
+    return $last_reply;
 }
 
 sub reply {
