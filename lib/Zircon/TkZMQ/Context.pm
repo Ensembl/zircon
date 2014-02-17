@@ -53,6 +53,9 @@ sub transport_init {
     my ($self, $request_callback, $after_callback) = @_;
     $self->zircon_trace;
 
+    $self->_request_callback($request_callback);
+    $self->_after_request_callback($after_callback);
+
     my $zmq_context = zmq_ctx_new;
     $zmq_context or die "zmq_ctx_new failed: $!";
     $self->zmq_context($zmq_context);
@@ -78,7 +81,7 @@ sub transport_init {
 
     $self->widget->fileevent(
         $dup_fh, 'readable',
-        sub { return $self->_server_callback($request_callback, $after_callback); },
+        sub { return $self->_server_callback; },
         );
 
     return;
@@ -122,50 +125,84 @@ sub _recv_msg {
     return ($payload, 0, undef);
 }
 
-sub _server_callback {
-    my ($self, $request_callback, $after_callback) = @_;
+sub _get_request {
+    my ($self) = @_;
 
-    $self->zircon_trace('Start server callback');
+    $self->zircon_trace;
 
+    $self->_request_header(undef);
+    $self->_request_body(undef);
+
+    my ($header, $request, $errno, $error);
     my $responder = $self->zmq_responder;
 
+    ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
+    unless (defined $header) {
+        if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
+            # nothing to do for now
+            return;
+        } else {
+            return "_recv_msg(header) error: '$error'";
+        }
+    }
+    $self->zircon_trace("header: '%s'", $header);
+
+    ($request, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
+    unless (defined $request) {
+        if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
+            return "request body not there";
+        } else {
+            return "_recv_msg(body) error: '$error'";
+        }
+    }
+    $self->zircon_trace("request: '%s'", $request);
+
+    $self->_request_header($header);
+    $self->_request_body($request);
+
+    return;
+}
+
+sub _server_callback {
+    my ($self) = @_;
+
+    $self->zircon_trace('start');
+
   ZMQ: while (1) {
-      my ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
-      unless (defined $header) {
-          if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
-              # nothing to do for now
-          } else {
-              warn "_recv_msg(header) error: '$error'";
-          }
+
+      my $error = $self->_get_request;
+      if ($error) {
+          warn "_get_request: $error";
           last ZMQ;
       }
-      $self->zircon_trace("header: '%s'", $header);
-
-      my $request;
-      ($request, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
-      unless (defined $request) {
-          if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
-              warn "_recv_msg(request) error: request not there!";
-          } else {
-              warn "_recv_msg error: '$error'";
-          }
+      unless ($self->_request_body) {
+          $self->zircon_trace('EAGAIN');
           last ZMQ;
       }
-      $self->zircon_trace("request: '%s'", $request);
 
-      my $reply = $request_callback->($request);
-      $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
-
-      if (my $e = $self->_send_msg($reply // '', $responder)) {
-          warn "Zircon::TkZMQ::Context::callback: zmq_send failed: $e";
+      $error = $self->_process_server_request;
+      if ($error) {
+          warn "Zircon::TkZMQ::Context::_server_callback: $error";
           return;
-      } else {
-          $self->zircon_trace('callback: reply sent');
       }
   }
 
-    $after_callback->() if $after_callback;
-    $self->zircon_trace('Done with 0MQ for this event');
+    $self->_after_request_callback->() if $self->_after_request_callback;
+    $self->zircon_trace('done with 0MQ for this event');
+}
+
+sub _process_server_request {
+    my ($self) = @_;
+
+    my $reply = $self->_request_callback->($self->_request_body);
+    $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
+
+    if (my $e = $self->_send_msg($reply // '', $self->zmq_responder)) {
+        return "_send_msg failed: $e";
+    }
+
+    $self->zircon_trace('_process_server_request: reply sent');
+    return;
 }
 
 # platform
@@ -176,15 +213,18 @@ sub send {
 
     my $error = 'unset';
     my $zerr;
+    my $deferred_serve;
 
     my ($sec, $usec) = gettimeofday;
     my $header = sprintf('%d %d,%d', $request_id, $sec, $usec);
     $self->zircon_trace("header '%s'", $header);
 
+    my $responder = $self->zmq_responder;
+
   RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
       $zerr = undef;
-      my $requester = $self->zmq_requester;
+      my $requester = $self->zmq_requester; # must be in retry loop as may change
 
       if (my $e = $self->_send_msg($header, $requester, ZMQ_SNDMORE)) {
           $error = "$e (header)";
@@ -198,55 +238,105 @@ sub send {
       }
       $self->zircon_trace('body, attempt %d', $attempt);
 
-
       my $reply_msg;
-      my %pollitem = (
-          socket  => $requester,
-          events  => ZMQ_POLLIN,
-          callback => sub {
-              $reply_msg = zmq_recvmsg($requester);
-              $reply_msg or warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $!";
-              return;
-          },
-          );
 
-      $self->zircon_trace('waiting for reply');
-      my @prv = zmq_poll([ \%pollitem ], $self->timeout_interval);
+    POLL: while (1) {
 
-      unless (@prv) {
-          $zerr = zmq_strerror($!);
-          $error = "zmq_poll failed";
-          next RETRY;
-      }
+        my %client_reply_pollitem = (
+            socket  => $requester,
+            events  => ZMQ_POLLIN,
+            callback => sub {
+                $reply_msg = zmq_recvmsg($requester);
+                $reply_msg or warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $!";
+                return;
+            },
+            );
+        my %server_request_pollitem = (
+            socket  => $responder,
+            events  => ZMQ_POLLIN,
+            callback => sub {
+                $self->zircon_trace("collision detected!");
+                $self->_get_request; # FIXME: error-check
+                my ($server_request_id, $server_sec, $server_usec) = $self->_parse_header;
+                my $cmp = ($sec                  <=> $server_sec
+                           ||
+                           $usec                 <=> $server_usec
+                           ||
+                           $self->local_endpoint cmp $self->remote_endpoint);
+                if ($cmp < 0) {
+                    $self->zircon_trace("collision WIN");
+                    $deferred_serve = 1;
+                } else {
+                    $self->zircon_trace("collision LOSE");
+                    $self->_process_server_request;
+                    # FIXME: reset retries
+                }
+                return;
+            },
+            );
 
-      unless ($prv[0]) {
-          if ($! == EAGAIN) {
-              $self->zircon_trace('timeout awaiting reply');
-              $error = 'zmq_poll timeout';
-              next RETRY;
-          } else {
-              $zerr = zmq_strerror($!);
-              $error = 'zmq_poll error';
-              next RETRY;
-          }
-      }
+        $self->zircon_trace('waiting for reply');
+        my @prv = zmq_poll([ \%client_reply_pollitem, \%server_request_pollitem ], $self->timeout_interval);
 
-      unless ($reply_msg) {
-          warn "no reply";
-          return 0;
-      }
+        unless (@prv) {
+            $zerr = zmq_strerror($!);
+            $error = "zmq_poll failed";
+            next RETRY;
+        }
+
+        unless ($prv[0] or $prv[1]) {
+            if ($! == EAGAIN) {
+                $self->zircon_trace('timeout awaiting reply');
+                $error = 'zmq_poll timeout';
+                next RETRY;
+            } else {
+                $zerr = zmq_strerror($!);
+                $error = 'zmq_poll error';
+                next RETRY;
+            }
+        }
+
+        $self->zircon_trace('poll reply: %d, server: %d', @prv[0..1]);
+
+        last POLL if $prv[0];
+        redo POLL if $prv[1];    # FIXME something more intelligent - decouple poll 1?
+    } # POLL
 
       # Should have something now :-)
-      $$reply_ref = zmq_msg_data($reply_msg);
-      return length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
+      my $retval;
+      if ($reply_msg) {
+          $$reply_ref = zmq_msg_data($reply_msg);
+          $retval = length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
+      } else {
+          warn "no reply";
+          $retval = 0;
+      }
+
+      if ($deferred_serve) {
+          $self->zircon_trace("collision win - deferred serve");
+          $self->_process_server_request;
+      }
+
+      return $retval;
 
   } continue { # RETRY
+      $error = "$error: '$zerr'" if $zerr;
+      warn $error;
       $self->destroy_zmq_requester;
   }
 
-    $error = "$error: '$zerr'" if $zerr;
-    warn $error;
+    warn "retries exhausted";
     return -1;
+}
+
+sub _parse_header {
+    my ($self) = @_;
+    my $header = $self->_request_header;
+    return unless $header;
+    my ($seq, $ts) = split(' ', $header);
+    return unless $ts;
+    my ($sec, $usec) = split(',', $ts);
+    return ($seq, $sec, $usec);
 }
 
 # stack_tangle, etc., may now be redundant but we need to check ZMap layer usage of waitVariable.
@@ -385,6 +475,34 @@ sub waitVariable_hash {
 sub widget_xid {
     my ($self) = @_;
     return $self->widget->id;
+}
+
+sub _request_header {
+    my ($self, @args) = @_;
+    ($self->{'_request_header'}) = @args if @args;
+    my $_request_header = $self->{'_request_header'};
+    return $_request_header;
+}
+
+sub _request_body {
+    my ($self, @args) = @_;
+    ($self->{'_request_body'}) = @args if @args;
+    my $_request_body = $self->{'_request_body'};
+    return $_request_body;
+}
+
+sub _request_callback {
+    my ($self, @args) = @_;
+    ($self->{'_request_callback'}) = @args if @args;
+    my $_request_callback = $self->{'_request_callback'};
+    return $_request_callback;
+}
+
+sub _after_request_callback {
+    my ($self, @args) = @_;
+    ($self->{'_after_request_callback'}) = @args if @args;
+    my $_after_request_callback = $self->{'_after_request_callback'};
+    return $_after_request_callback;
 }
 
 # other app's windows
