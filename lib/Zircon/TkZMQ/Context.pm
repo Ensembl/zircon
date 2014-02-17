@@ -137,7 +137,7 @@ sub _get_request {
 
     ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
     unless (defined $header) {
-        if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
+        if ($errno == EAGAIN or $errno == EFSM) {
             # nothing to do for now
             return;
         } else {
@@ -148,7 +148,7 @@ sub _get_request {
 
     ($request, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
     unless (defined $request) {
-        if ($errno == EAGAIN) { # FIXME or $! == EFSM) {
+        if ($errno == EAGAIN) { # we should not get EFSM here
             return "request body not there";
         } else {
             return "_recv_msg(body) error: '$error'";
@@ -214,7 +214,13 @@ sub _collision_handler {
     my ($self, $my_sec, $my_usec) = @_;
 
     $self->zircon_trace("collision detected!");
-    $self->_get_request; # FIXME: error-check
+
+    my $error = $self->_get_request;
+    if ($error) {
+        warn "_get_request: $error";
+        return;
+    }
+
     my ($server_request_id, $server_sec, $server_usec) = $self->_parse_header;
     my $cmp = ($my_sec               <=> $server_sec
                ||
