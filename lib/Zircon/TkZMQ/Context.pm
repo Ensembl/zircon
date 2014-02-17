@@ -76,8 +76,7 @@ sub transport_init {
 
     my $fh = zmq_getsockopt($responder, ZMQ_FD);
     $fh or die "failed to get socket fd: $!";
-    open my $dup_fh, '<&', $fh;
-    $dup_fh or die "failed to dup socket fd: $!";
+    open my $dup_fh, '<&', $fh or die "failed to dup socket fd: $!";
 
     $self->widget->fileevent(
         $dup_fh, 'readable',
@@ -189,6 +188,7 @@ sub _server_callback {
 
     $self->_after_request_callback->() if $self->_after_request_callback;
     $self->zircon_trace('done with 0MQ for this event');
+    return;
 }
 
 sub _process_server_request {
@@ -208,18 +208,40 @@ sub _process_server_request {
 # platform
 sub platform { return 'ZMQ'; }
 
+sub _collision_handler {
+    my ($self, $my_sec, $my_usec) = @_;
+
+    $self->zircon_trace("collision detected!");
+    $self->_get_request; # FIXME: error-check
+    my ($server_request_id, $server_sec, $server_usec) = $self->_parse_header;
+    my $cmp = ($my_sec               <=> $server_sec
+               ||
+               $my_usec              <=> $server_usec
+               ||
+               $self->local_endpoint cmp $self->remote_endpoint);
+    if ($cmp < 0) {
+        $self->zircon_trace("collision WIN");
+        $self->_collision_state('WIN');
+    } else {
+        $self->zircon_trace("collision LOSE");
+        $self->_collision_state('LOSE');
+    }
+    return;
+}
+
 sub send {
     my ($self, $request, $reply_ref, $request_id) = @_;
 
     my $error = 'unset';
     my $zerr;
-    my $deferred_serve;
 
     my ($sec, $usec) = gettimeofday;
     my $header = sprintf('%d %d,%d', $request_id, $sec, $usec);
     $self->zircon_trace("header '%s'", $header);
 
     my $responder = $self->zmq_responder;
+
+    $self->_collision_state('clear');
 
   RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
@@ -254,25 +276,7 @@ sub send {
         my %server_request_pollitem = (
             socket  => $responder,
             events  => ZMQ_POLLIN,
-            callback => sub {
-                $self->zircon_trace("collision detected!");
-                $self->_get_request; # FIXME: error-check
-                my ($server_request_id, $server_sec, $server_usec) = $self->_parse_header;
-                my $cmp = ($sec                  <=> $server_sec
-                           ||
-                           $usec                 <=> $server_usec
-                           ||
-                           $self->local_endpoint cmp $self->remote_endpoint);
-                if ($cmp < 0) {
-                    $self->zircon_trace("collision WIN");
-                    $deferred_serve = 1;
-                } else {
-                    $self->zircon_trace("collision LOSE");
-                    $self->_process_server_request;
-                    # FIXME: reset retries
-                }
-                return;
-            },
+            callback => sub { return $self->_collision_handler($sec, $usec); },
             );
 
         $self->zircon_trace('waiting for reply');
@@ -297,9 +301,16 @@ sub send {
         }
 
         $self->zircon_trace('poll reply: %d, server: %d', @prv[0..1]);
+        last POLL if $prv[0];   # got a reply
 
-        last POLL if $prv[0];
-        redo POLL if $prv[1];    # FIXME something more intelligent - decouple poll 1?
+        # Must have been a collision
+        if ($self->_collision_state eq 'LOSE') {
+            $self->_process_server_request;
+            # FIXME: reset retries
+        }
+
+        redo POLL; # do we need to decouple poll 1?
+
     } # POLL
 
       # Should have something now :-)
@@ -312,8 +323,8 @@ sub send {
           $retval = 0;
       }
 
-      if ($deferred_serve) {
-          $self->zircon_trace("collision win - deferred serve");
+      if ($self->_collision_state eq 'WIN') {
+          $self->zircon_trace("collision win - deferred service");
           $self->_process_server_request;
       }
 
@@ -503,6 +514,13 @@ sub _after_request_callback {
     ($self->{'_after_request_callback'}) = @args if @args;
     my $_after_request_callback = $self->{'_after_request_callback'};
     return $_after_request_callback;
+}
+
+sub _collision_state {
+    my ($self, @args) = @_;
+    ($self->{'_collision_state'}) = @args if @args;
+    my $_collision_state = $self->{'_collision_state'};
+    return $_collision_state;
 }
 
 # other app's windows
