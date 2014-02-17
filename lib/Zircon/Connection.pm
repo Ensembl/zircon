@@ -68,8 +68,7 @@ sub init {
     # deferred to here in case we're setting local_endpoint
     $self->context->transport_init(
         sub {
-            my ($request) = @_;
-            return $self->_server_callback($request);
+            return $self->_server_callback(@_);
         },
         sub {
             return $self->_fire_after;
@@ -101,16 +100,30 @@ sub send {
     $self->zircon_trace("start");
 
     my $reply;
-    my $rv = $self->context->send($request, \$reply, $request_id);
+    my ($rv, $collision) = $self->context->send($request, \$reply, $request_id);
+
+    my $collision_result = 'clear';
+    if ($collision) {
+        if (ref($collision) eq 'CODE') {
+            $collision_result = 'WIN';
+        } else {
+            $self->zircon_trace('collision lost');
+            $collision_result = 'LOSE';
+        }
+    }
     if ($rv > 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
-        $self->handler->zircon_connection_reply($reply);
+        $self->handler->zircon_connection_reply($reply, $collision_result);
         $self->request_id(++$request_id);
     } elsif ($rv == 0) {
         $self->zircon_trace('client timed out');
         $self->timeout_maybe_callback;
     } else {
         $self->zircon_trace('client failed');
+    }
+    if ($collision_result eq 'WIN') {
+        $self->zircon_trace('post-collision callback');
+        $collision->();
     }
 
     $self->_fire_after;
@@ -132,12 +145,12 @@ sub _fire_after {
 # server
 
 sub _server_callback {
-    my ($self, $request) = @_;
+    my ($self, $request, $collision_result) = @_;
 
-    $self->zircon_trace('start');
+    $self->zircon_trace('start (collision: %s)', $collision_result // 'none');
 
     $self->zircon_trace("request: '%s'", $request);
-    my $reply = $self->handler->zircon_connection_request($request);
+    my $reply = $self->handler->zircon_connection_request($request, $collision_result);
 
     $self->zircon_trace('finish');
 

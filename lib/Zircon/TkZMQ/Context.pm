@@ -192,16 +192,18 @@ sub _server_callback {
 }
 
 sub _process_server_request {
-    my ($self) = @_;
+    my ($self, $collision_result) = @_;
 
-    my $reply = $self->_request_callback->($self->_request_body);
+    $self->zircon_trace('start (collision: %s)', $collision_result // 'none');
+
+    my $reply = $self->_request_callback->($self->_request_body, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
     if (my $e = $self->_send_msg($reply // '', $self->zmq_responder)) {
         return "_send_msg failed: $e";
     }
 
-    $self->zircon_trace('_process_server_request: reply sent');
+    $self->zircon_trace('reply sent');
     return;
 }
 
@@ -300,12 +302,12 @@ sub send {
             }
         }
 
-        $self->zircon_trace('poll reply: %d, server: %d', @prv[0..1]);
+        $self->zircon_trace('zmq_poll: reply: %d, server: %d', @prv[0..1]);
         last POLL if $prv[0];   # got a reply
 
         # Must have been a collision
         if ($self->_collision_state eq 'LOSE') {
-            $self->_process_server_request;
+            $self->_process_server_request('LOSE');
             # FIXME: reset retries
         }
 
@@ -314,7 +316,8 @@ sub send {
     } # POLL
 
       # Should have something now :-)
-      my $retval;
+      my ($retval, $collision_result);
+
       if ($reply_msg) {
           $$reply_ref = zmq_msg_data($reply_msg);
           $retval = length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
@@ -323,12 +326,17 @@ sub send {
           $retval = 0;
       }
 
-      if ($self->_collision_state eq 'WIN') {
+      my $cs = $self->_collision_state;
+      if ($cs eq 'WIN') {
           $self->zircon_trace("collision win - deferred service");
-          $self->_process_server_request;
+          $collision_result = sub { return $self->_process_server_request('WIN'); };
+      } elsif ($cs eq 'LOSE') {
+          $collision_result = 'LOSE';
+      } elsif ($cs ne 'clear') {
+          warn "Unexpected collision_state '$cs'";
       }
 
-      return $retval;
+      return ($retval, $collision_result);
 
   } continue { # RETRY
       $error = "$error: '$zerr'" if $zerr;
