@@ -221,10 +221,10 @@ sub _collision_handler {
         return;
     }
 
-    my ($server_request_id, $server_sec, $server_usec) = $self->_parse_header;
-    my $cmp = ($my_sec               <=> $server_sec
+    my $h = $self->_parse_header;
+    my $cmp = ($my_sec               <=> $h->{clock_sec}
                ||
-               $my_usec              <=> $server_usec
+               $my_usec              <=> $h->{clock_usec}
                ||
                $self->local_endpoint cmp $self->remote_endpoint);
     if ($cmp < 0) {
@@ -244,8 +244,11 @@ sub send {
     my $zerr;
 
     my ($sec, $usec) = gettimeofday;
-    my $header = sprintf('%d %d,%d', $request_id, $sec, $usec);
-    $self->zircon_trace("header '%s'", $header);
+    my $header = {
+        request_id => $request_id,
+        clock_sec  => $sec,
+        clock_usec => $usec,
+    };
 
     my $responder = $self->zmq_responder;
 
@@ -256,7 +259,11 @@ sub send {
       $zerr = undef;
       my $requester = $self->zmq_requester; # must be in retry loop as may change
 
-      if (my $e = $self->_send_msg($header, $requester, ZMQ_SNDMORE)) {
+      $header->{request_attempt} = $attempt;
+      my $s_header = $self->_format_header($header);
+      $self->zircon_trace("header '%s'", $s_header);
+
+      if (my $e = $self->_send_msg($s_header, $requester, ZMQ_SNDMORE)) {
           $error = "$e (header)";
           next RETRY;
       }
@@ -354,14 +361,25 @@ sub send {
     return -1;
 }
 
+sub _format_header {
+    my ($self, $header) = @_;
+    return sprintf('%d/%d %d,%d', @{$header}{qw( request_id request_attempt clock_sec clock_usec )});
+}
+
 sub _parse_header {
     my ($self) = @_;
     my $header = $self->_request_header;
     return unless $header;
     my ($seq, $ts) = split(' ', $header);
-    return unless $ts;
+    return unless $seq and $ts;
+    my ($id, $attempt) = split('/', $seq);
     my ($sec, $usec) = split(',', $ts);
-    return ($seq, $sec, $usec);
+    return {
+        request_id      => $id,
+        request_attempt => $attempt,
+        clock_sec       => $sec,
+        clock_usec      => $usec,
+    };
 }
 
 # stack_tangle, etc., may now be redundant but we need to check ZMap layer usage of waitVariable.
