@@ -111,15 +111,13 @@ sub send {
             $collision_result = 'LOSE';
         }
     }
-    if ($rv > 0) {
+    if ($rv >= 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply, $collision_result);
         $self->request_id(++$request_id);
-    } elsif ($rv == 0) {
-        $self->zircon_trace('client timed out');
-        $self->timeout_maybe_callback;
     } else {
-        $self->zircon_trace('client failed');
+        $self->zircon_trace('client timed out after retrying');
+        $self->timeout_maybe_callback;
     }
     if ($collision_result eq 'WIN') {
         $self->zircon_trace('post-collision callback');
