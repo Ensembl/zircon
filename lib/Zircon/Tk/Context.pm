@@ -140,6 +140,11 @@ sub timeout {
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to set timeout with destroyed widget";
+
+    # weirdness on x86_64 2014-02-27
+    croak "timeout value $args[0] not in (0,2e7] - should not wrap, but might"
+      if $args[0] <= 0 || $args[0] > 2e7;
+
     my $timeout_handle = $w->after(@args);
     $self->zircon_trace('configured (%d millisec)', $args[0]);
     return $timeout_handle;
