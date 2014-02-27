@@ -109,10 +109,18 @@ sub _new_view {
 
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
-    my $wait_finish = sub { $$var_ref ||= 'fail_timeout' };
     my $fail_timeout =
       $self->protocol->connection->timeout_interval * # millisec
         ($self->protocol->connection->timeout_retries_initial + 2);
+    my $wait_finish = sub {
+        $$var_ref ||= 'fail_timeout';
+        $self->zircon_trace
+          ('fail_timeout(0x%x), var %s=%s after %d ms * (%d + 2) retries = %.2f sec',
+           refaddr($self), $var_ref, $$var_ref,
+           $self->protocol->connection->timeout_interval,
+           $self->protocol->connection->timeout_retries_initial,
+           $fail_timeout);
+    };
     $self->context->timeout($fail_timeout, $wait_finish);
     $self->zircon_trace('startWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
