@@ -212,28 +212,11 @@ sub timeout_cancel {
 # Time is up, but maybe we will wait again
 sub timeout_maybe_callback {
     my ($self) = @_;
-    my $retries = $self->timeout_retries;
-    my $xid_remote = $self->xid_remote; # FIXME xid_remote now redundant? Not set by Protocol?
-    my $again = 0;
-    if ($retries && $xid_remote) {
-        # If the remote's window still exists, they're just busy
-        $again = $self->remote_window_exists;
-
-        $self->zircon_trace
-          ('remote window %s %s, %d retr%s left',
-           $xid_remote,
-           ($again ? "still exists ($again)" : 'gone'),
-           $retries, $retries == 1 ? 'y' : 'ies');
-    } elsif ($retries) {
-        # Assume we are waiting for handshake, benefit of the doubt
-        $again = 1;
-        $self->zircon_trace('no remote window, wait for handshake [%d]',
-                            $retries);
-    } # else we waiting long enough
-
-    if ($again) {
+    if (my $retries = $self->timeout_retries) {
+        $self->zircon_trace('retry [%d]', $retries);
         $self->timeout_start($retries - 1);
     } else {
+        # we've waited long enough
         $self->timeout_callback;
     }
     return;
