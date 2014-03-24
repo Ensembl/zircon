@@ -139,12 +139,16 @@ sub zmap_view_create {
         $ace->ace_handle(1)
             or die "the ace server failed to connect\n";
 
+        my $arg_list = [
+            '--conf_dir' => $config_path,
+        ];
         my $zmap =
             Zircon::ZMap->new(
                 '-program' => $self->utterloss->program,
                 '-context' => $self->utterloss->zircon_context,
                 '-app_id'  => $utterloss_app_id,
-                '-config'  => $zmap_config_global,
+                '-arg_list'=> $arg_list,
+                '-rolechange_wait' => 1,
             );
 
         my ($name, $start, $end) =
