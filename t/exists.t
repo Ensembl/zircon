@@ -32,8 +32,7 @@ sub predestroy_tt {
     # Zircon can't use it
     my $got = try_err { init_zircon_conn($M, endpoint_pair()) };
 
-    like($got, qr{^ERR:Attempt to construct with invalid widget},
-         "Z:T:Context->new with destroyed widget");
+    unlike($got, qr{^ERR:}, "Destroyed widget doesn't affect ZeroMQ");
 
     return;
 }
@@ -59,16 +58,7 @@ sub postdestroy_tt {
     like($got, want_re('timeout'), 'timeout after destroy');
 
     $got = try_err { $handler->zconn->send('message'); 'done' };
-    like($got, want_re('clear|own'), 'send after destroy');
-
-    # Z:T:Selection
-    $got = try_err { $sel->get(); };
-    like($got, want_re('get'), 'get after destroy');
-
-    my $old_own = $sel->owns;
-    $got = try_err { $sel->owns(0); $sel->own(); };
-    like($got, want_re('own'), 'own after destroy');
-    $sel->owns($old_own);
+    like($got, qr{^ERR:send attempted but no widget}, 'send after destroy');
 
     # Z:T:Context
     my $boom = 0;
