@@ -602,8 +602,10 @@ sub zmq_requester {
     zmq_setsockopt($zmq_requester, ZMQ_LINGER, 0); # so we can exit without hanging
 
     my $remote = $self->remote_endpoint;
+    $remote or die "remote_endpoint not set";
+
     my $rv = zmq_connect($zmq_requester, $remote);
-    $rv and die "failed to connect requester socket to '$remote': $1";
+    $rv and die "failed to connect requester socket to '$remote': $!";
     $self->zircon_trace("requester connected to '%s'", $remote);
 
     return $self->{'zmq_requester'} = $zmq_requester;
