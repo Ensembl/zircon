@@ -71,6 +71,7 @@ package My::StdinReader;
 use strict;
 use warnings;
 
+use Errno qw(EAGAIN);
 use Try::Tiny;
 use Time::HiRes qw( usleep );
 
@@ -155,7 +156,7 @@ sub read_fh {
 
         if (!defined $nchar) {
             warn "I! read failed: $!\n"
-              unless 11 == $!; # Resource temporarily unavailable
+              unless EAGAIN == $!; # Resource temporarily unavailable
         } elsif (0 == $nchar) {
             warn "I] EOF\n";
             $eof = 1;
