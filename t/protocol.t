@@ -52,15 +52,13 @@ sub init_zircon_proto {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $endpoint = join _ => $name, int(rand(1e6));
-    $M->title($endpoint);
-
     my $context = Zircon::TkZMQ::Context->new(-widget => $M);
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,
-       -endpoint => $endpoint,
        -server => $server);
+
+    $M->title($proto->connection->local_endpoint);
 
     return ($M, $proto);
 }
@@ -71,7 +69,7 @@ sub init_zircon_proto {
 # send it a shutdown,
 # see it is gone.
 sub zirpro_tt {
-    plan tests => 10;
+    plan tests => 8;
 
     my $server = MockServer->new;
     my ($M, $proto) = init_zircon_proto($server);
@@ -101,7 +99,7 @@ sub zirpro_tt {
 
     my $flag = 'begin';
     $proto->send_shutdown_clean(sub { $flag='going' });
-    $M->waitVariable(\$flag);
+    $M->waitVariable(\$flag) unless $flag eq 'going';
     is($flag, 'going', 'shutdown sent');
 
     # give the child time to acknowledge & quit
