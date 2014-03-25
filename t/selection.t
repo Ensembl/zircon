@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More skip_all => 'Not required under ZeroMQ';
 use Tk;
 
 use Time::HiRes qw( gettimeofday tv_interval );
