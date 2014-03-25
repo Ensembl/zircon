@@ -42,11 +42,12 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
 
     my $connection = Zircon::Connection->new(-handler => $handler,
                                              -name => 'pipe',
-                                             -context => $context);
+                                             -context => $context,
+                                             -local_endpoint => $local_endpoint,
+        );
     $handler->zconn($connection); # to call ->after for incoming request
     $handler->on_timeout(sub { $reader->try_send_soon });
 
-    $connection->local_endpoint($local_endpoint);
     $connection->remote_endpoint($remote_endpoint);
     # now ready to send & receive
 

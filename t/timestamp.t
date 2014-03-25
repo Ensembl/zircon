@@ -9,7 +9,7 @@ use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn );
+use TestShared qw( have_display init_zircon_conn endpoint_pair );
 use ConnHandler;
 
 
@@ -27,7 +27,7 @@ sub main {
 sub do_init {
     my $M = TestWin->new;
 
-    my @id = qw( timestamp_serv timestamp_cli );
+    my @id = endpoint_pair;
     $M->clip_ids(@id);
     $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
 

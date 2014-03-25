@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn do_subtests try_err mkwidg );
+use TestShared qw( have_display init_zircon_conn do_subtests try_err mkwidg endpoint_pair );
 
 use Test::More;
 use Time::HiRes qw( usleep );
@@ -30,7 +30,7 @@ sub predestroy_tt {
     $M->destroy;
 
     # Zircon can't use it
-    my $got = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
+    my $got = try_err { init_zircon_conn($M, endpoint_pair()) };
 
     like($got, qr{^ERR:Attempt to construct with invalid widget},
          "Z:T:Context->new with destroyed widget");
@@ -45,12 +45,11 @@ sub want_re {
 }
 
 sub postdestroy_tt {
-    plan tests => 8;
+    plan tests => 6;
 
     my $M = mkwidg();
-    my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
+    my $handler = try_err { init_zircon_conn($M, endpoint_pair()) };
     is(ref($handler), 'ConnHandler', 'postdestroy_tt: init');
-    my $sel = $handler->zconn->selection('local');
 
     $M->destroy;
 
@@ -93,7 +92,7 @@ sub waitdestroy_tt {
     plan tests => 4;
 
     my $M = mkwidg();
-    my $handler = try_err { init_zircon_conn($M, qw( me_local me_remote )) };
+    my $handler = try_err { init_zircon_conn($M, endpoint_pair()) };
     is(ref($handler), 'ConnHandler', 'waitdestroy_tt: init');
 
     my ($flag, @warn) = (0);
@@ -122,9 +121,9 @@ sub waitdestroy_tt {
 sub extwindow_tt {
     plan tests => 5;
     my $M = mkwidg();
-    my $handler = init_zircon_conn($M, qw( me_local me_remote ));
+    my $handler = init_zircon_conn($M, endpoint_pair());
 
-    my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD', 'me_remote';
+    my $pid = open my $fh, '-|', qw( perl -MTk -E ), <<'CHILD', $handler->zconn->remote_endpoint;
   my $M = MainWindow->new(-title => "Child for extwindow_tt");
   $M->withdraw;
   $M->after(1500, \&late);
