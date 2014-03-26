@@ -518,11 +518,6 @@ sub waitVariable_hash {
     return $waitVariable_hash;
 }
 
-sub widget_xid {
-    my ($self) = @_;
-    return $self->widget->id;
-}
-
 sub _request_header {
     my ($self, @args) = @_;
     ($self->{'_request_header'}) = @args if @args;
@@ -565,17 +560,6 @@ sub window_exists {
 
     # Another process does the checking
     return Zircon::Tk::WindowExists->query($win_id, $prop);
-}
-
-sub window_declare {
-    my ($self, $connection) = @_;
-
-    # Set the expected property on our window so the peer
-    # knows it is us, and not something else re-using the window_id
-    my $prop = $connection->local_endpoint;
-    my $val = $$;
-    $self->widget->property(set => $prop, STRING => 8, $val);
-    return ();
 }
 
 # ZMQ attribs
