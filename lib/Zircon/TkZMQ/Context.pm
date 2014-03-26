@@ -16,7 +16,6 @@ use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE ZMQ_LINGER EFSM);
 
 use Zircon::Tk::WindowExists;
-use Zircon::Tk::MonkeyPatches;
 
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
@@ -385,93 +384,6 @@ sub _parse_header {
     };
 }
 
-# stack_tangle, etc., may now be redundant but we need to check ZMap layer usage of waitVariable.
-#
-sub stack_tangle {
-    my ($pkg, $trace_return) = @_;
-    # This may be rather specific to the Perl-Tk version,
-    # but it has tests.
-
-    my @stack;
-    for (my $i=0; 1; $i++) { # exit via last
-        my @frame = caller($i);
-        last if !@frame;
-        push @stack, \@frame;
-    }
-
-    my (@wait, @trace, %skip);
-    for (my $i=0; $i < @stack; $i++) {
-        my ($package, $filename, $line, $subroutine, undef,
-            undef, $evaltext, $is_require) = @{ $stack[$i] };
-        if ($subroutine eq '(eval)') {
-            if ($is_require) {
-                $subroutine = '(require)';
-            } elsif (defined $evaltext) {
-                $subroutine = 'eval""';
-            } else {
-                $subroutine = 'eval{}';
-            }
-        }
-        push @trace, "$subroutine called from $package at $filename line $line";
-
-        next if $skip{$i}; # mentioned in previous line
-
-        next unless $subroutine =~
-          m{^(
-                Tk::Widget::wait(Variable|Visibility|Window)| # they call tkwait
-                Zircon::Tk::MonkeyPatches::(DoOneEvent|update) # extra stack frames for XS subs
-            )$}x;
-        my ($wait_type) = $subroutine =~ m{::([^:]+)$};
-
-        my $caller_sub = defined $stack[$i+1] ? $stack[$i+1][3] : '(script)';
-        my $via = '';
-        if ($caller_sub =~
-            m{^(
-                  Tk::(MainLoop|updateWidgets)| # they call DoOneEvent
-                  Tk::(idletasks|Widget::(B|Unb)usy) # they call update
-              )$}x) {
-            $via = " via $caller_sub";
-            $skip{$i+1} = 1;
-
-            (undef, $filename, $line) = @{ $stack[$i+1] } if $stack[$i+1];
-            $caller_sub = $stack[$i+2] ? $stack[$i+2][3] : '(script)';
-        }
-
-        push @wait, "$wait_type$via from $caller_sub at $filename line $line";
-    }
-
-    @$trace_return = @trace if defined $trace_return;
-    return @wait;
-}
-
-our %TANGLE_ACK = (MainLoop => 1);
-sub warn_if_tangled {
-    my ($pkg, $extra_threshold) = @_;
-    my (undef, $fn, $ln) = caller();
-
-    my ($max_wait_frames, @max) = (0);
-    local $TANGLE_ACK{extra} = $extra_threshold;
-    foreach my $k (sort keys %TANGLE_ACK) {
-        my $v = $TANGLE_ACK{$k};
-        next unless defined $v;
-        $max_wait_frames += $v;
-        push @max, sprintf('%s:%+d', $k, $v);
-    }
-
-    my @trace;
-    my @wait = $pkg->stack_tangle(\@trace);
-    my $d = @wait;
-    if (@wait > $max_wait_frames) {
-        warn join '',
-          "Event handling loop depth $d > (@max = $max_wait_frames) exceeded, as seen at $fn line $ln\n",
-            map {"  $_\n"} @wait;
-        warn join '', "Full trace\n", map {"  $_\n"} @trace;
-    }
-#    else { warn "Event handling loop depth $d <= (@max = $max_wait_frames) OK, as seen at $fn line $ln\n" }
-
-    return;
-}
-
 # timeouts
 
 sub timeout {
@@ -496,7 +408,6 @@ sub waitVariable {
         or croak "Attempt to waitVariable with destroyed widget";
 
     $self->zircon_trace('startWAIT(0x%x) for %s=%s', refaddr($self), $var, $$var);
-    $self->warn_if_tangled;
     $w->waitVariable($var); # traced
     $self->zircon_trace('stopWAIT(0x%x) with %s=%s', refaddr($self), $var, $$var);
     Tk::Exists($w)
@@ -512,6 +423,9 @@ sub widget {
     return $widget;
 }
 
+# FIXME: see ensembl-otter:SpeciesListWindow.
+# rather than expose this, we should offer a cleanup method.
+#
 sub waitVariable_hash {
     my ($self) = @_;
     my $waitVariable_hash = $self->{'waitVariable_hash'};
