@@ -27,11 +27,11 @@ sub new {
     my ($pkg, %args) = @_;
     my $new = { };
     bless $new, $pkg;
-    $new->init(\%args);
+    $new->_init(\%args);
     return $new;
 }
 
-sub init {
+sub _init {
     my ($self, $args) = @_;
     $self->{'waitVariable_hash'} = { };
     my $widget = $args->{'-widget'};
@@ -56,17 +56,17 @@ sub transport_init {
     $self->_request_callback($request_callback);
     $self->_after_request_callback($after_callback);
 
-    my $zmq_context = zmq_ctx_new;
-    $zmq_context or die "zmq_ctx_new failed: $!";
-    $self->zmq_context($zmq_context);
+    my $_zmq_context = zmq_ctx_new;
+    $_zmq_context or die "zmq_ctx_new failed: $!";
+    $self->_zmq_context($_zmq_context);
 
-    my $responder = zmq_socket($zmq_context, ZMQ_REP);
+    my $responder = zmq_socket($_zmq_context, ZMQ_REP);
     $responder or die "failed to get ZMQ_REP socket: $!";
 
     my $local_endpoint = $self->local_endpoint;
     my $rv = zmq_bind($responder, $self->local_endpoint);
     $rv and die "failed to bind requester socket to '$local_endpoint': $!";
-    $self->zmq_responder($responder);
+    $self->_zmq_responder($responder);
 
     $local_endpoint = zmq_getsockopt($responder, ZMQ_LAST_ENDPOINT);
     $local_endpoint =~ s/\0$//; # strip trailing null, if any.
@@ -133,7 +133,7 @@ sub _get_request {
     $self->_request_body(undef);
 
     my ($header, $request, $errno, $error);
-    my $responder = $self->zmq_responder;
+    my $responder = $self->_zmq_responder;
 
     ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
     unless (defined $header) {
@@ -199,7 +199,7 @@ sub _process_server_request {
     my $reply = $self->_request_callback->($self->_request_body, $self->_parse_header, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
-    if (my $e = $self->_send_msg($reply // '', $self->zmq_responder)) {
+    if (my $e = $self->_send_msg($reply // '', $self->_zmq_responder)) {
         return "_send_msg failed: $e";
     }
 
@@ -253,14 +253,14 @@ sub send {
         clock_usec => $usec,
     };
 
-    my $responder = $self->zmq_responder;
+    my $responder = $self->_zmq_responder;
 
     $self->_collision_state('clear');
 
   RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
       $zerr = undef;
-      my $requester = $self->zmq_requester; # must be in retry loop as may change
+      my $requester = $self->_zmq_requester; # must be in retry loop as may change
 
       $header->{request_attempt} = $attempt;
       my $s_header = $self->_format_header($header);
@@ -357,7 +357,7 @@ sub send {
   } continue { # RETRY
       $error = "$error: '$zerr'" if $zerr;
       warn $error;
-      $self->destroy_zmq_requester;
+      $self->_destroy_zmq_requester;
   }
 
     warn "retries exhausted";
@@ -580,49 +580,49 @@ sub window_declare {
 
 # ZMQ attribs
 
-sub zmq_context {
+sub _zmq_context {
     my ($self, @args) = @_;
-    ($self->{'zmq_context'}) = @args if @args;
-    my $zmq_context = $self->{'zmq_context'};
-    return $zmq_context;
+    ($self->{'_zmq_context'}) = @args if @args;
+    my $_zmq_context = $self->{'_zmq_context'};
+    return $_zmq_context;
 }
 
-sub zmq_responder {
+sub _zmq_responder {
     my ($self, @args) = @_;
-    ($self->{'zmq_responder'}) = @args if @args;
-    my $zmq_responder = $self->{'zmq_responder'};
-    return $zmq_responder;
+    ($self->{'_zmq_responder'}) = @args if @args;
+    my $_zmq_responder = $self->{'_zmq_responder'};
+    return $_zmq_responder;
 }
 
-sub zmq_requester {
+sub _zmq_requester {
     my ($self) = @_;
-    my $zmq_requester = $self->{'zmq_requester'};
-    return $zmq_requester if $zmq_requester;
+    my $_zmq_requester = $self->{'_zmq_requester'};
+    return $_zmq_requester if $_zmq_requester;
 
-    $zmq_requester = zmq_socket($self->zmq_context, ZMQ_REQ);
-    $zmq_requester or die "failed to get ZMQ_REQ socket: $!";
+    $_zmq_requester = zmq_socket($self->_zmq_context, ZMQ_REQ);
+    $_zmq_requester or die "failed to get ZMQ_REQ socket: $!";
 
-    zmq_setsockopt($zmq_requester, ZMQ_LINGER, 0); # so we can exit without hanging
+    zmq_setsockopt($_zmq_requester, ZMQ_LINGER, 0); # so we can exit without hanging
 
     my $remote = $self->remote_endpoint;
     $remote or die "remote_endpoint not set";
 
-    my $rv = zmq_connect($zmq_requester, $remote);
+    my $rv = zmq_connect($_zmq_requester, $remote);
     $rv and die "failed to connect requester socket to '$remote': $!";
     $self->zircon_trace("requester connected to '%s'", $remote);
 
-    return $self->{'zmq_requester'} = $zmq_requester;
+    return $self->{'_zmq_requester'} = $_zmq_requester;
 }
 
-sub destroy_zmq_requester {
+sub _destroy_zmq_requester {
     my ($self) = @_;
-    my $zmq_requester = $self->zmq_requester;
-    $zmq_requester or return;
+    my $_zmq_requester = $self->_zmq_requester;
+    $_zmq_requester or return;
 
     $self->zircon_trace('destroying ZMQ_REQ socket');
-    zmq_close($zmq_requester);
+    zmq_close($_zmq_requester);
 
-    $self->{'zmq_requester'} = undef;
+    $self->{'_zmq_requester'} = undef;
     return;
 }
 
@@ -666,11 +666,11 @@ sub zircon_trace_prefix {
 sub disconnect {
     my ($self) = @_;
     $self->zircon_trace;
-    if (my $responder = $self->zmq_responder) {
+    if (my $responder = $self->_zmq_responder) {
         zmq_unbind($responder, $self->local_endpoint);
         zmq_close($responder);
     }
-    my $ctx = $self->zmq_context;
+    my $ctx = $self->_zmq_context;
     zmq_ctx_destroy($ctx) if $ctx;
     return;
 }
