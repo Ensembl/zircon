@@ -96,16 +96,6 @@ sub add_view {
     return;
 }
 
-# waiting
-
-sub waitVariable {
-    my ($self, $var) = @_;
-    die sprintf
-        "waitVariable() is not implemented in %s, "
-        . "derived classes must implement it"
-        , __PACKAGE__;
-}
-
 # attributes
 
 sub program {
