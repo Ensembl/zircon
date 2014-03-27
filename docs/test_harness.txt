@@ -1,0 +1,153 @@
+Test harness
+============
+
+The test harness:
+* listens on standard output for simple commands from the 'driver'.
+* writes status information to standard output.
+* runs the request/reply transport protocol, as both a client and
+  as a server.
+
+The command handling is synchronous: the driver must ensure that it
+has seen the command status response from the harness before issuing
+another command.
+
+Request and reply handling should ideally be asynchronous and duplex:
+the harness should be capable of sending a stream of requests at the
+same time as responding to an incoming stream. (For the perl version,
+each individual send will be synchronous in the current
+implementation.)
+
+
+Commands:
+--------
+
+local <local_endpoint>
+remote <remote_endpoint>
+
+  Set local and remote endpoints.
+
+
+send [@<sec>,<usec>] <n> <i> <content>
+
+  Send content string.
+
+  @<sec>,<usec> is the system clock time at which to send, if
+  specified. Another send command must not be issued until this one
+  has fired or has been cancelled.
+
+  <n> is the repeat count (can be 1).
+  <i> is the interval between repeats (ignored if n == 1).
+  <content> runs to end-of-line.
+
+  Example:
+    send 1 0 Hello there.
+    send 100 20 Ping
+    send @235,000000 1 0 Collide with me.
+
+
+respond <rep_spec> [, <rep_spec>]+
+
+  Set respond behaviour.
+
+  Each <rep_spec> is of the form: <n> <what> [<args>...]
+
+    <n> is the count, and must be present. * indicates forever, or
+    until told to stop via 'cancel', and only makes sense for the last
+    <resp_spec>.
+
+    <what> is one of:
+      echo         - echo the request
+      pause <ms>   - wait for <ms> milliseconds before echoing
+      drop         - ignore the request
+      close        - ignore the request and close the connection
+
+  Example:
+    respond 20 echo, 1 drop, 20 echo, 2 pause 500, * echo
+
+
+cancel <send|respond>
+
+  Cancel the current 'send' or 'respond' command.
+
+
+exit
+
+  Time to quit!
+
+
+Output:
+------
+
+All output starts with a timestamp <ts> in our established
+<sec>,<usec> format.
+
+Where applicable:
+  <id> is the request id for the request in question, sprintf'd with '%5u'.
+  <content> and <response> are truncated to the first 50 characters.
+
+<ts> THC <command> <status>
+
+  Test Harness Command status response for <command> (which is just
+  the first command word).
+
+  <status> is OK or BAD_ARGS.
+
+    2634,528445 THC send OK
+
+
+<ts> C-> <id> : <content>
+
+  Client sending request <id> to remote server.
+
+    2634,617855 C->   236 : garbage in, garbage out
+
+
+<ts> C-< <id> <response>
+
+  Client received response to <id>.
+
+    2634,639886 C-<   236 : thanks for the rubbish
+
+
+<ts> Sx< <id> <content>
+
+  Server received request from remote client.
+
+  x indicates the planned disposition, and is one of:
+    - : ordinary echo
+    P : will pause before echo
+    D : will drop/ignore this request
+    C : will close connection
+
+    2634,617993 S-<   236 : garbage in, garbage out
+    2701,002335 SP<   551 : don't make me wait!
+
+
+<ts> S-> <id> <response>
+
+  Server sending response to request.
+
+    2634,622544 S->   236 : thanks for the rubbish
+    2702,003771 S->   551 : don't rush me!
+
+
+<ts> Pp: <message>
+
+  Informational message intercepted from protocol layer.
+
+  p is a single letter indicating the severity of message, if
+  applicable. (Info, Warning, Error, Fatal), else '-'.
+
+    2701,522344 PW: timeout, retry 2
+
+
+<ts> Ip: <message>
+
+  Informational message from the test harness.
+
+  p is a single letter indicating the severity of message.
+  (Info, Warning, Error, Fatal).
+
+    2866,123456 II: closing connection as requested
+    2866,225577 II: reopening connection to tcp:127.0.0.1:55786
+    3033,998997 IE: cannot connect to tcp:127.0.0.1:25
