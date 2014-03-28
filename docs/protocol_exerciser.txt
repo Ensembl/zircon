@@ -1,18 +1,20 @@
-Test harness
-============
+Protocol Exerciser
+==================
 
-The test harness:
+So named to disambiguate it from perl and other test harnesses.
+
+The protocol exerciser:
 * listens on standard output for simple commands from the 'driver'.
 * writes status information to standard output.
 * runs the request/reply transport protocol, as both a client and
   as a server.
 
 The command handling is synchronous: the driver must ensure that it
-has seen the command status response from the harness before issuing
+has seen the command status response from the exerciser before issuing
 another command.
 
 Request and reply handling should ideally be asynchronous and duplex:
-the harness should be capable of sending a stream of requests at the
+the exerciser should be capable of sending a stream of requests at the
 same time as responding to an incoming stream. (For the perl version,
 each individual send will be synchronous in the current
 implementation.)
@@ -85,14 +87,14 @@ Where applicable:
   <id> is the request id for the request in question, sprintf'd with '%5u'.
   <content> and <response> are truncated to the first 50 characters.
 
-<ts> THC <command> <status>
+<ts> PEC <command> <status>
 
-  Test Harness Command status response for <command> (which is just
-  the first command word).
+  Protocol Exerciser Command status response for <command> (which is
+  just the first command word).
 
   <status> is OK or BAD_ARGS.
 
-    2634,528445 THC send OK
+    2634,528445 PEC send OK
 
 
 <ts> C-> <id> : <content>
@@ -143,7 +145,7 @@ Where applicable:
 
 <ts> Ip: <message>
 
-  Informational message from the test harness.
+  Informational message from the protocol exerciser.
 
   p is a single letter indicating the severity of message.
   (Info, Warning, Error, Fatal).
