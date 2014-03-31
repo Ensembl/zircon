@@ -133,23 +133,25 @@ Where applicable:
     2702,003771 S->   551 : don't rush me!
 
 
-<ts> Pp: <message>
+<ts> IPp <message>
 
   Informational message intercepted from protocol layer.
+  (Aide memoire: IP is a communications protocol.)
 
   p is a single letter indicating the severity of message, if
   applicable. (Info, Warning, Error, Fatal), else '-'.
 
-    2701,522344 PW: timeout, retry 2
+    2701,522344 IPW timeout, retry 2
 
 
-<ts> Ip: <message>
+<ts> IMp <message>
 
   Informational message from the protocol exerciser.
+  (Aide memoire: I'M the exerciser.)
 
   p is a single letter indicating the severity of message.
   (Info, Warning, Error, Fatal).
 
-    2866,123456 II: closing connection as requested
-    2866,225577 II: reopening connection to tcp:127.0.0.1:55786
-    3033,998997 IE: cannot connect to tcp:127.0.0.1:25
+    2866,123456 IMI closing connection as requested
+    2866,225577 IMI reopening connection to tcp:127.0.0.1:55786
+    3033,998997 IME cannot connect to tcp:127.0.0.1:25
