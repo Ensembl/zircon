@@ -4,10 +4,10 @@ Protocol Exerciser
 So named to disambiguate it from perl and other test harnesses.
 
 The protocol exerciser:
-* listens on standard output for simple commands from the 'driver'.
+* listens on standard input for simple commands from the 'driver'.
 * writes status information to standard output.
-* runs the request/reply transport protocol, as both a client and
-  as a server.
+* runs the request/reply transport protocol, as a standard peer, being
+  potentially both a client and/or a server.
 
 The command handling is synchronous: the driver must ensure that it
 has seen the command status response from the exerciser before issuing
