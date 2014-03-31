@@ -55,7 +55,7 @@ respond <rep_spec> [, <rep_spec>]+
 
     <n> is the count, and must be present. * indicates forever, or
     until told to stop via 'cancel', and only makes sense for the last
-    <resp_spec>.
+    <rep_spec> in the list.
 
     <what> is one of:
       echo         - echo the request
