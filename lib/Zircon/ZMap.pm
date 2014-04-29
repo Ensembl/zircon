@@ -107,19 +107,20 @@ sub _new_view {
     return $view;
 }
 
+# Beware, this is called from DESTROY
+# and it will trap a (new) reference to $self inside Tk
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
-    my $fail_timeout =
-      $self->protocol->connection->timeout_interval * # millisec
-        ($self->protocol->connection->timeout_retries_initial + 2);
+    my $to_intvl = $self->protocol->connection->timeout_interval;
+    my $to_nretr = $self->protocol->connection->timeout_retries_initial;
+    my $fail_timeout = $to_intvl * ($to_nretr + 2); # millisec * count
+
     my $wait_finish = sub {
         $$var_ref ||= 'fail_timeout';
         $self->zircon_trace
           ('fail_timeout(0x%x), var %s=%s after %d ms * (%d + 2) retries = %.2f sec',
            refaddr($self), $var_ref, $$var_ref,
-           $self->protocol->connection->timeout_interval,
-           $self->protocol->connection->timeout_retries_initial,
-           $fail_timeout);
+           $to_intvl, $to_nretr, $fail_timeout);
     };
     $self->context->timeout($fail_timeout, $wait_finish);
     $self->zircon_trace('startWAIT(0x%x), var %s=%s',
@@ -474,20 +475,25 @@ sub launch_zmap_wait_finish {
 sub DESTROY {
     my ($self) = @_;
 
+    # Beware trapping new references to $self in closures which are
+    # stashed elsewhere.  DESTROY will run again when they go away.
+    if ($self->{'_destroyed_already'}) {
+        warn "DESTROY $self again - do nothing this time\n"; # RT395938
+        return;
+    }
+    $self->{'_destroyed_already'} = 1;
+
     my $wait = 0;
     my $wait_finish_ok = sub { $wait = 'ok' };
 
-    try {
-        $self->protocol->send_command(
-            'shutdown',
-            undef,
-            undef,
-            sub {
-                my ($result) = @_;
-                $self->protocol->connection->after($wait_finish_ok);
-                die "shutdown: failed" unless $result->success;
-            });
+    my $callback = sub {
+        my ($result) = @_;
+        $self->protocol->connection->after($wait_finish_ok);
+        die "shutdown: failed" unless $result->success;
+    };
 
+    try {
+        $self->protocol->send_command('shutdown', undef, undef, $callback);
         $self->waitVariable_with_fail(\ $wait);
         $wait eq 'ok' or die "&send_command_and_xml: timeout";
     }
