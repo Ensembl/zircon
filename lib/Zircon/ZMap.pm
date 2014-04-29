@@ -122,7 +122,7 @@ sub waitVariable_with_fail {
            refaddr($self), $var_ref, $$var_ref,
            $to_intvl, $to_nretr, $fail_timeout);
     };
-    $self->context->timeout($fail_timeout, $wait_finish);
+    my $handle = $self->context->timeout($fail_timeout, $wait_finish);
     $self->zircon_trace('startWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
 
@@ -133,6 +133,7 @@ sub waitVariable_with_fail {
     $self->waitVariable($var_ref);
     $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
+    $handle->cancel;
     return;
 }
 
