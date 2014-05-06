@@ -13,16 +13,25 @@ export ANACODE_ZIRCON=$PWD
 source $ANACODE_ZIRCON/profile.sh
 
 
+Mac OS:
+------
+
+OTTER_SWAC=~/Dist/dev_otterlace.app/Contents/Resources
+OTTER_HOME=/Users/mg13/Dist/dev_otterlace.app/Contents/Resources/otter/otter_rel82
+source /Users/mg13/Dist/dev_otterlace.app/Contents/Resources/otter/otter_rel82/bin/otterlace_env.sh
+ANACODE_ZIRCON=$PWD
+export PERL5LIB=$ANACODE_ZIRCON/lib:$PERL5LIB
+
+NB. ZMQ::LibZMQ3 needs installed under dev_otterlace.app:
+  cd ~/Dist/dev_otterlace.app
+  ZMQ_HOME=~/Play ./Contents/Resources/bin/cpan install ZMQ::LibZMQ3
+
+
 Further work:
 ------------
 
 * Revisit zircon_connection and Zircon::Connection to reinstate hooks
   and evaluate performance under timeout and errors.
-
-* Consider implementing 'Lazy pirate' error and timeout handling in
-  Z:TkZMQ::Context->send().
-
-  See: http://zguide.zeromq.org/page:all#toc89
 
 * Investigate whether Zircon::ZMap still needs to make use of
   Z:TkZMQ->waitVariable().
