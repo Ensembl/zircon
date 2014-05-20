@@ -77,8 +77,7 @@ sub send_handshake {
             die "need two handshake reply elements" unless $data && !@more;
             die "handshake reply data should contain one node"
               unless 3 == @$data && 1 == @{ $data->[2] };
-            my ($app_id, $socket_id, $window_id) =
-              $self->_gotele_peer(@{ $data->[2] });
+            my $socket_id = $self->_gotele_peer(@{ $data->[2] });
             $self->zircon_trace('Handshake reply from remote (endpoint %s)', $socket_id);
         }
         $orig_callback->($result) if $orig_callback;
@@ -93,13 +92,11 @@ sub send_handshake {
 sub _mkele_peer {
     my ($self) = @_;
 
-    my $app_id = $self->app_id;
     my $socket_id = $self->connection->local_endpoint;
 
     return
         [ 'peer',
           {
-              'app_id'    => $app_id,
               'socket_id' => $socket_id,
           }, ];
 }
@@ -114,12 +111,10 @@ sub _gotele_peer {
         "unexpected body tag: '%s': expected: '%s'"
           , $tag, $tag_expected;
 
-    my ($app_id, $socket_id) =
-      @{$attribute_hash}{qw( app_id socket_id )};
-    defined $app_id    or die 'missing attribute: app_id';
+    my $socket_id = $attribute_hash->{socket_id};
     defined $socket_id or die 'missing attribute: socket_id';
 
-    return ($app_id, $socket_id);
+    return $socket_id;
 }
 
 
@@ -165,15 +160,15 @@ sub send_command {
 
 sub zircon_connection_request {
     my ($self, $request_xml) = @_;
-    my ($request_id, $command, $view, $request) =
+    my ($request_id, $app_id, $command, $view, $request) =
         @{$self->request_xml_parse($request_xml)};
-    my $reply = $self->_request($command, $view, $request);
+    my $reply = $self->_request($command, $view, $request, $app_id);
     my $reply_xml = $self->reply_xml($request_id, $command, $reply);
     return $reply_xml;
 }
 
 sub _request {
-    my ($self, $command, $view, $request_body) = @_;
+    my ($self, $command, $view, $request_body, $app_id) = @_;
 
     $self->zircon_trace('command=%s', $command);
     for ($command) {
@@ -184,15 +179,14 @@ sub _request {
             die "missing request element" unless defined $request_element;
             die "multiple request elements" if @rest;
 
-            my ($app_id, $socket_id) =
-              $self->_gotele_peer($request_element);
+            my $socket_id = $self->_gotele_peer($request_element);
             $self->connection->remote_endpoint($socket_id);
             $self->server->zircon_server_handshake($socket_id);
             $self->zircon_trace('Handshake request from remote (endpoint %s)', $socket_id);
 
             my $message = sprintf
-                "Handshake successful with peer '%s', endpoint '%s'"
-                , $app_id, $socket_id;
+                "Handshake successful with peer '$app_id', endpoint '%s'"
+                , $socket_id;
 
             return $self->message_ok($message, [ data => {}, $self->_mkele_peer ]);
         }

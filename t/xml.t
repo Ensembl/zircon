@@ -155,7 +155,7 @@ sub parse_tt {
     my $xml = $P->request_xml(prod => view6 => $req);
 
     eq_or_diff(MockProto->request_xml_parse($xml),
-               [ '0', 'prod', 'view6', [ $req ] ],
+               [ '0', 'Bob', 'prod', 'view6', [ $req ] ],
                'command: prod');
 
 

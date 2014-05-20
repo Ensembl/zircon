@@ -104,9 +104,10 @@ sub request_xml_parse {
     my ($self, $request_xml) = @_;
     my ($request_id, $protocol_attribute_hash, $content_xml) =
         @{_protocol_xml_parse($request_xml)};
+    my $app_id = $protocol_attribute_hash->{app_id};
     my $content_parse =
         _content_xml_parse($content_xml, @request_parse_parameter_list);
-    my $parse = [ $request_id, @{$content_parse} ];
+    my $parse = [ $request_id, $app_id, @{$content_parse} ];
     return $parse;
 }
 
