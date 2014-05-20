@@ -6,6 +6,9 @@ use warnings;
 
 use feature qw( switch );
 
+use Readonly;
+Readonly my $ZIRCON_PROTOCOL_VERSION => '3.0';
+
 # XML creation
 
 sub request_xml {
@@ -22,7 +25,7 @@ sub request_xml {
     my $request_id = $self->{'request_id'}++;
     my $zmap_element_xml = _element_xml(
         'zmap', {
-            'version'      => '2.0',
+            'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'request',
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,
@@ -55,7 +58,7 @@ sub reply_xml {
     my $socket_id = $self->connection->local_endpoint;
     my $zmap_element_xml = _element_xml(
         'zmap', {
-            'version'      => '2.0',
+            'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'reply',
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,

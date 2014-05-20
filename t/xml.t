@@ -22,13 +22,13 @@ sub request_tt {
 
     eq_or_diff
       ($P->request_xml(vanish => 'view4'),
-       q{<zmap app_id="Bob" request_id="0" socket_id="endpoint_remote" type="request" version="2.0">
+       q{<zmap app_id="Bob" request_id="0" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="vanish" view_id="view4" />
 </zmap>}, 'request, empty');
 
     eq_or_diff
       ($P->request_xml(smudge => view5 => 'with finger'),
-       q{<zmap app_id="Bob" request_id="1" socket_id="endpoint_remote" type="request" version="2.0">
+       q{<zmap app_id="Bob" request_id="1" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="smudge" view_id="view5">
 with finger
 </request>
@@ -36,7 +36,7 @@ with finger
 
     eq_or_diff
       ($P->request_xml(prod => view6 => [ finger => { side => 'left' } ]),
-       q{<zmap app_id="Bob" request_id="2" socket_id="endpoint_remote" type="request" version="2.0">
+       q{<zmap app_id="Bob" request_id="2" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view6">
 <finger side="left" />
 </request>
@@ -45,7 +45,7 @@ with finger
     eq_or_diff
       ($P->request_xml(prod => view7 => [ finger => { side => 'left' },
                                           [ speed => {}, 'quick' ] ]),
-       q{<zmap app_id="Bob" request_id="3" socket_id="endpoint_remote" type="request" version="2.0">
+       q{<zmap app_id="Bob" request_id="3" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view7">
 <finger side="left">
 <speed>
@@ -66,7 +66,7 @@ sub reply_tt {
       (MockProto->reply_xml
        (req5 => cmd5 => [ undef,
                           [ message => { }, 'Done that' ] ]),
-       q{<zmap app_id="Bob" request_id="req5" socket_id="endpoint_local" type="reply" version="2.0">
+       q{<zmap app_id="Bob" request_id="req5" socket_id="endpoint_local" type="reply" version="3.0">
 <reply command="cmd5" return_code="ok">
 <message>
 Done that
@@ -78,7 +78,7 @@ Done that
       (MockProto->reply_xml
        (req6 => cmd6 => [ [ 345, 'could not' ],
                           [ message => { }, 'I fell over' ] ]),
-       q{<zmap app_id="Bob" request_id="req6" socket_id="endpoint_local" type="reply" version="2.0">
+       q{<zmap app_id="Bob" request_id="req6" socket_id="endpoint_local" type="reply" version="3.0">
 <reply command="cmd6" reason="could not" return_code="345" />
 </zmap>}, 'reply, failed 345');
 
@@ -88,7 +88,7 @@ Done that
                           [ message => { }, 'Done that' ],
                           [ data => { payload => 1 },
                             [ gubbins => {} => [ 'stop' ] ] ] ]),
-       q{<zmap app_id="Bob" request_id="req7" socket_id="endpoint_local" type="reply" version="2.0">
+       q{<zmap app_id="Bob" request_id="req7" socket_id="endpoint_local" type="reply" version="3.0">
 <reply command="cmd7" return_code="ok">
 <message>
 Done that
