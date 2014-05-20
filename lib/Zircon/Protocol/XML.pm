@@ -18,14 +18,14 @@ sub request_xml {
             'view_id' => $view_id,
         }, $request_body_xml);
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->connection->remote_endpoint;
+    my $socket_id = $self->connection->remote_endpoint;
     my $request_id = $self->{'request_id'}++;
     my $zmap_element_xml = _element_xml(
         'zmap', {
             'version'      => '2.0',
             'type'         => 'request',
             'app_id'       => $app_id,
-            'clipboard_id' => $clipboard_id,
+            'socket_id'    => $socket_id,
             'request_id'   => $request_id,
         }, $request_element_xml);
     return $zmap_element_xml;
@@ -52,13 +52,13 @@ sub reply_xml {
             @reply_body)
         ;
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->connection->local_endpoint;
+    my $socket_id = $self->connection->local_endpoint;
     my $zmap_element_xml = _element_xml(
         'zmap', {
             'version'      => '2.0',
             'type'         => 'reply',
             'app_id'       => $app_id,
-            'clipboard_id' => $clipboard_id,
+            'socket_id'    => $socket_id,
             'request_id'   => $request_id,
         }, $reply_element_xml);
     return $zmap_element_xml;
