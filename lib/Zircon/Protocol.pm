@@ -77,9 +77,9 @@ sub send_handshake {
             die "need two handshake reply elements" unless $data && !@more;
             die "handshake reply data should contain one node"
               unless 3 == @$data && 1 == @{ $data->[2] };
-            my ($app_id, $unique_id, $window_id) =
+            my ($app_id, $socket_id, $window_id) =
               $self->_gotele_peer(@{ $data->[2] });
-            $self->zircon_trace('Handshake reply from remote (clipboard %s)', $unique_id);
+            $self->zircon_trace('Handshake reply from remote (endpoint %s)', $socket_id);
         }
         $orig_callback->($result) if $orig_callback;
     };
@@ -94,13 +94,13 @@ sub _mkele_peer {
     my ($self) = @_;
 
     my $app_id = $self->app_id;
-    my $unique_id = $self->connection->local_endpoint;
+    my $socket_id = $self->connection->local_endpoint;
 
     return
         [ 'peer',
           {
               'app_id'    => $app_id,
-              'unique_id' => $unique_id,
+              'socket_id' => $socket_id,
           }, ];
 }
 
@@ -114,12 +114,12 @@ sub _gotele_peer {
         "unexpected body tag: '%s': expected: '%s'"
           , $tag, $tag_expected;
 
-    my ($app_id, $unique_id) =
-      @{$attribute_hash}{qw( app_id unique_id )};
+    my ($app_id, $socket_id) =
+      @{$attribute_hash}{qw( app_id socket_id )};
     defined $app_id    or die 'missing attribute: app_id';
-    defined $unique_id or die 'missing attribute: unique_id';
+    defined $socket_id or die 'missing attribute: socket_id';
 
-    return ($app_id, $unique_id);
+    return ($app_id, $socket_id);
 }
 
 
@@ -184,15 +184,15 @@ sub _request {
             die "missing request element" unless defined $request_element;
             die "multiple request elements" if @rest;
 
-            my ($app_id, $unique_id) =
+            my ($app_id, $socket_id) =
               $self->_gotele_peer($request_element);
-            $self->connection->remote_endpoint($unique_id);
-            $self->server->zircon_server_handshake($unique_id);
-            $self->zircon_trace('Handshake request from remote (clipboard %s)', $unique_id);
+            $self->connection->remote_endpoint($socket_id);
+            $self->server->zircon_server_handshake($socket_id);
+            $self->zircon_trace('Handshake request from remote (endpoint %s)', $socket_id);
 
             my $message = sprintf
-                "Handshake successful with peer '%s', id '%s'"
-                , $app_id, $unique_id;
+                "Handshake successful with peer '%s', endpoint '%s'"
+                , $app_id, $socket_id;
 
             return $self->message_ok($message, [ data => {}, $self->_mkele_peer ]);
         }
