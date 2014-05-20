@@ -17,14 +17,12 @@ Mac OS:
 ------
 
 OTTER_SWAC=~/Dist/dev_otterlace.app/Contents/Resources
-OTTER_HOME=/Users/mg13/Dist/dev_otterlace.app/Contents/Resources/otter/otter_rel82
-source /Users/mg13/Dist/dev_otterlace.app/Contents/Resources/otter/otter_rel82/bin/otterlace_env.sh
+OTTER_HOME=$OTTER_SWAC/otter/otter_rel83
+source $OTTER_HOME/bin/otterlace_env.sh
 ANACODE_ZIRCON=$PWD
 export PERL5LIB=$ANACODE_ZIRCON/lib:$PERL5LIB
 
-NB. ZMQ::LibZMQ3 needs installed under dev_otterlace.app:
-  cd ~/Dist/dev_otterlace.app
-  ZMQ_HOME=~/Play ./Contents/Resources/bin/cpan install ZMQ::LibZMQ3
+libzmq and ZMQ::LibZMQ3 are now installed in dev_otterlace.app.
 
 
 Further work:
