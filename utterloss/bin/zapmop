@@ -12,16 +12,15 @@ use Zircon::TkZMQ::Context;
 my $app_id = 'ZapMop';
 
 # parse the command line
-my ($conf_dir, $peer_name, $peer_clipboard);
+my ($conf_dir, $peer_socket);
 GetOptions(
-    'conf_dir=s'       => \$conf_dir,
-    'peer-name=s'      => \$peer_name,
-    'peer-clipboard=s' => \$peer_clipboard,
+    'conf_dir=s'    => \$conf_dir,
+    'peer-socket=s' => \$peer_socket,
     ) or die 'command line error';
 
 # create the main window
 my $main_window = Tk::MainWindow->new;
-$main_window->title($peer_name);
+$main_window->title("zapmop from '$peer_socket'");
 
 # create the Zircon connection
 my $server = Server->new;
@@ -38,7 +37,7 @@ my $protocol = Zircon::Protocol->new(
     );
 
 $protocol->send_handshake(
-    $peer_clipboard,
+    $peer_socket,
     sub {
         my ($result) = @_;
         printf "Zapmop: handshake: %s\n"

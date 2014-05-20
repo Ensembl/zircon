@@ -30,13 +30,9 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     $self->{'_id'} = $_id++;
     $self->{'_protocol'} = $self->_protocol; # needs app_id etc.
 
-    my $peer_name = $self->app_id;
-    my $peer_clipboard =
-        $self->protocol->connection->local_endpoint;
-    push @{$self->{'_arg_list'}}, # for zmap_command, used later in new
-    "--peer-name=${peer_name}",
-    "--peer-clipboard=${peer_clipboard}",
-    ;
+    my $peer_socket = $self->protocol->connection->local_endpoint;
+    # for zmap_command, used later in new
+    push @{$self->{'_arg_list'}}, "--peer-socket=${peer_socket}";
     return;
 }
 
