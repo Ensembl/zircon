@@ -40,12 +40,9 @@ sub _protocol {
     my ($self) = @_;
     my $id = $self->id;
     my $app_id = $self->app_id;
-    my $selection_id =
-        sprintf '%s_%s', $app_id, $id;
     my $protocol =
         Zircon::Protocol->new(
             '-app_id'       => $app_id,
-            '-selection_id' => $selection_id,
             '-context'      => $self->context,
             '-server'       => $self,
             '-connection_timeout' => $self->{'_timeout_ms'},
