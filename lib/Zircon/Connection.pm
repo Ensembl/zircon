@@ -75,7 +75,7 @@ sub init {
         },
         );
 
-    $self->state('inactive');   # state now redundant?
+    $self->state('inactive');   # state is now redundant
 
     $self->zircon_trace('Initialised');
 
@@ -344,6 +344,8 @@ sub after {
     return $self->{'after'};
 }
 
+# Now redundant but left for possible future reference.
+#
 sub state {
     my ($self, @args) = @_;
     ($self->{'state'}) = @args if @args;

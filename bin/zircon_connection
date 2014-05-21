@@ -86,15 +86,17 @@ sub control_button_set {
 }
 
 my $when;
-my $when_list = [ 
-    [ 'Client: request',    'client_request'    ],
-    [ 'Client: waiting',    'client_waiting'    ],
-    [ 'Client: reply',      'client_reply'      ],
+
+# Many of these are now redundant under ZeroMQ
+my $when_list = [
+    # [ 'Client: request',    'client_request'    ],
+    # [ 'Client: waiting',    'client_waiting'    ],
+    # [ 'Client: reply',      'client_reply'      ],
     [ 'Client: processing', 'client_processing' ],
-    [ 'Server: inactive',   'inactive'          ],
-    [ 'Server: request',    'server_request'    ],
+    # [ 'Server: inactive',   'inactive'          ],
+    # [ 'Server: request',    'server_request'    ],
+    # [ 'Server: reply',      'server_reply'      ],
     [ 'Server: processing', 'server_processing' ],
-    [ 'Server: reply',      'server_reply'      ],
     ];
 
 my $action = 'ok';
