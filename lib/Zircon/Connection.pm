@@ -222,11 +222,6 @@ sub timeout_maybe_callback {
     return;
 }
 
-sub remote_window_exists {
-    my ($self) = @_;
-    return $self->context->window_exists($self->xid_remote, $self->remote_endpoint);
-}
-
 sub timeout_callback {
     my ($self) = @_;
     $self->timeout_handle(undef);

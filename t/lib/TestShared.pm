@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use base 'Exporter';
-our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn try_err mkwidg endpoint_pair );
+our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_pair );
 
 use Tk;
 use Test::More;
@@ -61,12 +61,6 @@ sub init_zircon_conn {
     $connection->remote_endpoint($id[1]);
 
     return $handler;
-}
-
-
-sub try_err(&) {
-    my ($code) = @_;
-    return try { goto &$code } catch {"ERR:$_"};
 }
 
 

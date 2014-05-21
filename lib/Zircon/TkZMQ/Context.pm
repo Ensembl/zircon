@@ -15,8 +15,6 @@ use Time::HiRes qw( gettimeofday );
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE ZMQ_LINGER EFSM);
 
-use Zircon::Tk::WindowExists;
-
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
 
@@ -465,15 +463,6 @@ sub _collision_state {
     ($self->{'_collision_state'}) = @args if @args;
     my $_collision_state = $self->{'_collision_state'};
     return $_collision_state;
-}
-
-# other app's windows
-
-sub window_exists {
-    my ($self, $win_id, $prop) = @_;
-
-    # Another process does the checking
-    return Zircon::Tk::WindowExists->query($win_id, $prop);
 }
 
 # ZMQ attribs
