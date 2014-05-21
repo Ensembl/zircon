@@ -165,11 +165,16 @@ sub do_after__replied {
     my ($self) = @_;
 
     # close the child
-    $self->{chld_fh}->close;
+    unless ($self->{chld_fh}->close) {
+        warn $! ? "error closing child_fh: $!" : "exit status $? from child";
+        fail "closing child";
+    }
+    my $child_status = ${^CHILD_ERROR_NATIVE};
 
-    my $gone_pid = wait;
-    $self->state_bump(reaped => "exit code !=$! ?=$?");
-    # weird, $!=="No child processes".  Doesn't matter to us.
+    # closing the fh opened with '|-' does an implicit waitpid
+    # my $gone_pid = wait;
+
+    $self->state_bump(reaped => "child exit status=${child_status}");
 
     $self->destroy;
 
