@@ -259,7 +259,7 @@ sub send {
   RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
 
       $zerr = undef;
-      my $requester = $self->_zmq_requester; # must be in retry loop as may change
+      my $requester = $self->_get_zmq_requester; # must be in retry loop as may change
 
       $header->{request_attempt} = $attempt;
       my $s_header = $self->_format_header($header);
@@ -493,8 +493,15 @@ sub _zmq_responder {
 }
 
 sub _zmq_requester {
-    my ($self) = @_;
+    my ($self, @args) = @_;
+    ($self->{'_zmq_requester'}) = @args if @args;
     my $_zmq_requester = $self->{'_zmq_requester'};
+    return $_zmq_requester;
+}
+
+sub _get_zmq_requester {
+    my ($self) = @_;
+    my $_zmq_requester = $self->_zmq_requester;
     return $_zmq_requester if $_zmq_requester;
 
     $_zmq_requester = zmq_socket($self->_zmq_context, ZMQ_REQ);
@@ -509,7 +516,7 @@ sub _zmq_requester {
     $rv and die "failed to connect requester socket to '$remote': $!";
     $self->zircon_trace("requester connected to '%s'", $remote);
 
-    return $self->{'_zmq_requester'} = $_zmq_requester;
+    return $self->_zmq_requester($_zmq_requester);
 }
 
 sub _destroy_zmq_requester {
@@ -564,12 +571,22 @@ sub zircon_trace_prefix {
 sub disconnect {
     my ($self) = @_;
     $self->zircon_trace;
+
+    $self->_destroy_zmq_requester;
     if (my $responder = $self->_zmq_responder) {
+        $self->zircon_trace('responder...');
         zmq_unbind($responder, $self->local_endpoint);
+        $self->zircon_trace('...unbound');
         zmq_close($responder);
+        $self->zircon_trace('...closed');
     }
-    my $ctx = $self->_zmq_context;
-    zmq_ctx_destroy($ctx) if $ctx;
+    if (my $ctx = $self->_zmq_context) {
+        $self->zircon_trace('context...');
+        zmq_ctx_destroy($ctx);
+        $self->zircon_trace('...destroyed');
+    }
+
+    $self->zircon_trace('disconnected');
     return;
 }
 
