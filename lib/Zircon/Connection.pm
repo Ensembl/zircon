@@ -76,8 +76,6 @@ sub init {
         );
 
     $self->state('inactive');   # state now redundant?
-    $self->request('');
-    $self->reply('');
 
     $self->zircon_trace('Initialised');
 
@@ -285,8 +283,6 @@ sub _callback {
 sub reset {
     my ($self) = @_;
     $self->zircon_trace;
-    $self->request('');
-    $self->reply('');
     return;
 }
 
@@ -321,12 +317,6 @@ sub connection_id {
     return $self->{'connection_id'};
 }
 
-sub request {
-    my ($self, @args) = @_;
-    ($self->{'request'}) = @args if @args;
-    return $self->{'request'};
-}
-
 sub my_request_id {
     my ($self, @args) = @_;
     ($self->{'my_request_id'}) = @args if @args;
@@ -348,12 +338,6 @@ sub last_reply {
     return $last_reply;
 }
 
-sub reply {
-    my ($self, @args) = @_;
-    ($self->{'reply'}) = @args if @args;
-    return $self->{'reply'};
-}
-
 sub after {
     my ($self, @args) = @_;
     ($self->{'after'}) = @args if @args;
@@ -364,12 +348,6 @@ sub state {
     my ($self, @args) = @_;
     ($self->{'state'}) = @args if @args;
     return $self->{'state'};
-}
-
-sub xid_remote {
-    my ($self, @args) = @_;
-    ($self->{'xid_remote'}) = @args if @args;
-    return $self->{'xid_remote'};
 }
 
 1;
