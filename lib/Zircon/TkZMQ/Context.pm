@@ -64,7 +64,7 @@ sub transport_init {
 
     my $local_endpoint = $self->local_endpoint;
     my $rv = zmq_bind($responder, $self->local_endpoint);
-    $rv and die "failed to bind requester socket to '$local_endpoint': $!";
+    $rv and die "failed to bind responder socket to '$local_endpoint': $!";
     $self->_zmq_responder($responder);
 
     $local_endpoint = zmq_getsockopt($responder, ZMQ_LAST_ENDPOINT);
