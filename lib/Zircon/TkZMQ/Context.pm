@@ -490,8 +490,12 @@ sub _zmq_requester {
 
 sub _get_zmq_requester {
     my ($self) = @_;
+
+    # if we already have a working socket, use that...
     my $_zmq_requester = $self->_zmq_requester;
     return $_zmq_requester if $_zmq_requester;
+
+    # ...otherwise we need a new one.
 
     $_zmq_requester = zmq_socket($self->_zmq_context, ZMQ_REQ);
     $_zmq_requester or die "failed to get ZMQ_REQ socket: $!";
@@ -505,6 +509,7 @@ sub _get_zmq_requester {
     $rv and die "failed to connect requester socket to '$remote': $!";
     $self->zircon_trace("requester connected to '%s'", $remote);
 
+    # save it for later, and return it.
     return $self->_zmq_requester($_zmq_requester);
 }
 
@@ -516,6 +521,7 @@ sub _destroy_zmq_requester {
     $self->zircon_trace('destroying ZMQ_REQ socket');
     zmq_close($_zmq_requester);
 
+    # get rid of the saved socket, so that we create a fresh one next time.
     $self->{'_zmq_requester'} = undef;
     return;
 }
