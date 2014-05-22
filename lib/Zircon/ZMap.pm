@@ -96,7 +96,7 @@ sub _new_view {
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
     my $to_intvl = $self->protocol->connection->timeout_interval;
-    my $to_nretr = $self->protocol->connection->timeout_retries_initial;
+    my $to_nretr = $self->protocol->connection->timeout_retries;
     my $fail_timeout = $to_intvl * ($to_nretr + 2); # millisec * count
 
     my $wait_finish = sub {

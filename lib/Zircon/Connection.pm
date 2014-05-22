@@ -20,9 +20,9 @@ my @mandatory_args = qw(
 
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
-    'timeout_retries_initial' => 10,
+    'timeout_retries'  => 10,
     'connection_id'    => __PACKAGE__,
-    'local_endpoint' => undef,
+    'local_endpoint'   => undef,
 };
 
 my @weak_args = qw(
@@ -61,8 +61,8 @@ sub init {
     $self->trace_env_update;
 
     $self->context->set_connection_params(
-        timeout_interval        => $self->timeout_interval,
-        timeout_retries_initial => $self->timeout_retries_initial,
+        timeout_interval => $self->timeout_interval,
+        timeout_retries  => $self->timeout_retries,
         );
 
     # deferred to here in case we're setting local_endpoint
@@ -115,7 +115,7 @@ sub send {
         $self->my_request_id(++$request_id);
     } else {
         $self->zircon_trace('client timed out after retrying');
-        $self->timeout_maybe_callback;
+        $self->timeout_callback;
     }
     if ($collision_result eq 'WIN') {
         $self->zircon_trace('post-collision callback');
@@ -183,46 +183,10 @@ sub remote_endpoint {
     return $self->context->remote_endpoint(@args);
 }
 
-# timeouts
-
-sub timeout_start {
-    my ($self, $retries) = @_;
-    $retries = $self->timeout_retries_initial unless defined $retries;
-    my $timeout_handle =
-        $self->timeout(
-            $self->timeout_interval,
-            $self->callback('timeout_maybe_callback'));
-    $self->timeout_retries($retries);
-    $self->timeout_handle($timeout_handle);
-    return;
-}
-
-sub timeout_cancel {
-    my ($self) = @_;
-    my $timeout_handle = $self->timeout_handle;
-    if (defined $timeout_handle) {
-        $timeout_handle->cancel;
-        $self->timeout_handle(undef);
-    }
-    return;
-}
-
-# Time is up, but maybe we will wait again
-sub timeout_maybe_callback {
-    my ($self) = @_;
-    if (my $retries = $self->timeout_retries) {
-        $self->zircon_trace('retry [%d]', $retries);
-        $self->timeout_start($retries - 1);
-    } else {
-        # we've waited long enough
-        $self->timeout_callback;
-    }
-    return;
-}
+# timeouts - now mostly handled in the Context
 
 sub timeout_callback {
     my ($self) = @_;
-    $self->timeout_handle(undef);
     $self->after(undef);
     $self->zircon_trace;
     try { $self->handler->zircon_connection_timeout; }
@@ -237,29 +201,10 @@ sub timeout_interval {
     return $self->{'timeout_interval'};
 }
 
-sub timeout_handle {
-    my ($self, @args) = @_;
-    ($self->{'timeout_handle'}) = @args if @args;
-    return $self->{'timeout_handle'};
-}
-
 sub timeout_retries {
     my ($self, @args) = @_;
     ($self->{'timeout_retries'}) = @args if @args;
     return $self->{'timeout_retries'};
-}
-
-sub timeout_retries_initial {
-    my ($self, @args) = @_;
-    ($self->{'timeout_retries_initial'}) = @args if @args;
-    return $self->{'timeout_retries_initial'};
-}
-
-sub timeout {
-    my ($self, @args) = @_;
-    my $timeout_handle =
-        $self->context->timeout(@args);
-    return $timeout_handle;
 }
 
 # callbacks
@@ -366,7 +311,7 @@ Create a Zircon connection.
         -context => $context, # mandatory
         -handler => $handler, # mandatory
         -timeout_interval => $timeout, # optional, in millisec
-        -timeout_retries_initial => $count, # optional
+        -timeout_retries  => $count, # optional
         );
 
 =over 4

@@ -51,7 +51,7 @@ sub _init {
         '-context' => $context,
         '-handler' => $self,
         '-timeout_interval' => $timeout_ms,
-        '-timeout_retries_initial' => $timeout_retries,
+        '-timeout_retries'  => $timeout_retries,
         );
     $connection_args{'-local_endpoint'} = $endpoint if $endpoint;
     my $connection = Zircon::Connection->new(%connection_args);

@@ -254,7 +254,7 @@ sub send {
 
     $self->_collision_state('clear');
 
-  RETRY: foreach my $attempt ( 1 .. $self->timeout_retries_initial ) {
+  RETRY: foreach my $attempt ( 1 .. $self->timeout_retries ) {
 
       $zerr = undef;
       my $requester = $self->_get_zmq_requester; # must be in retry loop as may change
@@ -547,11 +547,11 @@ sub timeout_interval {
     return $timeout_interval;
 }
 
-sub timeout_retries_initial {
+sub timeout_retries {
     my ($self, @args) = @_;
-    ($self->{'timeout_retries_initial'}) = @args if @args;
-    my $timeout_retries_initial = $self->{'timeout_retries_initial'};
-    return $timeout_retries_initial;
+    ($self->{'timeout_retries'}) = @args if @args;
+    my $timeout_retries = $self->{'timeout_retries'};
+    return $timeout_retries;
 }
 
 # tracing
