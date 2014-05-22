@@ -102,7 +102,8 @@ my $when_list = [
 my $action = 'ok';
 my $action_list = [
     [ qw( OK     ok   ) ],
-    [ qw( Hang   hang ) ],
+    [ qw( Hang_03  hang_03 ) ],
+    [ qw( Hang_30  hang_30 ) ],
     [ qw( die()  die  ) ],
     [ qw( exit() exit ) ],
     ];
@@ -306,9 +307,10 @@ sub _process {
     my ($state) = @_;
     if (defined $when && $state eq $when) {
         for ($action) {
-            when ('hang') { $main_window->after(3000); $action = 'ok'; }
-            when ('die')  { die "die: as requested\n" }
-            when ('exit') { exit }
+            when ('hang_03') { $main_window->after( 3_000); $action = 'ok'; }
+            when ('hang_30') { $main_window->after(30_000); $action = 'ok'; }
+            when ('die')     { die "die: as requested\n" }
+            when ('exit')    { exit }
         }
     }
     return;
