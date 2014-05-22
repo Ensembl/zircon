@@ -43,6 +43,10 @@ sub set_connection_params {
     while (my ($key, $value) = each %args) {
         $self->$key($value) if $self->can($key);
     }
+    # Temporary during transition
+    unless ($self->timeout_list) {
+        $self->timeout_list( ( $self->timeout_interval ) x $self->timeout_retries );
+    }
     return;
 }
 
@@ -254,7 +258,10 @@ sub send {
 
     $self->_collision_state('clear');
 
-  RETRY: foreach my $attempt ( 1 .. $self->timeout_retries ) {
+    my $attempt = 0;
+  RETRY: foreach my $timeout_interval ( $self->timeout_list ) {
+
+      $attempt++;
 
       $zerr = undef;
       my $requester = $self->_get_zmq_requester; # must be in retry loop as may change
@@ -267,7 +274,7 @@ sub send {
           $error = "$e (header)";
           next RETRY;
       }
-      $self->zircon_trace('header, attempt %d', $attempt);
+      $self->zircon_trace('header, attempt %d, interval %d', $attempt, $timeout_interval);
 
       if (my $e = $self->_send_msg($request, $requester)) {
           $error = "$e (body)";
@@ -295,7 +302,7 @@ sub send {
             );
 
         $self->zircon_trace('waiting for reply');
-        my @prv = zmq_poll([ \%client_reply_pollitem, \%server_request_pollitem ], $self->timeout_interval);
+        my @prv = zmq_poll([ \%client_reply_pollitem, \%server_request_pollitem ], $timeout_interval);
 
         unless (@prv) {
             $zerr = zmq_strerror($!);
@@ -552,6 +559,16 @@ sub timeout_retries {
     ($self->{'timeout_retries'}) = @args if @args;
     my $timeout_retries = $self->{'timeout_retries'};
     return $timeout_retries;
+}
+
+sub timeout_list {
+    my ($self, @args) = @_;
+    if (@args) {
+        my $listref = (scalar(@args) == 1 and ref($args[0]) eq 'ARRAY') ? $args[0] : [ @args ];
+        $self->{'timeout_list'} = $listref;
+    }
+    my $timeout_list = $self->{'timeout_list'} || [];
+    return @$timeout_list;
 }
 
 # tracing

@@ -21,6 +21,7 @@ my @mandatory_args = qw(
 my $optional_args = {
     'timeout_interval' => 500, # 0.5 seconds
     'timeout_retries'  => 10,
+    'timeout_list'     => [ 333, 1_000, 3_000, 9_000 ],
     'connection_id'    => __PACKAGE__,
     'local_endpoint'   => undef,
 };
@@ -63,6 +64,7 @@ sub init {
     $self->context->set_connection_params(
         timeout_interval => $self->timeout_interval,
         timeout_retries  => $self->timeout_retries,
+        timeout_list     => [ $self->timeout_list ],
         );
 
     # deferred to here in case we're setting local_endpoint
@@ -207,6 +209,16 @@ sub timeout_retries {
     return $self->{'timeout_retries'};
 }
 
+sub timeout_list {
+    my ($self, @args) = @_;
+    if (@args) {
+        my $listref = (scalar(@args) == 1 and ref($args[0]) eq 'ARRAY') ? $args[0] : [ @args ];
+        $self->{'timeout_list'} = $listref;
+    }
+    my $timeout_list = $self->{'timeout_list'} || [];
+    return @$timeout_list;
+}
+
 # callbacks
 
 sub callback {
@@ -311,7 +323,8 @@ Create a Zircon connection.
         -context => $context, # mandatory
         -handler => $handler, # mandatory
         -timeout_interval => $timeout, # optional, in millisec
-        -timeout_retries  => $count, # optional
+        -timeout_retries  => $count,   # optional
+        -timeout_list     => [ $ms_1, $ms_2, ... $ms_n_retries ], # optional
         );
 
 =over 4

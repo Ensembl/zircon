@@ -24,7 +24,7 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
 
-    foreach my $k (qw( app_id context timeout_ms timeout_retries )) {
+    foreach my $k (qw( app_id context timeout_ms timeout_retries timeout_list )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     $self->{'_id'} = $_id++;
@@ -47,6 +47,7 @@ sub _protocol {
             '-server'       => $self,
             '-connection_timeout' => $self->{'_timeout_ms'},
             '-timeout_retries' => $self->{'_timeout_retries'},
+            '-timeout_list'    => $self->{'_timeout_list'},
         );
     return $protocol;
 }
