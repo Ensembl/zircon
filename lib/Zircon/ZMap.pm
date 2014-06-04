@@ -8,6 +8,7 @@ use feature qw(switch);
 
 use Try::Tiny;
 use Scalar::Util qw( refaddr );
+use List::Util   qw( sum );
 
 use Zircon::Protocol;
 use Zircon::ZMap::View;
@@ -24,7 +25,7 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
 
-    foreach my $k (qw( app_id context timeout_ms timeout_retries timeout_list )) {
+    foreach my $k (qw( app_id context timeout_list )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     $self->{'_id'} = $_id++;
@@ -45,9 +46,7 @@ sub _protocol {
             '-app_id'       => $app_id,
             '-context'      => $self->context,
             '-server'       => $self,
-            '-connection_timeout' => $self->{'_timeout_ms'},
-            '-timeout_retries' => $self->{'_timeout_retries'},
-            '-timeout_list'    => $self->{'_timeout_list'},
+            '-timeout_list' => $self->{'_timeout_list'},
         );
     return $protocol;
 }
@@ -96,16 +95,14 @@ sub _new_view {
 
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
-    my $to_intvl = $self->protocol->connection->timeout_interval;
-    my $to_nretr = $self->protocol->connection->timeout_retries;
-    my $fail_timeout = $to_intvl * ($to_nretr + 2); # millisec * count
+    my @to_list = $self->protocol->connection->timeout_list;
+    my $fail_timeout = int(sum(@to_list)*120/100);
 
     my $wait_finish = sub {
         $$var_ref ||= 'fail_timeout';
         $self->zircon_trace
-          ('fail_timeout(0x%x), var %s=%s after %d ms * (%d + 2) retries = %.2f sec',
-           refaddr($self), $var_ref, $$var_ref,
-           $to_intvl, $to_nretr, $fail_timeout);
+          ('fail_timeout(0x%x), var %s=%s after %d ms',
+           refaddr($self), $var_ref, $$var_ref, $fail_timeout);
     };
     my $handle = $self->context->timeout($fail_timeout, $wait_finish);
     $self->zircon_trace('startWAIT(0x%x), var %s=%s',

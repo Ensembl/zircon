@@ -42,16 +42,14 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my ($context, $endpoint, $timeout_ms, $timeout_retries, $timeout_list) =
-        @{$arg_hash}{qw( -context -endpoint -connection_timeout -timeout_retries -timeout_list )};
+    my ($context, $endpoint, $timeout_list) =
+        @{$arg_hash}{qw( -context -endpoint -timeout_list )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
     my %connection_args = (
         '-connection_id' => $connection_id,
         '-name'    => $self->app_id,
         '-context' => $context,
         '-handler' => $self,
-        '-timeout_interval' => $timeout_ms,
-        '-timeout_retries'  => $timeout_retries,
         '-timeout_list'     => $timeout_list,
         );
     $connection_args{'-local_endpoint'} = $endpoint if $endpoint;

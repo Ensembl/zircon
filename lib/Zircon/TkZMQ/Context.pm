@@ -43,10 +43,6 @@ sub set_connection_params {
     while (my ($key, $value) = each %args) {
         $self->$key($value) if $self->can($key);
     }
-    # Temporary during transition
-    unless ($self->timeout_list) {
-        $self->timeout_list( ( $self->timeout_interval ) x $self->timeout_retries );
-    }
     return;
 }
 
@@ -545,20 +541,6 @@ sub remote_endpoint {
     ($self->{'remote_endpoint'}) = @args if @args;
     my $remote_endpoint = $self->{'remote_endpoint'};
     return $remote_endpoint;
-}
-
-sub timeout_interval {
-    my ($self, @args) = @_;
-    ($self->{'timeout_interval'}) = @args if @args;
-    my $timeout_interval = $self->{'timeout_interval'};
-    return $timeout_interval;
-}
-
-sub timeout_retries {
-    my ($self, @args) = @_;
-    ($self->{'timeout_retries'}) = @args if @args;
-    my $timeout_retries = $self->{'timeout_retries'};
-    return $timeout_retries;
 }
 
 sub timeout_list {

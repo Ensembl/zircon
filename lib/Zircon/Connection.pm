@@ -19,8 +19,6 @@ my @mandatory_args = qw(
     );
 
 my $optional_args = {
-    'timeout_interval' => 500, # 0.5 seconds
-    'timeout_retries'  => 10,
     'timeout_list'     => [ 333, 1_000, 3_000, 9_000 ],
     'connection_id'    => __PACKAGE__,
     'local_endpoint'   => undef,
@@ -62,8 +60,6 @@ sub init {
     $self->trace_env_update;
 
     $self->context->set_connection_params(
-        timeout_interval => $self->timeout_interval,
-        timeout_retries  => $self->timeout_retries,
         timeout_list     => [ $self->timeout_list ],
         );
 
@@ -197,18 +193,6 @@ sub timeout_callback {
     return;
 }
 
-sub timeout_interval {
-    my ($self, @args) = @_;
-    ($self->{'timeout_interval'}) = @args if @args;
-    return $self->{'timeout_interval'};
-}
-
-sub timeout_retries {
-    my ($self, @args) = @_;
-    ($self->{'timeout_retries'}) = @args if @args;
-    return $self->{'timeout_retries'};
-}
-
 sub timeout_list {
     my ($self, @args) = @_;
     if (@args) {
@@ -322,8 +306,6 @@ Create a Zircon connection.
     my $connection = Zircon::Connection->new(
         -context => $context, # mandatory
         -handler => $handler, # mandatory
-        -timeout_interval => $timeout, # optional, in millisec
-        -timeout_retries  => $count,   # optional
         -timeout_list     => [ $ms_1, $ms_2, ... $ms_n_retries ], # optional
         );
 
