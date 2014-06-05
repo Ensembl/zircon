@@ -121,6 +121,56 @@ sub _recv_msg {
     return ($payload, 0, undef);
 }
 
+sub _send_two_part {
+    my ($self, $socket, $header, $request) = @_;
+
+    my $s_header = $self->_format_header($header);
+    $self->zircon_trace("header '%s'", $s_header);
+
+    if (my $e = $self->_send_msg($s_header, $socket, ZMQ_SNDMORE)) {
+        return "$e (header)";
+    }
+    $self->zircon_trace('sent header');
+
+    if (my $e = $self->_send_msg($request, $socket)) {
+        return "$e (body)";
+    }
+    $self->zircon_trace('sent body');
+
+    return;
+}
+
+sub _get_two_part {
+    my ($self, $socket) = @_;
+
+    $self->zircon_trace;
+
+    my ($header, $body, $errno, $error);
+
+    ($header, $errno, $error) = $self->_recv_msg($socket, ZMQ_DONTWAIT);
+    unless (defined $header) {
+        if ($errno == EAGAIN or $errno == EFSM) {
+            # nothing to do for now
+            return;
+        } else {
+            return undef, undef, "_recv_msg(header) error: '$error'";
+        }
+    }
+    $self->zircon_trace("header: '%s'", $header);
+
+    ($body, $errno, $error) = $self->_recv_msg($socket, ZMQ_DONTWAIT);
+    unless (defined $body) {
+        if ($errno == EAGAIN) { # we should not get EFSM here
+            return undef, undef, "request body not there";
+        } else {
+            return undef, undef, "_recv_msg(body) error: '$error'";
+        }
+    }
+    $self->zircon_trace("body: '%s'", $body);
+
+    return $header, $body;
+}
+
 sub _get_request {
     my ($self) = @_;
 
@@ -129,29 +179,13 @@ sub _get_request {
     $self->_request_header(undef);
     $self->_request_body(undef);
 
-    my ($header, $request, $errno, $error);
-    my $responder = $self->_zmq_responder;
+    my ($header, $request, $error) = $self->_get_two_part($self->_zmq_responder);
+    return $error if $error;
 
-    ($header, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
-    unless (defined $header) {
-        if ($errno == EAGAIN or $errno == EFSM) {
-            # nothing to do for now
-            return;
-        } else {
-            return "_recv_msg(header) error: '$error'";
-        }
+    unless ($header and $request) {
+        # all undef => nothing to do for now
+        return;
     }
-    $self->zircon_trace("header: '%s'", $header);
-
-    ($request, $errno, $error) = $self->_recv_msg($responder, ZMQ_DONTWAIT);
-    unless (defined $request) {
-        if ($errno == EAGAIN) { # we should not get EFSM here
-            return "request body not there";
-        } else {
-            return "_recv_msg(body) error: '$error'";
-        }
-    }
-    $self->zircon_trace("request: '%s'", $request);
 
     $self->_request_header($header);
     $self->_request_body($request);
@@ -193,11 +227,22 @@ sub _process_server_request {
 
     $self->zircon_trace('start (collision: %s)', $collision_result // 'none');
 
-    my $reply = $self->_request_callback->($self->_request_body, $self->_parse_header, $collision_result);
+    my $request_header = $self->_parse_request_header;
+
+    my $reply = $self->_request_callback->($self->_request_body, $request_header, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
-    if (my $e = $self->_send_msg($reply // '', $self->_zmq_responder)) {
-        return "_send_msg failed: $e";
+    my ($sec, $usec) = gettimeofday;
+    my $reply_header = {
+        msg_type        => 'REPLY',
+        request_id      => $request_header->{request_id},
+        request_attempt => $request_header->{request_attempt},
+        clock_sec       => $sec,
+        clock_usec      => $usec,
+    };
+
+    if (my $e = $self->_send_two_part($self->_zmq_responder, $reply_header, $reply // '')) {
+        return "send reply failed: $e";
     }
 
     $self->zircon_trace('reply sent');
@@ -218,7 +263,7 @@ sub _collision_handler {
         return;
     }
 
-    my $h = $self->_parse_header;
+    my $h = $self->_parse_request_header;
     my $cmp = ($my_sec               <=> $h->{clock_sec}
                ||
                $my_usec              <=> $h->{clock_usec}
@@ -264,20 +309,12 @@ sub send {
       my $requester = $self->_get_zmq_requester; # must be in retry loop as may change
 
       $header->{request_attempt} = $attempt;
-      my $s_header = $self->_format_header($header);
-      $self->zircon_trace("header '%s'", $s_header);
 
-      if (my $e = $self->_send_msg($s_header, $requester, ZMQ_SNDMORE)) {
-          $error = "$e (header)";
+      if (my $e = $self->_send_two_part($requester, $header, $request)) {
+          $error = "_send_two_part: $e";
           next RETRY;
       }
-      $self->zircon_trace('header, attempt %d, interval %d', $attempt, $timeout_interval);
-
-      if (my $e = $self->_send_msg($request, $requester)) {
-          $error = "$e (body)";
-          next RETRY;
-      }
-      $self->zircon_trace('body, attempt %d', $attempt);
+      $self->zircon_trace('sent, attempt %d, interval %d', $attempt, $timeout_interval);
 
       my $reply_msg;
 
@@ -287,8 +324,9 @@ sub send {
             socket  => $requester,
             events  => ZMQ_POLLIN,
             callback => sub {
-                $reply_msg = zmq_recvmsg($requester);
-                $reply_msg or warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $!";
+                my ($header, $error);
+                ($header, $reply_msg, $error) = $self->_get_two_part($requester);
+                warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $error" if $error;
                 return;
             },
             );
@@ -336,7 +374,7 @@ sub send {
       my ($retval, $collision_result);
 
       if ($reply_msg) {
-          $$reply_ref = zmq_msg_data($reply_msg);
+          $$reply_ref = $reply_msg;
           $retval = length($$reply_ref); # DANGER what if length is zero? Shouldn't happen with our protocol.
       } else {
           warn "no reply";
@@ -370,7 +408,7 @@ sub _format_header {
     return sprintf('%s %d/%d %d,%d', @{$header}{qw( msg_type request_id request_attempt clock_sec clock_usec )});
 }
 
-sub _parse_header {
+sub _parse_request_header {
     my ($self) = @_;
     my $header = $self->_request_header;
     return unless $header;
