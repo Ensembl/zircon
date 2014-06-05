@@ -245,6 +245,7 @@ sub send {
 
     my ($sec, $usec) = gettimeofday;
     my $header = {
+        msg_type   => 'REQUEST',
         request_id => $request_id,
         clock_sec  => $sec,
         clock_usec => $usec,
@@ -366,18 +367,19 @@ sub send {
 
 sub _format_header {
     my ($self, $header) = @_;
-    return sprintf('%d/%d %d,%d', @{$header}{qw( request_id request_attempt clock_sec clock_usec )});
+    return sprintf('%s %d/%d %d,%d', @{$header}{qw( msg_type request_id request_attempt clock_sec clock_usec )});
 }
 
 sub _parse_header {
     my ($self) = @_;
     my $header = $self->_request_header;
     return unless $header;
-    my ($seq, $ts) = split(' ', $header);
-    return unless $seq and $ts;
+    my ($type, $seq, $ts) = split(' ', $header);
+    return unless $type and $seq and $ts;
     my ($id, $attempt) = split('/', $seq);
     my ($sec, $usec) = split(',', $ts);
     return {
+        msg_type        => $type,
         request_id      => $id,
         request_attempt => $attempt,
         clock_sec       => $sec,
