@@ -195,6 +195,8 @@ sub parse_tt {
 package MockProto;
 use base qw( Zircon::Protocol::XML );
 
+sub inhibit_timestamps { return 1 }
+
 sub new {
     my $self = {};
     return bless $self, __PACKAGE__;

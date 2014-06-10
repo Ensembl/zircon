@@ -6,6 +6,8 @@ use warnings;
 
 use feature qw( switch );
 
+use Time::HiRes qw( gettimeofday );
+
 use Readonly;
 Readonly my $ZIRCON_PROTOCOL_VERSION => '3.0';
 
@@ -30,6 +32,7 @@ sub request_xml {
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,
             'request_id'   => $request_id,
+            $self->timestamp,
         }, $request_element_xml);
     return $zmap_element_xml;
 }
@@ -63,9 +66,23 @@ sub reply_xml {
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,
             'request_id'   => $request_id,
+            $self->timestamp,
         }, $reply_element_xml);
     return $zmap_element_xml;
 }
+
+sub timestamp {
+    my ($self) = @_;
+    return if $self->inhibit_timestamps;
+
+    my ($sec, $usec) = gettimeofday;
+    return ('request_time' => "$sec.$usec");
+}
+
+# Override in child class to turn off timestamps (in xml.t, for example).
+#
+sub inhibit_timestamps { return }
+
 
 sub _element_xml {
     my ($tag, $attribute_hash, @content_xml) = @_;
