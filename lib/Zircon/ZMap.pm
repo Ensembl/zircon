@@ -77,7 +77,7 @@ sub _new_view {
     };
 
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         $command,
         $view_id,
         [ 'sequence', $new_view_arg_hash ],
@@ -138,7 +138,7 @@ sub view_destroyed {
     my ($self, $view) = @_;
 
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         'close_view',
         $view->view_id,
         undef,
@@ -153,13 +153,24 @@ sub send_command_and_xml {
     my ($self, $view, $command, $xml) = @_;
 
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         $command, $view->view_id, $xml,
         sub {
             ($result) = @_;
         });
 
     return $result;
+}
+
+sub send_command {
+    my ($self, $command, @args) = @_;
+
+    unless ($self->is_running) {
+        warn "Zircon::ZMap: ZMap has gone, cannot send command '$command'\n";
+        return;
+    }
+
+    return $self->protocol->send_command($command, @args);
 }
 
 
@@ -489,7 +500,7 @@ sub DESTROY {
     };
 
     try {
-        $self->protocol->send_command('shutdown', undef, undef, $callback);
+        $self->send_command('shutdown', undef, undef, $callback);
     }
     catch { warn $_; };
     return;
