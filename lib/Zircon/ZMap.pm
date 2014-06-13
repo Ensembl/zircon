@@ -25,7 +25,7 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
 
-    foreach my $k (qw( app_id context timeout_list )) {
+    foreach my $k (qw( app_id context timeout_list handshake_timeout_secs )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     $self->{'_id'} = $_id++;
@@ -95,18 +95,17 @@ sub _new_view {
 
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
-    my @to_list = $self->protocol->connection->timeout_list;
-    my $fail_timeout = int(sum(@to_list)*120/100);
+    my $handshake_timeout_secs = $self->handshake_timeout_secs;
 
     my $wait_finish = sub {
         $$var_ref ||= 'fail_timeout';
         $self->zircon_trace
-          ('fail_timeout(0x%x), var %s=%s after %d ms',
-           refaddr($self), $var_ref, $$var_ref, $fail_timeout);
+          ('fail_timeout(0x%x), var %s=%s after %d secs',
+           refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
     };
-    my $handle = $self->context->timeout($fail_timeout, $wait_finish);
-    $self->zircon_trace('startWAIT(0x%x), var %s=%s',
-                        refaddr($self), $var_ref, $$var_ref);
+    my $handle = $self->context->timeout($handshake_timeout_secs * 1000, $wait_finish);
+    $self->zircon_trace('startWAIT(0x%x), var %s=%s, timeout %d secs',
+                        refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
 
     # Justify one extra level of event-loop.
 
@@ -466,6 +465,12 @@ sub pid {
     ($self->{'_pid'}) = @args if @args;
     my $pid = $self->{'_pid'};
     return $pid;
+}
+
+sub handshake_timeout_secs {
+    my ($self) = @_;
+    my $handshake_timeout_secs = $self->{'_handshake_timeout_secs'};
+    return $handshake_timeout_secs;
 }
 
 sub launch_zmap_wait_finish {
