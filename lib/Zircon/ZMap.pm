@@ -178,6 +178,32 @@ sub launch_zmap {
         # wait() happens in event loop
     }
 
+    $self->pid($pid);
+    return;
+}
+
+sub is_running {
+    my ($self) = @_;
+
+    my $pid = $self->pid;
+    return unless $pid;
+
+    # Nicked from Proc::Launcher
+    #
+    if ( kill 0 => $pid ) {
+        if ( $!{EPERM} ) {
+            # if process id isn't owned by us, it is assumed to have
+            # been recycled, i.e. our process died and the process id
+            # was assigned to another process.
+            $self->zircon_trace("Process $pid active but owned by someone else");
+        }
+        else {
+            return $pid;
+        }
+    }
+
+    warn "Zircon::ZMap: process $pid has gone away.\n";
+    $self->pid(undef);
     return;
 }
 
@@ -424,6 +450,13 @@ sub context {
     return $context;
 }
 
+sub pid {
+    my ($self, @args) = @_;
+    ($self->{'_pid'}) = @args if @args;
+    my $pid = $self->{'_pid'};
+    return $pid;
+}
+
 sub launch_zmap_wait_finish {
     my ($self, @args) = @_;
     ($self->{'_launch_zmap_wait_finish'}) = @args if @args;
@@ -443,6 +476,8 @@ sub DESTROY {
         return;
     }
     $self->{'_destroyed_already'} = 1;
+
+    return unless $self->is_running;
 
     my $wait = 0;
     my $wait_finish_ok = sub { $wait = 'ok' };
