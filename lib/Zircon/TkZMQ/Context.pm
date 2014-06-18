@@ -30,7 +30,7 @@ sub new {
 
 sub _init {
     my ($self, $args) = @_;
-    $self->{'waitVariable_hash'} = { };
+    $self->{'_waitVariable_hash'} = { };
     my $widget = $args->{'-widget'};
     defined $widget or die 'missing -widget argument';
     $self->{'widget'} = $widget;
@@ -442,8 +442,8 @@ sub timeout {
 
 sub waitVariable {
     my ($self, $var) = @_;
-    $self->waitVariable_hash->{$var} = $var;
-    weaken $self->waitVariable_hash->{$var};
+    $self->_waitVariable_hash->{$var} = $var;
+    weaken $self->_waitVariable_hash->{$var};
     my $w = $self->widget;
     Tk::Exists($w)
         or croak "Attempt to waitVariable with destroyed widget";
@@ -456,6 +456,17 @@ sub waitVariable {
     return;
 }
 
+sub _close_waitVariables {
+    my ($self, $reason) = @_;
+    my $_waitVariable_hash = $self->_waitVariable_hash;
+    return unless $_waitVariable_hash;
+    foreach my $ref (values %{$_waitVariable_hash}) {
+        defined $ref or next;
+        ${$ref} = $reason;
+    }
+    return;
+}
+
 # attributes
 
 sub widget {
@@ -464,13 +475,10 @@ sub widget {
     return $widget;
 }
 
-# FIXME: see ensembl-otter:SpeciesListWindow.
-# rather than expose this, we should offer a cleanup method.
-#
-sub waitVariable_hash {
+sub _waitVariable_hash {
     my ($self) = @_;
-    my $waitVariable_hash = $self->{'waitVariable_hash'};
-    return $waitVariable_hash;
+    my $_waitVariable_hash = $self->{'_waitVariable_hash'};
+    return $_waitVariable_hash;
 }
 
 sub _request_header {
@@ -628,6 +636,7 @@ sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace;
     $self->disconnect;
+    $self->_close_waitVariables('zircon_context_destroyed');
     return;
 }
 
