@@ -30,7 +30,7 @@ sub _init {
     my ($self, $arg_hash) = @_;
 
     $self->{'is_open'} = 1;
-    $self->{'request_id'} = 0;
+    $self->{'request_id'} = 1;
 
     for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
