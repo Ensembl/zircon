@@ -235,6 +235,10 @@ sub sent {
     return();
 }
 
+sub DESTROY {
+    warn __PACKAGE__ . " destroyed\n";
+    return;
+}
 
 1;
 
