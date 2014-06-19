@@ -55,7 +55,7 @@ sub init {
         weaken $self->{$key};
     }
 
-    $self->{my_request_id} //= 0;
+    $self->{my_request_id} //= 1;
 
     $self->trace_env_update;
 
