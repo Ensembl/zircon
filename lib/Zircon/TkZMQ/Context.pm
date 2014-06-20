@@ -282,9 +282,6 @@ sub _collision_handler {
 sub send {
     my ($self, $request, $reply_ref, $request_id) = @_;
 
-    # Largely for the benefit of exists.t
-    die "send attempted but no widget" unless Tk::Exists($self->widget);
-
     my $error = 'unset';
     my $zerr;
 
