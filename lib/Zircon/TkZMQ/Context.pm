@@ -34,6 +34,8 @@ sub _init {
     my $widget = $args->{'-widget'};
     defined $widget or die 'missing -widget argument';
     $self->{'widget'} = $widget;
+    my $trace_prefix = $args->{'-trace_prefix'};
+    $self->trace_prefix($trace_prefix) if $trace_prefix;
     $self->zircon_trace;
     return;
 }
@@ -513,6 +515,13 @@ sub _collision_state {
     return $_collision_state;
 }
 
+sub trace_prefix {
+    my ($self, @args) = @_;
+    ($self->{'trace_prefix'}) = @args if @args;
+    my $trace_prefix = $self->{'trace_prefix'};
+    return $trace_prefix;
+}
+
 # ZMQ attribs
 
 sub _zmq_context {
@@ -602,9 +611,12 @@ sub timeout_list {
 
 sub zircon_trace_prefix {
     my ($self) = @_;
-    my $w = $self->widget;
-    my $path = Tk::Exists($w) ? $w->PathName : '(destroyed)';
-    return sprintf('Z:T:Context: widget=%s', $path);
+    my $path = $self->trace_prefix;
+    unless ($path) {
+        my $w = $self->widget;
+        $path = sprintf('widget=%s', Tk::Exists($w) ? $w->PathName : '(destroyed)');
+    }
+    return sprintf('Z:T:Context: %s', $path);
 }
 
 sub disconnect {

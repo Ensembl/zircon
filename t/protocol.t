@@ -52,7 +52,7 @@ sub init_zircon_proto {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $context = Zircon::TkZMQ::Context->new(-widget => $M);
+    my $context = Zircon::TkZMQ::Context->new(-widget => $M, -trace_prefix => "$name");
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,
