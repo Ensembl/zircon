@@ -357,12 +357,25 @@ sub send {
         }
 
         $self->zircon_trace('zmq_poll: reply: %d, server: %d', @prv[0..1]);
-        last POLL if $prv[0];   # got a reply
 
-        # Must have been a collision
+        if ($prv[0] and not $prv[1]) {
+            # got a reply - process it
+            last POLL;
+        }
+
+        if ($prv[0] and $prv[1]) {
+            # Simultaneous reply and new request. Treat as a win.
+            $self->zircon_trace('zmq_poll: simultaneous => handle as WIN');
+            $self->_collision_state('WIN'); # ensures new request is processed afer we've process reply.
+            last POLL;
+        }
+
+        # (not $prv[0] and $prv[1]) => Must have been a collision
+
         if ($self->_collision_state eq 'LOSE') {
             $self->_process_server_request('LOSE');
             # FIXME: reset retries
+            # fall through...
         }
 
         redo POLL; # do we need to decouple poll 1?
