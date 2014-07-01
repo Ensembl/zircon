@@ -9,6 +9,7 @@ use warnings;
 use Carp;
 use Scalar::Util qw( weaken refaddr );
 use POSIX ();
+use Try::Tiny;
 
 use base qw( Zircon::Trace );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
@@ -69,11 +70,13 @@ sub launch_zmap {
         return $pid;
     }
     { exec @e; }
-    # DUP: EditWindow::PfamWindow::initialize $launch_belvu
+    # DUP: EditWindow::PfamWindow::_launch_belvu
     # DUP: Hum::Ace::LocalServer
-    warn "exec '@e' failed : $!";
-    close STDERR; # _exit does not flush
-    close STDOUT;
+    try {
+        warn "exec '@e' failed: $!";
+        close STDERR; # _exit does not flush
+        close STDOUT;
+    }; # no catch, just be sure to _exit
     POSIX::_exit(127); # avoid triggering DESTROY
 
     return; # unreached, quietens perlcritic
