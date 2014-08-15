@@ -112,7 +112,7 @@ sub waitVariable_with_fail {
     $self->context->waitVariable($var_ref);
     $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
-    $handle->cancel;
+    $self->context->cancel_timeout($handle);
     return;
 }
 

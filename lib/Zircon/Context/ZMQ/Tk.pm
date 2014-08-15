@@ -32,6 +32,12 @@ sub timeout {
     return $timeout_handle;
 }
 
+sub cancel_timeout {
+    my ($self, $handle) = @_;
+    $handle->cancel;
+    return;
+}
+
 # filevent callback plumbing
 
 sub register_recv_fh {

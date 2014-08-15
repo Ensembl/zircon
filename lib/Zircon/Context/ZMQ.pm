@@ -439,6 +439,11 @@ sub timeout {
     croak "subclass must provide timeout()";
 }
 
+sub cancel_timeout {
+    my ($self, @args) = @_;
+    croak "subclass must provide cancel_timeout()";
+}
+
 sub register_recv_fh {
     my ($self, $fh, $callback) = @_;
     croak "subclass must provide register_recv_fh()";
