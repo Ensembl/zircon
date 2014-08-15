@@ -48,7 +48,7 @@ sub init_zircon_conn {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $context = Zircon::TkZMQ::Context->new(-widget => $M);
+    my $context = Zircon::Context::ZMQ::Tk->new(-widget => $M);
     my $handler = ConnHandler->new;
     my $connection = Zircon::Connection->new(-handler => $handler,
                                              -name => $name,

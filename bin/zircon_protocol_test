@@ -8,7 +8,7 @@ use Getopt::Long;
 use Try::Tiny;
 use Tk;
 use Zircon::Protocol;
-use Zircon::TkZMQ::Context;
+use Zircon::Context::ZMQ::Tk;
 
 # parse the command line
 my $remote_endpoint;
@@ -29,7 +29,7 @@ $main_window->title($app_id);
 
 # create the Zircon connection
 my $server = Server->new;
-my $context = Zircon::TkZMQ::Context->new(
+my $context = Zircon::Context::ZMQ::Tk->new(
     '-widget' => $main_window);
 my $protocol = Zircon::Protocol->new(
     '-app_id'       => $app_id,

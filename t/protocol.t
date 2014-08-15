@@ -7,7 +7,7 @@ use Try::Tiny;
 use Tk;
 use POSIX ":sys_wait_h";
 
-use Zircon::TkZMQ::Context;
+use Zircon::Context::ZMQ::Tk;
 use Zircon::Protocol;
 
 use lib "t/lib";
@@ -52,7 +52,7 @@ sub init_zircon_proto {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $context = Zircon::TkZMQ::Context->new(-widget => $M, -trace_prefix => "$name");
+    my $context = Zircon::Context::ZMQ::Tk->new(-widget => $M, -trace_prefix => "$name");
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,

@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use Tk;
 
-use Zircon::TkZMQ::Context;
+use Zircon::Context::ZMQ::Tk;
 use Zircon::Connection;
 
 use lib "t/lib";

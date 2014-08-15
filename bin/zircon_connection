@@ -14,7 +14,7 @@ use Tk::Optionmenu;
 use Tk::Entry;
 use Tk::Label;
 
-use Zircon::TkZMQ::Context;
+use Zircon::Context::ZMQ::Tk;
 use Zircon::Connection;
 
 use sigtrap qw/handler signal_handler USR1/;
@@ -40,7 +40,7 @@ $main_window->title(
 
 my $handler = Handler->new;
 
-my $context = Zircon::TkZMQ::Context->new(
+my $context = Zircon::Context::ZMQ::Tk->new(
     '-widget' => $main_window);
 
 my $connection = Zircon::Connection->new(

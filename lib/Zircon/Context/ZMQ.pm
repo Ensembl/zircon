@@ -1,15 +1,14 @@
 
-package Zircon::TkZMQ::Context;
+package Zircon::Context::ZMQ;
 
 use strict;
 use warnings;
 
 use feature 'state';
 
-use Carp qw( croak cluck );
-use Errno qw(EAGAIN ENODATA);
+use Carp qw( croak );
+use Errno qw( EAGAIN ENODATA );
 use Readonly;
-use Scalar::Util qw( weaken refaddr );
 use Time::HiRes qw( gettimeofday );
 
 use ZMQ::LibZMQ3;
@@ -30,10 +29,6 @@ sub new {
 
 sub _init {
     my ($self, $args) = @_;
-    $self->{'_waitVariable_hash'} = { };
-    my $widget = $args->{'-widget'};
-    defined $widget or die 'missing -widget argument';
-    $self->{'widget'} = $widget;
     my $trace_prefix = $args->{'-trace_prefix'};
     $self->trace_prefix($trace_prefix) if $trace_prefix;
     $self->zircon_trace;
@@ -75,8 +70,8 @@ sub transport_init {
 
     my $fh = zmq_getsockopt($responder, ZMQ_FD);
     $fh or die "failed to get socket fd: $!";
-    open my $dup_fh, '<&', $fh or die "failed to dup socket fd: $!";
-    $self->recv_fh($dup_fh);
+
+    $self->register_recv_fh($fh);
     $self->connect_recv_callback;
 
     return;
@@ -214,7 +209,7 @@ sub _server_callback {
       $self->connect_recv_callback;
 
       if ($error) {
-          warn "Zircon::TkZMQ::Context::_server_callback: $error";
+          warn "Zircon::Context::ZMQ::_server_callback: $error";
           return;
       }
   }
@@ -248,26 +243,6 @@ sub _process_server_request {
     }
 
     $self->zircon_trace('reply sent');
-    return;
-}
-
-sub connect_recv_callback {
-    my ($self) = @_;
-    $self->widget->fileevent(
-        $self->recv_fh,
-        'readable',
-        sub { return $self->_server_callback; },
-        );
-    return;
-}
-
-sub disconnect_recv_callback {
-    my ($self) = @_;
-    $self->widget->fileevent(
-        $self->recv_fh,
-        'readable',
-        '',
-        );
     return;
 }
 
@@ -345,7 +320,7 @@ sub send {
             callback => sub {
                 my ($header, $error);
                 ($header, $reply_msg, $error) = $self->_get_two_part($requester);
-                warn "Zircon::TkZMQ::Context::send: zmq_recvmsg failed: $error" if $error;
+                warn "Zircon::Context::ZMQ::send: zmq_recvmsg failed: $error" if $error;
                 return;
             },
             );
@@ -457,67 +432,35 @@ sub _parse_request_header {
     };
 }
 
-# timeouts
+# event-loop specific
 
 sub timeout {
     my ($self, @args) = @_;
-
-    my $w = $self->widget;
-    Tk::Exists($w)
-        or croak "Attempt to set timeout with destroyed widget";
-    my $timeout_handle = $w->after(@args);
-    $self->zircon_trace('configured (%d millisec)', $args[0]);
-    return $timeout_handle;
+    croak "subclass must provide timeout()";
 }
 
-# waiting
-
-sub waitVariable {
-    my ($self, $var) = @_;
-    $self->_waitVariable_hash->{$var} = $var;
-    weaken $self->_waitVariable_hash->{$var};
-    my $w = $self->widget;
-    Tk::Exists($w)
-        or croak "Attempt to waitVariable with destroyed widget";
-
-    $self->zircon_trace('startWAIT(0x%x) for %s=%s', refaddr($self), $var, $$var);
-    $w->waitVariable($var); # traced
-    $self->zircon_trace('stopWAIT(0x%x) with %s=%s', refaddr($self), $var, $$var);
-    Tk::Exists($w)
-        or cluck "Widget $w destroyed during waitVariable";
-    return;
+sub register_recv_fh {
+    my ($self, $fh, $callback) = @_;
+    croak "subclass must provide register_recv_fh()";
 }
 
-sub _close_waitVariables {
-    my ($self, $reason) = @_;
-    my $_waitVariable_hash = $self->_waitVariable_hash;
-    return unless $_waitVariable_hash;
-    foreach my $ref (values %{$_waitVariable_hash}) {
-        defined $ref or next;
-        ${$ref} = $reason;
-    }
-    return;
+sub connect_recv_callback {
+    my ($self) = @_;
+    croak "subclass must provide connect_recv_callback()";
+}
+
+sub disconnect_recv_callback {
+    my ($self) = @_;
+    croak "subclass must provide disconnect_recv_callback()";
 }
 
 # attributes
-
-sub widget {
-    my ($self) = @_;
-    my $widget = $self->{'widget'};
-    return $widget;
-}
 
 sub recv_fh {
     my ($self, @args) = @_;
     ($self->{'recv_fh'}) = @args if @args;
     my $recv_fh = $self->{'recv_fh'};
     return $recv_fh;
-}
-
-sub _waitVariable_hash {
-    my ($self) = @_;
-    my $_waitVariable_hash = $self->{'_waitVariable_hash'};
-    return $_waitVariable_hash;
 }
 
 sub _request_header {
@@ -652,10 +595,6 @@ sub timeout_list {
 sub zircon_trace_prefix {
     my ($self) = @_;
     my $path = $self->trace_prefix;
-    unless ($path) {
-        my $w = $self->widget;
-        $path = sprintf('widget=%s', Tk::Exists($w) ? $w->PathName : '(destroyed)');
-    }
     return sprintf('Z:T:Context: %s', $path);
 }
 
@@ -685,7 +624,6 @@ sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace;
     $self->disconnect;
-    $self->_close_waitVariables('zircon_context_destroyed');
     return;
 }
 
