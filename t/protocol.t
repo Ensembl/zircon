@@ -11,7 +11,7 @@ use Zircon::TkZMQ::Context;
 use Zircon::Protocol;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn do_subtests mkwidg );
+use TestShared qw( have_display do_subtests mkwidg );
 
 our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
 
