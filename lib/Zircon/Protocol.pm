@@ -337,6 +337,11 @@ sub zircon_trace_prefix {
     return sprintf("Z:Protocol: app_id=%s", $self->app_id);
 }
 
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+}
+
 1;
 
 =head1 AUTHOR

@@ -293,6 +293,11 @@ sub state {
     return $self->{'state'};
 }
 
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+}
+
 1;
 
 =head1 NAME - Zircon::Connection

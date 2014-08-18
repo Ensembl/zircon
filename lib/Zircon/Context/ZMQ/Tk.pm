@@ -70,8 +70,8 @@ sub disconnect_recv_callback {
 # trace
 
 sub trace_prefix {
-    my ($self) = @_;
-    my $path = $self->SUPER::trace_prefix;
+    my ($self, @args) = @_;
+    my $path = $self->SUPER::trace_prefix(@args);
     unless ($path) {
         my $w = $self->widget;
         $path = sprintf('widget=%s', Tk::Exists($w) ? $w->PathName : '(destroyed)');
