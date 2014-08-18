@@ -5,7 +5,6 @@ use warnings;
 use base 'Exporter';
 our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_pair );
 
-use Tk;
 use Test::More;
 use Try::Tiny;
 
