@@ -88,10 +88,6 @@ sub zirpro_tt {
       or diag explain $server;
     like($server->[0], qr{^handshake: id}, 'handshake happened');
 
-    # XXX: grubby workaround: $server is told of request before request-ack
-    $M->waitVariable(\$proto->connection->{'state'}) # PRIVATE!
-      if $proto->connection->state eq 'server_reply';
-
     is($proto->connection->state, 'inactive', 'connection cycle is finished');
 
     # XXX: workaround for "Server ACKed our request without reading it", connection out of sync
