@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-#use AnyEvent::Impl::Perl;       # ensure pure-perl loop is used
+use AnyEvent::Impl::Perl;       # (try to) ensure pure-perl loop is used
 use AnyEvent;
 
 use Test::More;
@@ -13,7 +13,7 @@ use Zircon::Context::ZMQ::AnyEvent;
 use Zircon::Protocol;
 
 use lib "t/lib";
-use TestShared qw( have_display do_subtests );
+use TestShared qw( have_display do_subtests register_kid test_zap );
 
 our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
 
@@ -21,21 +21,6 @@ our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
 sub main {
     have_display();
     do_subtests(qw( zirpro_tt ));
-    return;
-}
-
-our @kids;
-sub test_zap { # a test abort button
-    my ($why) = @_;
-
-    if (@kids) {
-        fail("$why: zapping pids @kids");
-        kill 'INT', @kids;
-    }
-
-    fail("$why: zapping self");
-    kill 'INT', $$;
-
     return;
 }
 
@@ -75,9 +60,9 @@ sub zirpro_tt {
     my $pid = open my $fh, '-|', @cmd;
     isnt(0, $pid, "Pipe from @cmd") or diag "Failed: $!";
     return unless $pid;
-    push @kids, $pid;
+    register_kid($pid);
 
-    my $timeout = AnyEvent->timer(after => 5.000, cb => sub { main::test_zap('safety timeout') });
+    my $timeout = AnyEvent->timer(after => 5.000, cb => sub { test_zap('safety timeout') });
     $server_cv->recv;
 
     is(scalar @{$server->{_msg}}, 1, 'one event logged by Server')

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use base 'Exporter';
-our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_pair );
+our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_pair register_kid test_zap );
 
 use Test::More;
 use Try::Tiny;
@@ -86,6 +86,30 @@ sub mkwidg {
     sub endpoint_pair {
         my $base = 'tcp://127.0.0.1:';
         return ( $base . $_port++, $base . $_port++ );
+    }
+}
+
+{
+    my @kids;
+
+    sub register_kid {
+        my ($kid_pid) = @_;
+        push @kids, $kid_pid;
+        return;
+    }
+
+    sub test_zap {
+        my ($why) = @_;
+
+        if (@kids) {
+            fail("$why: zapping pids @kids");
+            kill 'INT', @kids;
+        }
+
+        fail("$why: zapping self");
+        kill 'INT', $$;
+
+        return;
     }
 }
 

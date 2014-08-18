@@ -11,7 +11,7 @@ use Zircon::Context::ZMQ::Tk;
 use Zircon::Protocol;
 
 use lib "t/lib";
-use TestShared qw( have_display do_subtests mkwidg );
+use TestShared qw( have_display do_subtests mkwidg register_kid test_zap );
 
 our $WINDOW_ID_RE = qr{^0x[0-9a-f]{4,10}$};
 
@@ -22,22 +22,14 @@ sub main {
     return;
 }
 
-our @kids;
-sub test_zap { # a test abort button
+sub my_test_zap { # a test abort button
     my ($why) = @_;
 
     foreach my $w (Tk::MainWindow->Existing) {
         fail("$why: zapping $w\n");
     }
 
-    if (@kids) {
-        fail("$why: zapping pids @kids");
-        kill 'INT', @kids;
-    }
-
-    fail("$why: zapping self");
-    kill 'INT', $$;
-
+    test_zap($why);
     return;
 }
 
@@ -79,9 +71,9 @@ sub zirpro_tt {
     my $pid = open my $fh, '-|', @cmd;
     isnt(0, $pid, "Pipe from @cmd") or diag "Failed: $!";
     return unless $pid;
-    push @kids, $pid;
+    register_kid($pid);
 
-    my $timeout = $M->after(5000, [ \&main::test_zap, 'safety timeout' ]);
+    my $timeout = $M->after(5000, [ \&main::my_test_zap, 'safety timeout' ]);
     $M->waitVariable($server);
 
     is(scalar @$server, 1, 'one event logged by Server')
