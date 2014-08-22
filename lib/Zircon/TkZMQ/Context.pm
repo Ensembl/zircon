@@ -76,11 +76,8 @@ sub transport_init {
     my $fh = zmq_getsockopt($responder, ZMQ_FD);
     $fh or die "failed to get socket fd: $!";
     open my $dup_fh, '<&', $fh or die "failed to dup socket fd: $!";
-
-    $self->widget->fileevent(
-        $dup_fh, 'readable',
-        sub { return $self->_server_callback; },
-        );
+    $self->recv_fh($dup_fh);
+    $self->connect_recv_callback;
 
     return;
 }
@@ -212,7 +209,10 @@ sub _server_callback {
           last ZMQ;
       }
 
+      $self->disconnect_recv_callback; # prevent inadvertent re-entry
       $error = $self->_process_server_request;
+      $self->connect_recv_callback;
+
       if ($error) {
           warn "Zircon::TkZMQ::Context::_server_callback: $error";
           return;
@@ -248,6 +248,26 @@ sub _process_server_request {
     }
 
     $self->zircon_trace('reply sent');
+    return;
+}
+
+sub connect_recv_callback {
+    my ($self) = @_;
+    $self->widget->fileevent(
+        $self->recv_fh,
+        'readable',
+        sub { return $self->_server_callback; },
+        );
+    return;
+}
+
+sub disconnect_recv_callback {
+    my ($self) = @_;
+    $self->widget->fileevent(
+        $self->recv_fh,
+        'readable',
+        '',
+        );
     return;
 }
 
@@ -485,6 +505,13 @@ sub widget {
     my ($self) = @_;
     my $widget = $self->{'widget'};
     return $widget;
+}
+
+sub recv_fh {
+    my ($self, @args) = @_;
+    ($self->{'recv_fh'}) = @args if @args;
+    my $recv_fh = $self->{'recv_fh'};
+    return $recv_fh;
 }
 
 sub _waitVariable_hash {
