@@ -7,7 +7,7 @@ use IO::Handle;
 use Getopt::Long;
 use Tk;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 use Zircon::Trace;
 
@@ -19,9 +19,9 @@ sub main {
     GetOptions('colour|C' => \$coloured, 'quiet|Q' => \$quiet)
       or @ARGV=();
 
-    die "Syntax: $0 [ -Q | -C ] <local_selection> <remote_selection>\n
+    die "Syntax: $0 [ -Q | -C ] <local_endpoint> <remote_endpoint>\n
 Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
-    my ($local_selection, $remote_selection) = @ARGV;
+    my ($local_endpoint, $remote_endpoint) = @ARGV;
 
     $ENV{ZIRCON_TRACE} = join ',',
       ($coloured ? ('colour') : (),
@@ -33,21 +33,22 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
 
     my $M = MainWindow->new;
     $M->title("$0 pid=$$");
-    $M->Entry(-text => "$local_selection => $remote_selection")->pack;
+    $M->Entry(-text => "$local_endpoint => $remote_endpoint")->pack;
 
-    my $context = Zircon::Tk::Context->new(-widget => $M);
+    my $context = Zircon::TkZMQ::Context->new(-widget => $M);
 
     my $handler = My::Handler->new();
     my $reader = My::StdinReader->new($M);
 
     my $connection = Zircon::Connection->new(-handler => $handler,
                                              -name => 'pipe',
-                                             -context => $context);
+                                             -context => $context,
+                                             -local_endpoint => $local_endpoint,
+        );
     $handler->zconn($connection); # to call ->after for incoming request
     $handler->on_timeout(sub { $reader->try_send_soon });
 
-    $connection->local_selection_id($local_selection);
-    $connection->remote_selection_id($remote_selection);
+    $connection->remote_endpoint($remote_endpoint);
     # now ready to send & receive
 
     $reader->zconn($connection);  # so it can call ->send, which is now ready
@@ -70,6 +71,7 @@ package My::StdinReader;
 use strict;
 use warnings;
 
+use Errno qw(EAGAIN);
 use Try::Tiny;
 use Time::HiRes qw( usleep );
 
@@ -154,7 +156,7 @@ sub read_fh {
 
         if (!defined $nchar) {
             warn "I! read failed: $!\n"
-              unless 11 == $!; # Resource temporarily unavailable
+              unless EAGAIN == $!; # Resource temporarily unavailable
         } elsif (0 == $nchar) {
             warn "I] EOF\n";
             $eof = 1;
@@ -192,7 +194,7 @@ sub try_send {
         #
         # Availability of this was postponed, because when we had
         # STDIN queued on startup we tried to send before setting
-        #     $connection->remote_selection_id($remote_selection);
+        #     $connection->remote_endpoint($remote_endpoint);
     } elsif (!@$Q) {
         # nothing to send
     } elsif ((my $S = $zconn->state) ne 'inactive') {
@@ -233,6 +235,10 @@ sub sent {
     return();
 }
 
+sub DESTROY {
+    warn __PACKAGE__ . " destroyed\n";
+    return;
+}
 
 1;
 

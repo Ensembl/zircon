@@ -5,11 +5,11 @@ use warnings;
 use Test::More;
 use Tk;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
 
 use lib "t/lib";
-use TestShared qw( have_display init_zircon_conn );
+use TestShared qw( have_display init_zircon_conn endpoint_pair );
 use ConnHandler;
 
 
@@ -27,7 +27,7 @@ sub main {
 sub do_init {
     my $M = TestWin->new;
 
-    my @id = qw( timestamp_serv timestamp_cli );
+    my @id = endpoint_pair;
     $M->clip_ids(@id);
     $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
 
@@ -128,7 +128,6 @@ sub instruct {
     $self->state_bump('instructed');
 
     # wait here until TestWin is gone, in context of ButtonPress
-    local $Zircon::Tk::Context::TANGLE_ACK{'TestWin::instruct'} = 1;
     while (Tk::Exists($self)) {
         Tk::DoOneEvent();
     }
@@ -165,11 +164,16 @@ sub do_after__replied {
     my ($self) = @_;
 
     # close the child
-    $self->{chld_fh}->close;
+    unless ($self->{chld_fh}->close) {
+        warn $! ? "error closing child_fh: $!" : "exit status $? from child";
+        fail "closing child";
+    }
+    my $child_status = ${^CHILD_ERROR_NATIVE};
 
-    my $gone_pid = wait;
-    $self->state_bump(reaped => "exit code !=$! ?=$?");
-    # weird, $!=="No child processes".  Doesn't matter to us.
+    # closing the fh opened with '|-' does an implicit waitpid
+    # my $gone_pid = wait;
+
+    $self->state_bump(reaped => "child exit status=${child_status}");
 
     $self->destroy;
 

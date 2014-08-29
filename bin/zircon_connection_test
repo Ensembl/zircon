@@ -3,29 +3,34 @@
 use strict;
 use warnings;
 
+use File::Temp;
 use Tk;
 
 sub create_child {
-    my ($tag, $name, $local_selection, $remote_selection) = @_;
-    fork == 0 or return;
+    my ($tag, $name, $local_endpoint, $remote_endpoint) = @_;
+    my $pid = fork;
+    $pid == 0 or return $pid;
     exec 'zircon_connection'
-        , '-tag'              => $tag
-        , '-name'             => $name
-        , '-local_selection'  => $local_selection
-        , '-remote_selection' => $remote_selection
+        , '-tag'             => $tag
+        , '-name'            => $name
+        , '-local_endpoint'  => $local_endpoint
+        , '-remote_endpoint' => $remote_endpoint
         ;
 }
 
 my $id;
 my $count = 0;
 
+my ($pid_a, $pid_b);
+
 sub run {
+    my ($tmpfile_a, $tmpfile_b) = @_;
     $count++;
     my $name = $count;
-    my $selection_a = "Zircon_${id}_${count}_A";
-    my $selection_b = "Zircon_${id}_${count}_B";
-    create_child 'A', $name, $selection_a, $selection_b;
-    create_child 'B', $name, $selection_b, $selection_a;
+    my $endpoint_a = "ipc://${tmpfile_a}";
+    my $endpoint_b = "ipc://${tmpfile_b}";
+    $pid_a = create_child 'A', $name, $endpoint_a, $endpoint_b;
+    $pid_b = create_child 'B', $name, $endpoint_b, $endpoint_a;
     return;
 }
 
@@ -33,13 +38,28 @@ my $main_window = MainWindow->new;
 $id = $main_window->id;
 $main_window->geometry('300x50');
 $main_window->title('Zircon: Connection: Test');
+
+my $tmpfile_a = File::Temp->new->filename;
+my $tmpfile_b = File::Temp->new->filename;
+
 $main_window
     ->Button(
     '-text'    => 'Run',
-    '-command' => \&run)
+    '-command' => sub { return run($tmpfile_a, $tmpfile_b); }
+    )
     ->pack(
     '-expand' => 1,
     '-fill'   => 'both');
+
+$main_window
+    ->Button(
+    '-text'    => 'Collide',
+    '-command' => sub { return kill 'USR1', $pid_a, $pid_b; }
+    )
+    ->pack(
+    '-expand' => 1,
+    '-fill'   => 'both');
+
 
 MainLoop();
 

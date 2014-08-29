@@ -30,9 +30,9 @@ sub _init {
     my ($self, $arg_hash) = @_;
 
     $self->{'is_open'} = 1;
-    $self->{'request_id'} = 0;
+    $self->{'request_id'} = 1;
 
-    for (qw( app_id context selection_id server )) {
+    for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
         defined $attribute
             or die "missing -$_ parameter";
@@ -42,30 +42,29 @@ sub _init {
         @{$arg_hash}{qw( -app_id -server )};
     weaken $self->{'server'};
 
-    my ($context, $selection_id, $timeout_ms, $timeout_retries, $rolechange_wait) =
-        @{$arg_hash}{qw( -context -selection_id -connection_timeout -timeout_retries -rolechange_wait )};
+    my ($context, $endpoint, $timeout_list) =
+        @{$arg_hash}{qw( -context -endpoint -timeout_list )};
     my $connection_id = sprintf "%s: Connection", $self->app_id;
-    my $connection = Zircon::Connection->new(
+    my %connection_args = (
         '-connection_id' => $connection_id,
         '-name'    => $self->app_id,
         '-context' => $context,
         '-handler' => $self,
-        '-timeout_interval' => $timeout_ms,
-        '-timeout_retries_initial' => $timeout_retries,
-        '-rolechange_wait' => $rolechange_wait, # XXX: temporary, awaiting RT#324544
+        '-timeout_list'     => $timeout_list,
         );
+    $connection_args{'-local_endpoint'} = $endpoint if $endpoint;
+    my $connection = Zircon::Connection->new(%connection_args);
     $self->{'connection'} = $connection;
-    $connection->local_selection_id($selection_id);
 
-    $self->zircon_trace('Initialised local (clipboard %s)', $selection_id);
+    $self->zircon_trace('Initialised local (endpoint %s)', $connection->local_endpoint);
 
     return;
 }
 
 sub send_handshake {
-    my ($self, $remote_selection_id, $callback) = @_;
+    my ($self, $remote_endpoint, $callback) = @_;
 
-    $self->connection->remote_selection_id($remote_selection_id);
+    $self->connection->remote_endpoint($remote_endpoint);
 
     my $request = $self->_mkele_peer;
 
@@ -77,10 +76,8 @@ sub send_handshake {
             die "need two handshake reply elements" unless $data && !@more;
             die "handshake reply data should contain one node"
               unless 3 == @$data && 1 == @{ $data->[2] };
-            my ($app_id, $unique_id, $window_id) =
-              $self->_gotele_peer(@{ $data->[2] });
-            $self->zircon_trace('Handshake reply from remote (clipboard %s)', $unique_id);
-            $self->_handshaking_check_window;
+            my $socket_id = $self->_gotele_peer(@{ $data->[2] });
+            $self->zircon_trace('Handshake reply from remote (endpoint %s)', $socket_id);
         }
         $orig_callback->($result) if $orig_callback;
     };
@@ -94,15 +91,12 @@ sub send_handshake {
 sub _mkele_peer {
     my ($self) = @_;
 
-    my $app_id = $self->app_id;
-    my $unique_id = $self->connection->local_selection_id;
+    my $socket_id = $self->connection->local_endpoint;
 
     return
         [ 'peer',
           {
-              'app_id'    => $app_id,
-              'unique_id' => $unique_id,
-              'window_id' => $self->xid_local,
+              'socket_id' => $socket_id,
           }, ];
 }
 
@@ -116,27 +110,10 @@ sub _gotele_peer {
         "unexpected body tag: '%s': expected: '%s'"
           , $tag, $tag_expected;
 
-    my ($app_id, $unique_id, $window_id) =
-      @{$attribute_hash}{qw( app_id unique_id window_id )};
-    defined $app_id    or die 'missing attribute: app_id';
-    defined $unique_id or die 'missing attribute: unique_id';
-    defined $window_id or die 'missing attribute: window_id';
+    my $socket_id = $attribute_hash->{socket_id};
+    defined $socket_id or die 'missing attribute: socket_id';
 
-    $self->xid_remote($window_id);
-    return ($app_id, $unique_id, $window_id);
-}
-
-sub _handshaking_check_window {
-    my ($self) = @_;
-
-    my $window_id = $self->xid_remote || 'unset';
-    my $check = $self->connection->remote_window_exists;
-    if ($check) {
-        $self->zircon_trace('Remote window %s exists, %s', $window_id, $check);
-    } else {
-        die "Remote window $window_id seems to be absent";
-    }
-    return;
+    return $socket_id;
 }
 
 
@@ -174,14 +151,6 @@ sub send_command {
     $self->callback($callback);
     $self->zircon_trace('send %s #%d', $command, $self->{'request_id'});
     my $request_xml = $self->request_xml($command, $view, $request);
-
-    my $current_xid = $self->connection->context->widget_xid;
-    my $advertised_xid = $self->xid_local;
-    if ($current_xid ne $advertised_xid) {
-        # should not happen, likely to break timeout control
-        warn "Widget Xid $current_xid differs from our advertised Xid $advertised_xid\n";
-    }
-
     $self->connection->send($request_xml);
     return;
 }
@@ -190,15 +159,15 @@ sub send_command {
 
 sub zircon_connection_request {
     my ($self, $request_xml) = @_;
-    my ($request_id, $command, $view, $request) =
+    my ($request_id, $app_id, $command, $view, $request) =
         @{$self->request_xml_parse($request_xml)};
-    my $reply = $self->_request($command, $view, $request);
+    my $reply = $self->_request($command, $view, $request, $app_id);
     my $reply_xml = $self->reply_xml($request_id, $command, $reply);
     return $reply_xml;
 }
 
 sub _request {
-    my ($self, $command, $view, $request_body) = @_;
+    my ($self, $command, $view, $request_body, $app_id) = @_;
 
     $self->zircon_trace('command=%s', $command);
     for ($command) {
@@ -209,16 +178,14 @@ sub _request {
             die "missing request element" unless defined $request_element;
             die "multiple request elements" if @rest;
 
-            my ($app_id, $unique_id, $window_id) =
-              $self->_gotele_peer($request_element);
-            $self->connection->remote_selection_id($unique_id);
-            $self->server->zircon_server_handshake($unique_id);
-            $self->zircon_trace('Handshake request from remote (clipboard %s)', $unique_id);
-            $self->_handshaking_check_window;
+            my $socket_id = $self->_gotele_peer($request_element);
+            $self->connection->remote_endpoint($socket_id);
+            $self->server->zircon_server_handshake($socket_id);
+            $self->zircon_trace('Handshake request from remote (endpoint %s)', $socket_id);
 
             my $message = sprintf
-                "Handshake successful with peer '%s', id '%s', xid '%s'"
-                , $app_id, $unique_id, $window_id;
+                "Handshake successful with peer '$app_id', endpoint '%s'"
+                , $socket_id;
 
             return $self->message_ok($message, [ data => {}, $self->_mkele_peer ]);
         }
@@ -360,19 +327,6 @@ sub callback {
     my ($self, @args) = @_;
     ($self->{'callback'}) = @args if @args;
     return $self->{'callback'};
-}
-
-sub xid_local { # strongly caching, read-only
-    my ($self) = @_;
-    $self->{'xid_local'} =
-      $self->connection->context->widget_xid
-        unless defined $self->{'xid_local'};
-    return $self->{'xid_local'};
-}
-
-sub xid_remote { # delegated
-    my ($self, @args) = @_;
-    return $self->connection->xid_remote(@args);
 }
 
 

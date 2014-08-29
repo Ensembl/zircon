@@ -14,21 +14,23 @@ use Tk::Optionmenu;
 use Tk::Entry;
 use Tk::Label;
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Connection;
+
+use sigtrap qw/handler signal_handler USR1/;
 
 my (
     $tag,
     $name,
-    $local_selection,
-    $remote_selection,
+    $local_endpoint,
+    $remote_endpoint,
     );
 
 GetOptions(
     'tag=s'              => \$tag,
     'name=s'             => \$name,
-    'local_selection=s'  => \$local_selection,
-    'remote_selection=s' => \$remote_selection,
+    'local_endpoint=s'   => \$local_endpoint,
+    'remote_endpoint=s'  => \$remote_endpoint,
     ) or die 'command line error';
 
 my $main_window = MainWindow->new;
@@ -38,16 +40,16 @@ $main_window->title(
 
 my $handler = Handler->new;
 
-my $context = Zircon::Tk::Context->new(
+my $context = Zircon::TkZMQ::Context->new(
     '-widget' => $main_window);
 
 my $connection = Zircon::Connection->new(
     '-name'    => $tag,
     '-handler' => $handler,
     '-context' => $context,
+    '-local_endpoint' => $local_endpoint,
     );
-$connection->local_selection_id($local_selection);
-$connection->remote_selection_id($remote_selection);
+$connection->remote_endpoint($remote_endpoint);
 
 my $test_frame =
     $main_window
@@ -84,21 +86,24 @@ sub control_button_set {
 }
 
 my $when;
-my $when_list = [ 
-    [ 'Client: request',    'client_request'    ],
-    [ 'Client: waiting',    'client_waiting'    ],
-    [ 'Client: reply',      'client_reply'      ],
+
+# Many of these are now redundant under ZeroMQ
+my $when_list = [
+    # [ 'Client: request',    'client_request'    ],
+    # [ 'Client: waiting',    'client_waiting'    ],
+    # [ 'Client: reply',      'client_reply'      ],
     [ 'Client: processing', 'client_processing' ],
-    [ 'Server: inactive',   'inactive'          ],
-    [ 'Server: request',    'server_request'    ],
+    # [ 'Server: inactive',   'inactive'          ],
+    # [ 'Server: request',    'server_request'    ],
+    # [ 'Server: reply',      'server_reply'      ],
     [ 'Server: processing', 'server_processing' ],
-    [ 'Server: reply',      'server_reply'      ],
     ];
 
 my $action = 'ok';
 my $action_list = [
     [ qw( OK     ok   ) ],
-    [ qw( Hang   hang ) ],
+    [ qw( Hang_03  hang_03 ) ],
+    [ qw( Hang_30  hang_30 ) ],
     [ qw( die()  die  ) ],
     [ qw( exit() exit ) ],
     ];
@@ -158,6 +163,12 @@ my $send_frame =
 
 sub zircon_send {
     $zircon_receive = $zircon_message = '';
+    $connection->send($zircon_send);
+    return;
+}
+
+sub signal_handler {
+    $zircon_send = "Interrupt $tag";
     $connection->send($zircon_send);
     return;
 }
@@ -233,8 +244,8 @@ sub run_peer {
         exec "$0"
             , '-tag'              => $peer_tag
             , '-name'             => $name
-            , '-local_selection'  => $remote_selection
-            , '-remote_selection' => $local_selection
+            , '-local_endpoint'   => $remote_endpoint
+            , '-remote_endpoint'  => $local_endpoint
             ;
         die "run_peer(): exec() failed\n";
     }
@@ -296,9 +307,10 @@ sub _process {
     my ($state) = @_;
     if (defined $when && $state eq $when) {
         for ($action) {
-            when ('hang') { $main_window->after(5000); }
-            when ('die')  { die "die: as requested\n" }
-            when ('exit') { exit }
+            when ('hang_03') { $main_window->after( 3_000); $action = 'ok'; }
+            when ('hang_30') { $main_window->after(30_000); $action = 'ok'; }
+            when ('die')     { die "die: as requested\n" }
+            when ('exit')    { exit }
         }
     }
     return;

@@ -1,6 +1,7 @@
 package ConnHandler;
 use strict;
 use warnings;
+use Tk;
 
 =head1 NAME
 
@@ -34,8 +35,8 @@ sub zconn {
 
 sub zircon_connection_timeout {
     my ($self, @info) = @_;
-    $self->widget->state_bump(zircon_connection_timeout => @info);
-    $self->widget->destroy;
+    $self->widget->state_bump(zircon_connection_timeout => @info) if $self->widget->can('state_bump');
+    $self->widget->destroy if Exists($self->widget);
     return;
 }
 

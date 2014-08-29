@@ -6,6 +6,11 @@ use warnings;
 
 use feature qw( switch );
 
+use Time::HiRes qw( gettimeofday );
+
+use Readonly;
+Readonly my $ZIRCON_PROTOCOL_VERSION => '3.0';
+
 # XML creation
 
 sub request_xml {
@@ -18,15 +23,16 @@ sub request_xml {
             'view_id' => $view_id,
         }, $request_body_xml);
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->connection->remote_selection_id;
+    my $socket_id = $self->connection->remote_endpoint;
     my $request_id = $self->{'request_id'}++;
     my $zmap_element_xml = _element_xml(
         'zmap', {
-            'version'      => '2.0',
+            'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'request',
             'app_id'       => $app_id,
-            'clipboard_id' => $clipboard_id,
+            'socket_id'    => $socket_id,
             'request_id'   => $request_id,
+            $self->timestamp,
         }, $request_element_xml);
     return $zmap_element_xml;
 }
@@ -52,17 +58,31 @@ sub reply_xml {
             @reply_body)
         ;
     my $app_id = $self->app_id;
-    my $clipboard_id = $self->connection->local_selection_id;
+    my $socket_id = $self->connection->local_endpoint;
     my $zmap_element_xml = _element_xml(
         'zmap', {
-            'version'      => '2.0',
+            'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'reply',
             'app_id'       => $app_id,
-            'clipboard_id' => $clipboard_id,
+            'socket_id'    => $socket_id,
             'request_id'   => $request_id,
+            $self->timestamp,
         }, $reply_element_xml);
     return $zmap_element_xml;
 }
+
+sub timestamp {
+    my ($self) = @_;
+    return if $self->inhibit_timestamps;
+
+    my ($sec, $usec) = gettimeofday;
+    return ('request_time' => "$sec.$usec");
+}
+
+# Override in child class to turn off timestamps (in xml.t, for example).
+#
+sub inhibit_timestamps { return }
+
 
 sub _element_xml {
     my ($tag, $attribute_hash, @content_xml) = @_;
@@ -104,9 +124,10 @@ sub request_xml_parse {
     my ($self, $request_xml) = @_;
     my ($request_id, $protocol_attribute_hash, $content_xml) =
         @{_protocol_xml_parse($request_xml)};
+    my $app_id = $protocol_attribute_hash->{app_id};
     my $content_parse =
         _content_xml_parse($content_xml, @request_parse_parameter_list);
-    my $parse = [ $request_id, @{$content_parse} ];
+    my $parse = [ $request_id, $app_id, @{$content_parse} ];
     return $parse;
 }
 

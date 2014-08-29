@@ -8,6 +8,7 @@ use feature qw(switch);
 
 use Try::Tiny;
 use Scalar::Util qw( refaddr );
+use List::Util   qw( sum );
 
 use Zircon::Protocol;
 use Zircon::ZMap::View;
@@ -24,19 +25,15 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
 
-    foreach my $k (qw( app_id context timeout_ms timeout_retries rolechange_wait )) {
+    foreach my $k (qw( app_id context timeout_list handshake_timeout_secs )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     $self->{'_id'} = $_id++;
     $self->{'_protocol'} = $self->_protocol; # needs app_id etc.
 
-    my $peer_name = $self->app_id;
-    my $peer_clipboard =
-        $self->protocol->connection->local_selection_id;
-    push @{$self->{'_arg_list'}}, # for zmap_command, used later in new
-    "--peer-name=${peer_name}",
-    "--peer-clipboard=${peer_clipboard}",
-    ;
+    my $peer_socket = $self->protocol->connection->local_endpoint;
+    # for zmap_command, used later in new
+    push @{$self->{'_arg_list'}}, "--peer-socket=${peer_socket}";
     return;
 }
 
@@ -44,17 +41,12 @@ sub _protocol {
     my ($self) = @_;
     my $id = $self->id;
     my $app_id = $self->app_id;
-    my $selection_id =
-        sprintf '%s_%s', $app_id, $id;
     my $protocol =
         Zircon::Protocol->new(
             '-app_id'       => $app_id,
-            '-selection_id' => $selection_id,
             '-context'      => $self->context,
             '-server'       => $self,
-            '-connection_timeout' => $self->{'_timeout_ms'},
-            '-timeout_retries' => $self->{'_timeout_retries'},
-            '-rolechange_wait' => $self->{'_rolechange_wait'}, # XXX: temporary, awaiting RT#324544
+            '-timeout_list' => $self->{'_timeout_list'},
         );
     return $protocol;
 }
@@ -84,21 +76,15 @@ sub _new_view {
         map { $_ => $arg_hash->{"-$_"} } @_new_view_key_list
     };
 
-    my $wait = 0;
-    my $wait_finish_ok = sub { $wait = 'ok' };
-
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         $command,
         $view_id,
         [ 'sequence', $new_view_arg_hash ],
-        sub {
-            ($result) = @_;
-            $self->protocol->connection->after($wait_finish_ok);
-        });
+        sub { ($result) = @_; },
+        );
 
-    $self->waitVariable_with_fail(\ $wait);
-    die "&_new_view: failed" unless $wait eq 'ok' && $result && $result->success;
+    die "&_new_view: failed" unless $result && $result->success;
 
     my $handler = $arg_hash->{'-handler'};
     my $name    = $arg_hash->{'-view_name'} || $arg_hash->{'-name'};
@@ -107,30 +93,23 @@ sub _new_view {
     return $view;
 }
 
-# Beware, this is called from DESTROY
-# and it will trap a (new) reference to $self inside Tk
 sub waitVariable_with_fail {
     my ($self, $var_ref) = @_;
-    my $to_intvl = $self->protocol->connection->timeout_interval;
-    my $to_nretr = $self->protocol->connection->timeout_retries_initial;
-    my $fail_timeout = $to_intvl * ($to_nretr + 2); # millisec * count
+    my $handshake_timeout_secs = $self->handshake_timeout_secs;
 
     my $wait_finish = sub {
         $$var_ref ||= 'fail_timeout';
         $self->zircon_trace
-          ('fail_timeout(0x%x), var %s=%s after %d ms * (%d + 2) retries = %.2f sec',
-           refaddr($self), $var_ref, $$var_ref,
-           $to_intvl, $to_nretr, $fail_timeout);
+          ('fail_timeout(0x%x), var %s=%s after %d secs',
+           refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
     };
-    my $handle = $self->context->timeout($fail_timeout, $wait_finish);
-    $self->zircon_trace('startWAIT(0x%x), var %s=%s',
-                        refaddr($self), $var_ref, $$var_ref);
+    my $handle = $self->context->timeout($handshake_timeout_secs * 1000, $wait_finish);
+    $self->zircon_trace('startWAIT(0x%x), var %s=%s, timeout %d secs',
+                        refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
 
-    local $Zircon::Tk::Context::TANGLE_ACK{'Z:Z:waitVariable_with_fail'} = 1;
     # Justify one extra level of event-loop.
-    # Re-entering this code will provoke warnings.
 
-    $self->waitVariable($var_ref);
+    $self->context->waitVariable($var_ref);
     $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
                         refaddr($self), $var_ref, $$var_ref);
     $handle->cancel;
@@ -157,22 +136,14 @@ sub _new_view_from_result {
 sub view_destroyed {
     my ($self, $view) = @_;
 
-    my $wait = 0;
-    my $wait_finish_ok = sub { $wait = 'ok' };
-
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         'close_view',
         $view->view_id,
         undef,
-        sub {
-            ($result) = @_;
-            $self->protocol->connection->after($wait_finish_ok);
-        });
+        );
 
-    $self->waitVariable_with_fail(\ $wait);
-    ($wait eq 'ok' && $result && $result->success)
-        or die "close_view: failed";
+    ($result && $result->success) or die "close_view: failed";
 
     return;
 }
@@ -180,28 +151,27 @@ sub view_destroyed {
 sub send_command_and_xml {
     my ($self, $view, $command, $xml) = @_;
 
-    my $wait = 0;
-    my $wait_finish_ok = sub { $wait = 'ok' };
-
     my $result;
-    $self->protocol->send_command(
+    $self->send_command(
         $command, $view->view_id, $xml,
         sub {
             ($result) = @_;
-            $self->protocol->connection->after($wait_finish_ok);
         });
-
-    $self->waitVariable_with_fail(\ $wait);
-    $wait eq 'ok' or die "&send_command_and_xml: timeout";
 
     return $result;
 }
 
-sub waitVariable {
-    my ($self, $var) = @_;
-    $self->context->waitVariable($var);
-    return;
+sub send_command {
+    my ($self, $command, @args) = @_;
+
+    unless ($self->is_running) {
+        warn "Zircon::ZMap: ZMap has gone, cannot send command '$command'\n";
+        return;
+    }
+
+    return $self->protocol->send_command($command, @args);
 }
+
 
 sub launch_zmap {
     my ($self) = @_;
@@ -218,6 +188,32 @@ sub launch_zmap {
         # wait() happens in event loop
     }
 
+    $self->pid($pid);
+    return;
+}
+
+sub is_running {
+    my ($self) = @_;
+
+    my $pid = $self->pid;
+    return unless $pid;
+
+    # Nicked from Proc::Launcher
+    #
+    if ( kill 0 => $pid ) {
+        if ( $!{EPERM} ) {
+            # if process id isn't owned by us, it is assumed to have
+            # been recycled, i.e. our process died and the process id
+            # was assigned to another process.
+            $self->zircon_trace("Process $pid active but owned by someone else");
+        }
+        else {
+            return $pid;
+        }
+    }
+
+    warn "Zircon::ZMap: process $pid has gone away.\n";
+    $self->pid(undef);
     return;
 }
 
@@ -464,6 +460,19 @@ sub context {
     return $context;
 }
 
+sub pid {
+    my ($self, @args) = @_;
+    ($self->{'_pid'}) = @args if @args;
+    my $pid = $self->{'_pid'};
+    return $pid;
+}
+
+sub handshake_timeout_secs {
+    my ($self) = @_;
+    my $handshake_timeout_secs = $self->{'_handshake_timeout_secs'};
+    return $handshake_timeout_secs;
+}
+
 sub launch_zmap_wait_finish {
     my ($self, @args) = @_;
     ($self->{'_launch_zmap_wait_finish'}) = @args if @args;
@@ -484,6 +493,8 @@ sub DESTROY {
     }
     $self->{'_destroyed_already'} = 1;
 
+    return unless $self->is_running;
+
     my $wait = 0;
     my $wait_finish_ok = sub { $wait = 'ok' };
 
@@ -494,9 +505,7 @@ sub DESTROY {
     };
 
     try {
-        $self->protocol->send_command('shutdown', undef, undef, $callback);
-        $self->waitVariable_with_fail(\ $wait);
-        $wait eq 'ok' or die "&send_command_and_xml: timeout";
+        $self->send_command('shutdown', undef, undef, $callback);
     }
     catch { warn $_; };
     return;

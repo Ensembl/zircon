@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use base 'Exporter';
-our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn try_err mkwidg );
+our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_pair );
 
 use Tk;
 use Test::More;
@@ -49,23 +49,18 @@ sub init_zircon_conn {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $context = Zircon::Tk::Context->new(-widget => $M);
+    my $context = Zircon::TkZMQ::Context->new(-widget => $M);
     my $handler = ConnHandler->new;
     my $connection = Zircon::Connection->new(-handler => $handler,
                                              -name => $name,
-                                             -context => $context);
+                                             -context => $context,
+                                             -local_endpoint => $id[0],
+        );
     $handler->zconn($connection);
 
-    $connection->local_selection_id($id[0]);
-    $connection->remote_selection_id($id[1]);
+    $connection->remote_endpoint($id[1]);
 
     return $handler;
-}
-
-
-sub try_err(&) {
-    my ($code) = @_;
-    return try { goto &$code } catch {"ERR:$_"};
 }
 
 
@@ -86,6 +81,14 @@ sub mkwidg {
     return $M;
 }
 
+{
+    my $_port = 55667; # FIXME: dangerous to choose fixed ports
+
+    sub endpoint_pair {
+        my $base = 'tcp://127.0.0.1:';
+        return ( $base . $_port++, $base . $_port++ );
+    }
+}
 
 sub Tk::Error {
     my ($widget,$error,@locations) = @_;

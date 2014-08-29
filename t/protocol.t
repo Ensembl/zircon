@@ -7,7 +7,7 @@ use Try::Tiny;
 use Tk;
 use POSIX ":sys_wait_h";
 
-use Zircon::Tk::Context;
+use Zircon::TkZMQ::Context;
 use Zircon::Protocol;
 
 use lib "t/lib";
@@ -52,15 +52,13 @@ sub init_zircon_proto {
     my $name = $0;
     $name =~ s{.*/}{};
 
-    my $sel_id = join _ => $name, int(rand(1e6));
-    $M->title($sel_id);
-
-    my $context = Zircon::Tk::Context->new(-widget => $M);
+    my $context = Zircon::TkZMQ::Context->new(-widget => $M, -trace_prefix => "$name");
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,
-       -selection_id => $sel_id,
        -server => $server);
+
+    $M->title($proto->connection->local_endpoint);
 
     return ($M, $proto);
 }
@@ -71,13 +69,13 @@ sub init_zircon_proto {
 # send it a shutdown,
 # see it is gone.
 sub zirpro_tt {
-    plan tests => 10;
+    plan tests => 8;
 
     my $server = MockServer->new;
     my ($M, $proto) = init_zircon_proto($server);
 
     my @cmd = ('bin/zircon_protocol_test',
-               -remote_selection => $proto->connection->local_selection_id);
+               -remote_endpoint => $proto->connection->local_endpoint);
     my $pid = open my $fh, '-|', @cmd;
     isnt(0, $pid, "Pipe from @cmd") or diag "Failed: $!";
     return unless $pid;
@@ -90,9 +88,6 @@ sub zirpro_tt {
       or diag explain $server;
     like($server->[0], qr{^handshake: id}, 'handshake happened');
 
-    like($proto->xid_local,  $WINDOW_ID_RE, 'have local XWin');
-    like($proto->xid_remote, $WINDOW_ID_RE, 'have remote XWin');
-
     # XXX: grubby workaround: $server is told of request before request-ack
     $M->waitVariable(\$proto->connection->{'state'}) # PRIVATE!
       if $proto->connection->state eq 'server_reply';
@@ -104,7 +99,7 @@ sub zirpro_tt {
 
     my $flag = 'begin';
     $proto->send_shutdown_clean(sub { $flag='going' });
-    $M->waitVariable(\$flag);
+    $M->waitVariable(\$flag) unless $flag eq 'going';
     is($flag, 'going', 'shutdown sent');
 
     # give the child time to acknowledge & quit
