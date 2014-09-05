@@ -141,6 +141,7 @@ sub view_destroyed {
         'close_view',
         $view->view_id,
         undef,
+        sub { ($result) = @_; },
         );
 
     ($result && $result->success) or die "close_view: failed";
@@ -501,7 +502,7 @@ sub DESTROY {
     my $callback = sub {
         my ($result) = @_;
         $self->protocol->connection->after($wait_finish_ok);
-        die "shutdown: failed" unless $result->success;
+        die "shutdown: failed" unless $result and $result->success;
     };
 
     try {
