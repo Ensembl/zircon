@@ -18,16 +18,16 @@ main();
 
 sub request_tt {
     plan tests => 4;
-    my $P = MockProto->new;
+    my $P = MockProtoXML->new;
 
     eq_or_diff
-      ($P->request_xml(vanish => 'view4'),
+      ($P->serialise_request(vanish => 'view4'),
        q{<zmap app_id="Bob" request_id="0" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="vanish" view_id="view4" />
 </zmap>}, 'request, empty');
 
     eq_or_diff
-      ($P->request_xml(smudge => view5 => 'with finger'),
+      ($P->serialise_request(smudge => view5 => 'with finger'),
        q{<zmap app_id="Bob" request_id="1" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="smudge" view_id="view5">
 with finger
@@ -35,7 +35,7 @@ with finger
 </zmap>}, 'request, flat');
 
     eq_or_diff
-      ($P->request_xml(prod => view6 => [ finger => { side => 'left' } ]),
+      ($P->serialise_request(prod => view6 => [ finger => { side => 'left' } ]),
        q{<zmap app_id="Bob" request_id="2" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view6">
 <finger side="left" />
@@ -43,7 +43,7 @@ with finger
 </zmap>}, 'request, depth 1');
 
     eq_or_diff
-      ($P->request_xml(prod => view7 => [ finger => { side => 'left' },
+      ($P->serialise_request(prod => view7 => [ finger => { side => 'left' },
                                           [ speed => {}, 'quick' ] ]),
        q{<zmap app_id="Bob" request_id="3" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view7">
@@ -63,7 +63,7 @@ sub reply_tt {
     plan tests => 3;
 
     eq_or_diff
-      (MockProto->reply_xml
+      (MockProtoXML->serialise_reply
        (req5 => cmd5 => [ undef,
                           [ message => { }, 'Done that' ] ]),
        q{<zmap app_id="Bob" request_id="req5" socket_id="endpoint_local" type="reply" version="3.0">
@@ -75,7 +75,7 @@ Done that
 </zmap>}, 'reply, ok');
 
     eq_or_diff
-      (MockProto->reply_xml
+      (MockProtoXML->serialise_reply
        (req6 => cmd6 => [ [ 345, 'could not' ],
                           [ message => { }, 'I fell over' ] ]),
        q{<zmap app_id="Bob" request_id="req6" socket_id="endpoint_local" type="reply" version="3.0">
@@ -83,7 +83,7 @@ Done that
 </zmap>}, 'reply, failed 345');
 
     eq_or_diff
-      (MockProto->reply_xml
+      (MockProtoXML->serialise_reply
        (req7 => cmd7 => [ undef,
                           [ message => { }, 'Done that' ],
                           [ data => { payload => 1 },
@@ -105,32 +105,33 @@ Done that
 }
 
 sub element_tt {
-    plan tests => 6;
-    my $e = Zircon::Protocol::XML->can('_element_xml'); # a sub, not a method
+    plan tests => 7;
+
+    my $X = new_ok('Zircon::Protocol::Serialiser::XML', [ -app_id => $0, -connection => {} ]);
 
     eq_or_diff
-      ($e->(tag => { attr2 => 3, Attr1 => 4, zttr3 => 5 },
+      ($X->serialise_element(tag => { attr2 => 3, Attr1 => 4, zttr3 => 5 },
             'text content'),
        q{<tag Attr1="4" attr2="3" zttr3="5">
 text content
 </tag>}, 'attrib sort');
 
     eq_or_diff
-      ($e->(tag => { funkies => 'quote " me a <node> & return it, would you?' }, undef),
+      ($X->serialise_element(tag => { funkies => 'quote " me a <node> & return it, would you?' }, undef),
        q{<tag funkies="quote &quot; me a &lt;node&gt; &amp; return it, would you?" />},
        'empty + attrib');
 
     eq_or_diff
-      ($e->('hr'), '<hr />', 'empty1');
+      ($X->serialise_element('hr'), '<hr />', 'empty1');
 
     eq_or_diff
-      ($e->(hr => {}), '<hr />', 'empty2');
+      ($X->serialise_element(hr => {}), '<hr />', 'empty2');
 
     eq_or_diff
-      ($e->(hr => {}, ''), "<hr>\n\n</hr>", 'empty3 (ws)');
+      ($X->serialise_element(hr => {}, ''), "<hr>\n\n</hr>", 'empty3 (ws)');
 
     eq_or_diff
-      ($e->(data => {} =>
+      ($X->serialise_element(data => {} =>
             [ message => {}, 'Text' ],
             [ detail => { foo => 5 },
               [ wag => {}, 'On' ] ]),
@@ -147,39 +148,39 @@ text content
 
 sub parse_tt {
     plan tests => 5;
-    my $P = MockProto->new;
+    my $P = MockProtoXML->new;
 
     my $req = [ finger => { side => 'left' },
                 undef # optional, but made explicit during parsing
               ];
-    my $xml = $P->request_xml(prod => view6 => $req);
+    my $xml = $P->serialise_request(prod => view6 => $req);
 
-    eq_or_diff(MockProto->request_xml_parse($xml),
+    eq_or_diff(MockProtoXML->parse_request($xml),
                [ '0', 'Bob', 'prod', 'view6', [ $req ] ],
                'command: prod');
 
 
 
     my $reply = [ message => { }, "  Roger   \n  " ];
-    $xml = $P->reply_xml(req1 => cmd1 => [ undef, $reply ]);
+    $xml = $P->serialise_reply(req1 => cmd1 => [ undef, $reply ]);
     $reply->[-1] = 'Roger';
     like($xml, qr{>\n  Roger   \n  \n<},
          'whitespace augmented during xml generation');
-    eq_or_diff(MockProto->reply_xml_parse($xml),
+    eq_or_diff(MockProtoXML->parse_reply($xml),
                [ req1 => cmd1 => ok => undef, undef, [ $reply ] ],
                'reply: ok, whitespace trimmed during parsing')
       or diag $xml;
 
-    $xml = $P->reply_xml(req2 => cmd2 => [ [ '502', 'Yeargh' ] ]);
-    eq_or_diff(MockProto->reply_xml_parse($xml),
+    $xml = $P->serialise_reply(req2 => cmd2 => [ [ '502', 'Yeargh' ] ]);
+    eq_or_diff(MockProtoXML->parse_reply($xml),
                [ req2 => cmd2 => 502 => 'Yeargh', undef, undef ],
                'reply: 502 fail');
 
   {
     local $TODO = 'is the spec correct for this?';
     $reply = [ view => { view_id => 'deja0' }, undef ];
-    $xml = $P->reply_xml(req3 => cmd3 => [ undef, $reply ]);
-    eq_or_diff(MockProto->reply_xml_parse($xml),
+    $xml = $P->serialise_reply(req3 => cmd3 => [ undef, $reply ]);
+    eq_or_diff(MockProtoXML->parse_reply($xml),
                [ req3 => cmd3 => ok => undef,
                  'deja0', # comes back undef, should be the view_id ??
                  , [ $reply ] ],
@@ -192,8 +193,8 @@ sub parse_tt {
 
 
 # These Mocks cheerfully assume some methods work as class methods.
-package MockProto;
-use base qw( Zircon::Protocol::XML );
+package MockProtoXML;
+use base qw( Zircon::Protocol::Serialiser::XML );
 
 sub inhibit_timestamps { return 1 }
 
@@ -202,11 +203,17 @@ sub new {
     return bless $self, __PACKAGE__;
 }
 
-sub app_id { return 'Bob' }
+sub _app_id { return 'Bob' }
 
-sub connection { return 'MockConn' }
+sub _connection { return MockConn->new }
 
 package MockConn;
+
+sub new {
+    my $self = {};
+    return bless $self, __PACKAGE__;
+}
+
 sub local_endpoint { return 'endpoint_local' }
 sub remote_endpoint { return 'endpoint_remote' }
 
