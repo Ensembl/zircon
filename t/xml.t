@@ -147,7 +147,7 @@ text content
 
 
 sub parse_tt {
-    plan tests => 5;
+    plan tests => 6;
     my $P = MockProtoXML->new;
 
     my $req = [ finger => { side => 'left' },
@@ -187,6 +187,21 @@ sub parse_tt {
                'reply: view ok')
       or diag $xml;
   }
+
+  {
+    local $TODO = 'deserialising nested is borked';
+    my $nested = [ data => {} =>
+                   [ message => {}, 'Text' ],
+                   [ detail => { foo => 5 },
+                     [ wag => {}, 'On' ] ]
+        ];
+    $xml = $P->serialise_reply(req4 => cmd4 => [ undef, $nested ]);
+    eq_or_diff(MockProtoXML->parse_reply($xml),
+               [ req4 => cmd4 => ok => undef, undef, [ $nested ] ],
+               'reply: nested ok')
+        or diag $xml;
+  }
+
     return;
 }
 
