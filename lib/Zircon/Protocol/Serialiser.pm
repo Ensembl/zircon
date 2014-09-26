@@ -68,7 +68,7 @@ sub serialise_request {
             'request_id'   => $request_id,
             $self->_timestamp,
         }, $request_element);
-    return $zmap_element;
+    return $self->finalise_element($zmap_element);
 }
 
 sub serialise_reply {
@@ -102,7 +102,13 @@ sub serialise_reply {
             'request_id'   => $request_id,
             $self->_timestamp,
         }, $reply_element);
-    return $zmap_element;
+    return $self->finalise_element($zmap_element);
+}
+
+# Default is null-op
+sub finalise_element {
+    my ($self, $element) = @_;
+    return $element;
 }
 
 sub _timestamp {
@@ -120,6 +126,12 @@ sub inhibit_timestamps { return }
 
 # parsing
 
+# Default is null-op
+sub pre_parse {
+    my ($self, $raw) = @_;
+    return $raw;
+}
+
 my @request_parse_parameter_list = (
     'tag_expected' => 'request',
     'attribute_required' => [ qw(
@@ -133,6 +145,7 @@ my @request_parse_parameter_list = (
 
 sub parse_request {
     my ($self, $request) = @_;
+    $request = $self->pre_parse($request);
     my ($request_id, $protocol_attribute_hash, $content) =
         @{$self->_protocol_parse($request)};
     my $app_id = $protocol_attribute_hash->{app_id};
@@ -158,6 +171,7 @@ my @reply_parse_parameter_list = (
 
 sub parse_reply {
     my ($self, $reply) = @_;
+    $reply = $self->pre_parse($reply);
     my ($request_id, $protocol_attribute_hash, $content) =
         @{$self->_protocol_parse($reply)};
     my $content_parse =
