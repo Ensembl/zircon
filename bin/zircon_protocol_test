@@ -11,9 +11,11 @@ use Zircon::Protocol;
 use Zircon::Context::ZMQ::Tk;
 
 # parse the command line
+my $app_tag;
 my $remote_endpoint;
 my $serialiser;
 GetOptions(
+    'app_tag=s'         => \$app_tag,
     'remote_endpoint=s' => \$remote_endpoint,
     'serialiser=s'      => \$serialiser,
     ) or die 'command line error';
@@ -35,6 +37,7 @@ my $context = Zircon::Context::ZMQ::Tk->new(
     '-widget' => $main_window);
 my $protocol = Zircon::Protocol->new(
     '-app_id'       => $app_id,
+    '-app_tag'      => $app_tag,
     '-context'      => $context,
     '-serialiser'   => $serialiser,
     '-server'       => $server,

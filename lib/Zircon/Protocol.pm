@@ -68,6 +68,7 @@ sub _init {
 
     my $serialiser = $serialiser_class->new(
         -app_id     => $self->app_id,
+        -app_tag    => $arg_hash->{-app_tag},
         -connection => $self->connection,
         );
     $self->serialiser($serialiser);

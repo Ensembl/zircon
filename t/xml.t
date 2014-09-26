@@ -62,8 +62,10 @@ quick
 sub reply_tt {
     plan tests => 3;
 
+    my $P = MockProtoXML->new;
+
     eq_or_diff
-      (MockProtoXML->serialise_reply
+      ($P->serialise_reply
        (req5 => cmd5 => [ undef,
                           [ message => { }, 'Done that' ] ]),
        q{<zmap app_id="Bob" request_id="req5" socket_id="endpoint_local" type="reply" version="3.0">
@@ -75,7 +77,7 @@ Done that
 </zmap>}, 'reply, ok');
 
     eq_or_diff
-      (MockProtoXML->serialise_reply
+      ($P->serialise_reply
        (req6 => cmd6 => [ [ 345, 'could not' ],
                           [ message => { }, 'I fell over' ] ]),
        q{<zmap app_id="Bob" request_id="req6" socket_id="endpoint_local" type="reply" version="3.0">
@@ -83,7 +85,7 @@ Done that
 </zmap>}, 'reply, failed 345');
 
     eq_or_diff
-      (MockProtoXML->serialise_reply
+      ($P->serialise_reply
        (req7 => cmd7 => [ undef,
                           [ message => { }, 'Done that' ],
                           [ data => { payload => 1 },
@@ -149,13 +151,14 @@ text content
 sub parse_tt {
     plan tests => 6;
     my $P = MockProtoXML->new;
+    my $Q = MockProtoXML->new;
 
     my $req = [ finger => { side => 'left' },
                 undef # optional, but made explicit during parsing
               ];
     my $xml = $P->serialise_request(prod => view6 => $req);
 
-    eq_or_diff(MockProtoXML->parse_request($xml),
+    eq_or_diff($Q->parse_request($xml),
                [ '0', 'Bob', 'prod', 'view6', [ $req ] ],
                'command: prod');
 
@@ -166,13 +169,13 @@ sub parse_tt {
     $reply->[-1] = 'Roger';
     like($xml, qr{>\n  Roger   \n  \n<},
          'whitespace augmented during xml generation');
-    eq_or_diff(MockProtoXML->parse_reply($xml),
+    eq_or_diff($Q->parse_reply($xml),
                [ req1 => cmd1 => ok => undef, undef, [ $reply ] ],
                'reply: ok, whitespace trimmed during parsing')
       or diag $xml;
 
     $xml = $P->serialise_reply(req2 => cmd2 => [ [ '502', 'Yeargh' ] ]);
-    eq_or_diff(MockProtoXML->parse_reply($xml),
+    eq_or_diff($Q->parse_reply($xml),
                [ req2 => cmd2 => 502 => 'Yeargh', undef, undef ],
                'reply: 502 fail');
 
@@ -180,7 +183,7 @@ sub parse_tt {
     local $TODO = 'is the spec correct for this?';
     $reply = [ view => { view_id => 'deja0' }, undef ];
     $xml = $P->serialise_reply(req3 => cmd3 => [ undef, $reply ]);
-    eq_or_diff(MockProtoXML->parse_reply($xml),
+    eq_or_diff($Q->parse_reply($xml),
                [ req3 => cmd3 => ok => undef,
                  'deja0', # comes back undef, should be the view_id ??
                  , [ $reply ] ],
@@ -196,7 +199,7 @@ sub parse_tt {
                      [ wag => {}, 'On' ] ]
         ];
     $xml = $P->serialise_reply(req4 => cmd4 => [ undef, $nested ]);
-    eq_or_diff(MockProtoXML->parse_reply($xml),
+    eq_or_diff($Q->parse_reply($xml),
                [ req4 => cmd4 => ok => undef, undef, [ $nested ] ],
                'reply: nested ok')
         or diag $xml;
@@ -213,9 +216,9 @@ use base qw( Zircon::Protocol::Serialiser::XML );
 
 sub inhibit_timestamps { return 1 }
 
-sub new {
-    my $self = {};
-    return bless $self, __PACKAGE__;
+sub _init {
+    my ($self, $arg_hash) = @_;
+    $self->SUPER::_init($arg_hash);
 }
 
 sub _app_id { return 'Bob' }

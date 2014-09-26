@@ -10,6 +10,7 @@ use Time::HiRes  qw( gettimeofday );
 
 use Readonly;
 Readonly my $ZIRCON_PROTOCOL_VERSION => '3.0';
+Readonly my $ZIRCON_DEFAULT_APP_TAG  => 'zmap';
 
 sub new {
     my ($pkg, %arg_hash) = @_;
@@ -23,6 +24,7 @@ sub _init {
     my ($self, $arg_hash) = @_;
     $self->_app_id(    $arg_hash->{'-app_id'}    ) or croak "missing -app_id parameter";
     $self->_connection($arg_hash->{'-connection'}) or croak "missing -connection parameter";
+    $self->_app_tag(   $arg_hash->{'-app_tag'} // $ZIRCON_DEFAULT_APP_TAG );
     return;
 }
 
@@ -45,6 +47,13 @@ sub _connection {
     return $_connection;
 }
 
+sub _app_tag {
+    my ($self, @args) = @_;
+    ($self->{'_app_tag'}) = @args if @args;
+    my $_app_tag = $self->{'_app_tag'};
+    return $_app_tag;
+}
+
 # creation
 
 sub serialise_request {
@@ -59,8 +68,8 @@ sub serialise_request {
     my $app_id = $self->_app_id;
     my $socket_id = $self->_connection->remote_endpoint;
     my $request_id = $self->{'request_id'}++;
-    my $zmap_element = $self->serialise_element(
-        'zmap', {
+    my $protocol_element = $self->serialise_element(
+        $self->_app_tag, {
             'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'request',
             'app_id'       => $app_id,
@@ -68,7 +77,7 @@ sub serialise_request {
             'request_id'   => $request_id,
             $self->_timestamp,
         }, $request_element);
-    return $self->finalise_element($zmap_element);
+    return $self->finalise_element($protocol_element);
 }
 
 sub serialise_reply {
@@ -93,8 +102,8 @@ sub serialise_reply {
         ;
     my $app_id = $self->_app_id;
     my $socket_id = $self->_connection->local_endpoint;
-    my $zmap_element = $self->serialise_element(
-        'zmap', {
+    my $protocol_element = $self->serialise_element(
+        $self->_app_tag, {
             'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'reply',
             'app_id'       => $app_id,
@@ -102,7 +111,7 @@ sub serialise_reply {
             'request_id'   => $request_id,
             $self->_timestamp,
         }, $reply_element);
-    return $self->finalise_element($zmap_element);
+    return $self->finalise_element($protocol_element);
 }
 
 # Default is null-op
@@ -184,7 +193,7 @@ sub _protocol_parse {
     my ($self, $raw) = @_;
 
     my ($tag, $attribute_hash, $content) = @{$self->_parse_unique_element($raw)};
-    my $tag_expected = 'zmap';
+    my $tag_expected = $self->_app_tag;
     $tag eq $tag_expected
         or die sprintf
         "invalid protocol tag: '%s': expected: '%s'"

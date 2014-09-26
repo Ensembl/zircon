@@ -36,6 +36,7 @@ sub init_zircon_proto {
     my $context = Zircon::Context::ZMQ::AnyEvent->new(-trace_prefix => "$name");
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
+       -app_tag => 'zircon_protocol_ae',
        -context => $context,
        -serialiser => 'JSON',
        -server => $server);
@@ -57,6 +58,7 @@ sub zirpro_tt {
     my $proto = init_zircon_proto($server);
 
     my @cmd = ('bin/zircon_protocol_test',
+               -app_tag         => 'zircon_protocol_ae',
                -remote_endpoint => $proto->connection->local_endpoint,
                -serialiser      => 'JSON');
     my $pid = open my $fh, '-|', @cmd;

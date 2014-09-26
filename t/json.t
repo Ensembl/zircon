@@ -17,7 +17,7 @@ main();
 
 sub request_tt {
     plan tests => 4;
-    my $P = MockProtoJSON->new;
+    my $P = MockProtoJSON->new(-app_tag => 'zircon_test');
 
     eq_or_diff
       ($P->serialise_request(vanish => 'view4'),
@@ -77,7 +77,7 @@ __EO_REQUEST__
 
 sub reply_tt {
     plan tests => 3;
-    my $P = MockProtoJSON->new;
+    my $P = MockProtoJSON->new(-app_tag => 'zircon_test');
 
     eq_or_diff
       ($P->serialise_reply
@@ -171,7 +171,7 @@ sub _make_expected_outer {
     $request_id =~ /^\d+$/ or $request_id = sprintf('"%s"', $request_id);
     return sprintf(<< '__EO_OUTER__', $content, $request_id, $socket_id, $type);
 {
-   "zmap" : {
+   "zircon_test" : {
       "_content" : {
 %s      },
       "app_id" : "Bob",
