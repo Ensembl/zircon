@@ -12,8 +12,10 @@ use Zircon::Context::ZMQ::Tk;
 
 # parse the command line
 my $remote_endpoint;
+my $serialiser;
 GetOptions(
     'remote_endpoint=s' => \$remote_endpoint,
+    'serialiser=s'      => \$serialiser,
     ) or die 'command line error';
 my $is_child =
     defined $remote_endpoint
@@ -34,6 +36,7 @@ my $context = Zircon::Context::ZMQ::Tk->new(
 my $protocol = Zircon::Protocol->new(
     '-app_id'       => $app_id,
     '-context'      => $context,
+    '-serialiser'   => $serialiser,
     '-server'       => $server,
     );
 

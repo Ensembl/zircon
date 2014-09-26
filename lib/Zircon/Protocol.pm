@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use feature qw( switch );
+use Carp;
 use Scalar::Util qw( weaken );
 
 use Zircon::Connection;
@@ -17,6 +18,9 @@ use base qw(
     Zircon::Trace
     );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_PROTOCOL_TRACE';
+
+use Readonly;
+Readonly my $DEFAULT_SERIALISER => 'XML';
 
 sub new {
     my ($pkg, %arg_hash) = @_;
@@ -56,7 +60,13 @@ sub _init {
     my $connection = Zircon::Connection->new(%connection_args);
     $self->{'connection'} = $connection;
 
-    my $serialiser = Zircon::Protocol::Serialiser::XML->new(
+    my $serialiser_class = $arg_hash->{-serialiser} // $DEFAULT_SERIALISER;
+    $serialiser_class =~/::/ or $serialiser_class = 'Zircon::Protocol::Serialiser::' . $serialiser_class;
+    unless (eval "require $serialiser_class") {
+        confess "Couldn't load '$serialiser_class': $@";
+    }
+
+    my $serialiser = $serialiser_class->new(
         -app_id     => $self->app_id,
         -connection => $self->connection,
         );

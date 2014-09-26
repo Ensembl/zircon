@@ -37,6 +37,7 @@ sub init_zircon_proto {
     my $proto = Zircon::Protocol->new
       (-app_id => $name,
        -context => $context,
+       -serialiser => 'JSON',
        -server => $server);
 
     return $proto;
@@ -56,7 +57,8 @@ sub zirpro_tt {
     my $proto = init_zircon_proto($server);
 
     my @cmd = ('bin/zircon_protocol_test',
-               -remote_endpoint => $proto->connection->local_endpoint);
+               -remote_endpoint => $proto->connection->local_endpoint,
+               -serialiser      => 'JSON');
     my $pid = open my $fh, '-|', @cmd;
     isnt(0, $pid, "Pipe from @cmd") or diag "Failed: $!";
     return unless $pid;
