@@ -1,0 +1,166 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use feature qw( switch );
+
+use Getopt::Long;
+use POSIX;
+use Try::Tiny;
+use Tk;
+use Zircon::Protocol;
+use Zircon::Context::ZMQ::Tk;
+
+my $app_id = 'Zircon Protocol (Master)';
+
+# create the main window
+my $main_window = Tk::MainWindow->new;
+$main_window->title($app_id);
+
+# create the Zircon connection
+my $context = Zircon::Context::ZMQ::Tk->new(
+    '-widget' => $main_window);
+
+my $server = ServerApp->new(
+    '-app_id'       => $app_id,
+    '-context'      => $context,
+    );
+
+my $protocol = $server->protocol;
+
+# create the GUI
+
+my $zircon_message = '';
+
+my $button_frame =
+    $main_window->Frame->pack('-fill' => 'both');
+
+sub wrap {
+    my ($callback) = @_;
+    $zircon_message = '';
+    try { $callback->(); }
+    catch {
+        chomp $_;
+        $zircon_message = "Error: $_";
+    };
+    return;
+}
+
+sub ping {
+    wrap(
+        sub {
+            $protocol->send_ping(
+                sub {
+                    my ($result) = @_;
+                    $zircon_message =
+                        sprintf 'Client: ping: %s', _message($result);
+                });
+        });
+    return;
+}
+
+sub shutdown {
+    wrap(
+        sub {
+            $protocol->send_shutdown_clean(
+                sub {
+                    my ($result) = @_;
+                    $zircon_message =
+                        sprintf 'Client: shutdown: %s', _message($result);
+                });
+        });
+    return;
+}
+
+sub goodbye {
+    wrap(
+        sub {
+            $protocol->send_goodbye_exit(
+                sub { POSIX::_exit(0); }); # to avoid triggering DESTROY on ServerApp which will send shutdown.
+        });
+    return;
+}
+
+Tk::grid(
+    $button_frame->Button(
+        '-text'    => 'Ping',
+        '-command' => \&ping),
+    $button_frame->Button(
+        '-text'    => 'Goodbye',
+        '-command' => \&goodbye),
+    $button_frame->Button(
+        '-text'    => 'Shutdown',
+        '-command' => \&shutdown),
+    $button_frame->Button(
+        '-text'    => 'Exit',
+        '-command' => \&exit),
+    '-sticky' => 'nsew');
+
+$button_frame->gridColumnconfigure($_, '-weight' => 1) for 0..1;
+
+$main_window
+    ->Label(
+    '-width'        => 50,
+    '-textvariable' => \$zircon_message,
+    '-relief'       => 'sunken')
+    ->pack('-fill' => 'both');
+
+MainLoop();
+
+exit;
+
+sub _message {
+    my ($result) = @_;
+    for ($result) {
+        when ($_->isa('Zircon::Protocol::Result::Reply')) {
+            return $result->success ? 'succeeded' : 'failed';
+        }
+        when ($_->isa('Zircon::Protocol::Result::Timeout')) {
+            return 'timeout';
+        }
+        when (ref) {
+            return sprintf 'unknown result: class: %s', ref;
+        }
+    }
+    return 'unknown result';
+}
+
+package ServerApp;
+
+our $ZIRCON_TRACE_KEY = 'ZIRCON_PM_TRACE';
+
+use base qw(
+   Zircon::Protocol::Server::AppLauncher
+   Zircon::App
+);
+
+sub new {
+    my ($pkg, %arg_hash) = @_;
+    return $pkg->SUPER::new(
+        -program         => 'zircon_protocol_test',
+        -peer_socket_opt => '--remote_endpoint',
+        -app_tag         => 'zpm',
+        -serialiser      => 'JSON',
+        -arg_list        => [ '--app_tag=zpm', '--serialiser=JSON' ],
+        %arg_hash,
+        );
+}
+
+sub _init {
+    my ($self, $arg_hash) = @_;
+    $self->Zircon::Protocol::Server::AppLauncher::_init('Zircon::App', $arg_hash);
+    return;
+}
+
+sub zircon_server_log {
+    my ($self, $message) = @_;
+    $zircon_message =
+        sprintf 'Server: %s', $message;
+    warn "$zircon_message\n";
+    return;
+}
+
+
+=head1 AUTHOR
+
+Ana Code B<email> anacode@sanger.ac.uk
