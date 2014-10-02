@@ -6,46 +6,61 @@ use warnings;
 
 use feature qw(switch);
 
-use Try::Tiny;
-use Scalar::Util qw( refaddr );
-use List::Util   qw( sum );
+use Scalar::Util qw( weaken );
 
-use Zircon::Protocol;
 use Zircon::ZMap::View;
 
-use base qw(
-    Zircon::ZMap::Core
-    Zircon::Protocol::Server
-    );
+use parent qw( Zircon::Protocol::Server::AppLauncher );
+
 our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
 
-sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
-    my ($self, $arg_hash) = @_;
-    $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
+# Class methods
 
-    foreach my $k (qw( app_id context timeout_list handshake_timeout_secs )) {
-        $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
-    }
-    $self->{'_protocol'} = $self->_protocol; # needs app_id etc.
+my @_list = ( );
 
-    my $peer_socket = $self->protocol->connection->local_endpoint;
-    # for zmap_command, used later in new
-    push @{$self->{'_arg_list'}}, "--peer-socket=${peer_socket}";
+sub list {
+    my ($pkg) = @_;
+    # filter the list because weak references may become undef
+    my $list = [ grep { defined } @_list ];
+    return $list;
+}
+
+my $_string_zmap_hash = { };
+
+sub from_string {
+    my ($pkg, $string) = @_;
+    my $zmap = $_string_zmap_hash->{$string};
+    return $zmap;
+}
+
+sub _add_zmap {
+    my ($pkg, $new) = @_;
+    push @_list, $new;
+    weaken $_list[-1];
+    $_string_zmap_hash->{"$new"} = $new;
+    weaken $_string_zmap_hash->{"$new"};
     return;
 }
 
-sub _protocol {
-    my ($self) = @_;
-    my $app_id = $self->app_id;
-    my $protocol =
-        Zircon::Protocol->new(
-            '-app_id'       => $app_id,
-            '-context'      => $self->context,
-            '-server'       => $self,
-            '-timeout_list' => $self->{'_timeout_list'},
+# Constructor
+
+sub new {
+    my ($pkg, %arg_hash) = @_;
+    my $new = $pkg->SUPER::new(
+        -program         => 'zmap',
+        %arg_hash,
         );
-    return $protocol;
+
+    $new->{'_id_view_hash'} = { };
+    $new->{'_view_list'} = [ ];
+
+    $pkg->_add_zmap($new);
+
+    $new->launch_app;
+    return $new;
 }
+
+# Object methods
 
 sub new_view {
     my ($self, %arg_hash) = @_;
@@ -62,7 +77,7 @@ my @_new_view_key_list = qw(
 
 sub _new_view {
     my ($self, $arg_hash) = @_;
-    my ($view_previous) = values %{$self->id_view_hash};
+    my ($view_previous) = values %{$self->_id_view_hash};
     my ($command, $view_id) =
         $view_previous
         ? ( 'add_to_view', $view_previous->view_id )
@@ -89,29 +104,6 @@ sub _new_view {
     return $view;
 }
 
-sub waitVariable_with_fail {
-    my ($self, $var_ref) = @_;
-    my $handshake_timeout_secs = $self->handshake_timeout_secs;
-
-    my $wait_finish = sub {
-        $$var_ref ||= 'fail_timeout';
-        $self->zircon_trace
-          ('fail_timeout(0x%x), var %s=%s after %d secs',
-           refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
-    };
-    my $handle = $self->context->timeout($handshake_timeout_secs * 1000, $wait_finish);
-    $self->zircon_trace('startWAIT(0x%x), var %s=%s, timeout %d secs',
-                        refaddr($self), $var_ref, $$var_ref, $handshake_timeout_secs);
-
-    # Justify one extra level of event-loop.
-
-    $self->context->waitVariable($var_ref);
-    $self->zircon_trace('stopWAIT(0x%x), var %s=%s',
-                        refaddr($self), $var_ref, $$var_ref);
-    $self->context->cancel_timeout($handle);
-    return;
-}
-
 sub _new_view_from_result {
     my ($self, $handler, $name, $result) = @_;
     my $tag_attribute_hash_hash = { };
@@ -125,8 +117,17 @@ sub _new_view_from_result {
             '-view_id' => $view_id,
             '-name'    => $name,
         );
-    $self->add_view($view_id, $view);
+    $self->_add_view($view_id, $view);
     return $view;
+}
+
+sub _add_view {
+    my ($self, $id, $view) = @_;
+    $self->_id_view_hash->{$id} = $view;
+    weaken $self->_id_view_hash->{$id};
+    push @{$self->_view_list}, $view;
+    weaken $self->_view_list->[-1];
+    return;
 }
 
 sub view_destroyed {
@@ -158,71 +159,7 @@ sub send_command_and_xml {
     return $result;
 }
 
-sub send_command {
-    my ($self, $command, @args) = @_;
-
-    unless ($self->is_running) {
-        warn "Zircon::ZMap: ZMap has gone, cannot send command '$command'\n";
-        return;
-    }
-
-    return $self->protocol->send_command($command, @args);
-}
-
-
-sub launch_zmap {
-    my ($self) = @_;
-
-    my $wait = 0;
-    $self->launch_zmap_wait_finish(sub { $wait = 'ok' });
-
-    # we hope the Zircon handshake callback calls $self->launch_zmap_wait_finish->()
-    my $pid = $self->Zircon::ZMap::Core::launch_zmap;
-    $self->waitVariable_with_fail(\ $wait);
-    if ($wait ne 'ok') {
-        kill 'TERM', $pid; # can't talk to it -> don't want it
-        die "launch_zmap(): timeout waiting for the handshake; killed pid $pid";
-        # wait() happens in event loop
-    }
-
-    $self->pid($pid);
-    return;
-}
-
-sub is_running {
-    my ($self) = @_;
-
-    my $pid = $self->pid;
-    return unless $pid;
-
-    # Nicked from Proc::Launcher
-    #
-    if ( kill 0 => $pid ) {
-        if ( $!{EPERM} ) {
-            # if process id isn't owned by us, it is assumed to have
-            # been recycled, i.e. our process died and the process id
-            # was assigned to another process.
-            $self->zircon_trace("Process $pid active but owned by someone else");
-        }
-        else {
-            return $pid;
-        }
-    }
-
-    warn "Zircon::ZMap: process $pid has gone away.\n";
-    $self->pid(undef);
-    return;
-}
-
 # protocol server
-
-sub zircon_server_handshake {
-    my ($self, @arg_list) = @_;
-    $self->protocol->connection->after(
-        sub { $self->launch_zmap_wait_finish->(); });
-    $self->Zircon::Protocol::Server::zircon_server_handshake(@arg_list);
-    return;
-}
 
 sub zircon_server_protocol_command {
     my ($self, $command, $view_id, $request_body) = @_;
@@ -286,7 +223,7 @@ sub _view_from_id {
     my ($self, $view_id) = @_;
     my $view;
     if (defined $view_id) {
-        $view = $self->id_view_hash->{$view_id};
+        $view = $self->_id_view_hash->{$view_id};
         $view or die sprintf "invalid view id: '%s'", $view_id;
     }
     else {
@@ -433,73 +370,31 @@ sub _feature_from_featureset {
 
 # attributes
 
-sub app_id {
+sub _id_view_hash {
     my ($self) = @_;
-    my $app_id = $self->{'_app_id'};
-    return $app_id;
+    my $_id_view_hash = $self->{'_id_view_hash'};
+    return $_id_view_hash;
 }
 
-sub protocol {
+# public for otterlace
+sub view_list {
     my ($self) = @_;
-    my $protocol = $self->{'_protocol'};
-    return $protocol;
+    # filter the list because weak references may become undef
+    my $view_list = [ grep { defined } @{$self->_view_list} ];
+    return $view_list;
 }
 
-sub context {
+sub _view_list {
     my ($self) = @_;
-    my $context = $self->{'_context'};
-    return $context;
+    my $view_list = $self->{'_view_list'};
+    return $view_list;
 }
 
-sub pid {
-    my ($self, @args) = @_;
-    ($self->{'_pid'}) = @args if @args;
-    my $pid = $self->{'_pid'};
-    return $pid;
-}
+# tracing
 
-sub handshake_timeout_secs {
+sub zircon_trace_prefix {
     my ($self) = @_;
-    my $handshake_timeout_secs = $self->{'_handshake_timeout_secs'};
-    return $handshake_timeout_secs;
-}
-
-sub launch_zmap_wait_finish {
-    my ($self, @args) = @_;
-    ($self->{'_launch_zmap_wait_finish'}) = @args if @args;
-    my $launch_zmap_wait_finish = $self->{'_launch_zmap_wait_finish'};
-    return $launch_zmap_wait_finish;
-}
-
-# destructor
-
-sub DESTROY {
-    my ($self) = @_;
-
-    # Beware trapping new references to $self in closures which are
-    # stashed elsewhere.  DESTROY will run again when they go away.
-    if ($self->{'_destroyed_already'}) {
-        warn "DESTROY $self again - do nothing this time\n"; # RT395938
-        return;
-    }
-    $self->{'_destroyed_already'} = 1;
-
-    return unless $self->is_running;
-
-    my $wait = 0;
-    my $wait_finish_ok = sub { $wait = 'ok' };
-
-    my $callback = sub {
-        my ($result) = @_;
-        $self->protocol->connection->after($wait_finish_ok);
-        die "shutdown: failed" unless $result and $result->success;
-    };
-
-    try {
-        $self->send_command('shutdown', undef, undef, $callback);
-    }
-    catch { warn $_; };
-    return;
+    return 'Z:ZMap';
 }
 
 1;
