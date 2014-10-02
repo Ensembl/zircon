@@ -19,8 +19,6 @@ use base qw(
     );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
 
-my $_id = 0;
-
 sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my ($self, $arg_hash) = @_;
     $self->Zircon::ZMap::Core::_init($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
@@ -28,7 +26,6 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     foreach my $k (qw( app_id context timeout_list handshake_timeout_secs )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
-    $self->{'_id'} = $_id++;
     $self->{'_protocol'} = $self->_protocol; # needs app_id etc.
 
     my $peer_socket = $self->protocol->connection->local_endpoint;
@@ -39,7 +36,6 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
 
 sub _protocol {
     my ($self) = @_;
-    my $id = $self->id;
     my $app_id = $self->app_id;
     my $protocol =
         Zircon::Protocol->new(
@@ -436,12 +432,6 @@ sub _feature_from_featureset {
 }
 
 # attributes
-
-sub id {
-    my ($self) = @_;
-    my $id = $self->{'_id'};
-    return $id;
-}
 
 sub app_id {
     my ($self) = @_;
