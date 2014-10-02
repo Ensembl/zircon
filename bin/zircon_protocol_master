@@ -105,6 +105,8 @@ $main_window
     '-relief'       => 'sunken')
     ->pack('-fill' => 'both');
 
+$server->launch_app;
+
 MainLoop();
 
 exit;
@@ -131,7 +133,6 @@ our $ZIRCON_TRACE_KEY = 'ZIRCON_PM_TRACE';
 
 use base qw(
    Zircon::Protocol::Server::AppLauncher
-   Zircon::App
 );
 
 sub new {
@@ -144,12 +145,6 @@ sub new {
         -arg_list        => [ '--app_tag=zpm', '--serialiser=JSON' ],
         %arg_hash,
         );
-}
-
-sub _init {
-    my ($self, $arg_hash) = @_;
-    $self->Zircon::Protocol::Server::AppLauncher::_init('Zircon::App', $arg_hash);
-    return;
 }
 
 sub zircon_server_log {

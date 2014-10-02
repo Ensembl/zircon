@@ -9,9 +9,12 @@ use warnings;
 use Scalar::Util qw( refaddr );
 use Try::Tiny;
 
+use Module::Runtime qw( require_module );
+
 use Zircon::Protocol;
 
 use Readonly;
+Readonly my $DEFAULT_APP_CLASS              => 'Zircon::App';
 Readonly my $DEFAULT_HANDSHAKE_TIMEOUT_SECS => 5;
 Readonly my $DEFAULT_PEER_SOCKET_OPT        => '--peer-socket';
 
@@ -20,15 +23,27 @@ use parent qw(
     Zircon::Trace
 );
 
-sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
-    my ($self, $app_class, $arg_hash) = @_;
+our $ZIRCON_TRACE_KEY = 'ZIRCON_APPLAUNCHER_TRACE';
 
-    $self->_app_class($app_class);
-    my $init_method = "${app_class}::_init";
-    $self->$init_method($arg_hash); ## no critic (Subroutines::ProtectPrivateSubs)
+sub new {
+    my ($pkg, %arg_hash) = @_;
 
-    foreach my $k (qw( context handshake_timeout_secs peer_socket_opt )) {
+    my $new = { };
+    bless($new, $pkg);
+
+    $new->_init(\%arg_hash);
+    return $new;
+}
+
+sub _init {
+    my ($self, $arg_hash) = @_;
+
+    foreach my $k (qw( app_class context handshake_timeout_secs peer_socket_opt )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
+    }
+    unless ($self->app_class) {
+        $self->app_class($DEFAULT_APP_CLASS);
+        $self->zircon_trace("using default app class '%s'", $self->app_class);
     }
     $self->handshake_timeout_secs($DEFAULT_HANDSHAKE_TIMEOUT_SECS) unless $self->handshake_timeout_secs;
     $self->peer_socket_opt(       $DEFAULT_PEER_SOCKET_OPT)        unless $self->peer_socket_opt;
@@ -39,8 +54,13 @@ sub _init { ## no critic (Subroutines::ProhibitUnusedPrivateSubroutines)
     my $peer_socket_opt = $self->peer_socket_opt;
     my $peer_arg        = "${peer_socket_opt}=${peer_socket}";
 
-    # for app_command, used later in new
-    push @{$self->{'_arg_list'}}, $peer_arg;
+    require_module($self->app_class);
+    my $app = $self->app_class->new(
+        $arg_hash->{-program},
+        @{$arg_hash->{-arg_list}},
+        $peer_arg,
+        );
+    $self->_app_forker($app);
 
     return;
 }
@@ -61,19 +81,16 @@ sub launch_app {
     my $wait = 0;
     $self->_launch_app_wait_finish(sub { $wait = 'ok' });
 
-    my $app_class = $self->_app_class;
-    my $launch_method = "${app_class}::fork_app";
-
     # we hope the Zircon handshake callback calls $self->_launch_app_wait_finish->()
-    my $pid = $self->$launch_method();
+    my $pid = $self->_app_forker->launch();
     $self->_waitVariable_with_fail(\ $wait);
     if ($wait ne 'ok') {
         kill 'TERM', $pid; # can't talk to it -> don't want it
-        die "launch_app() for '$app_class': timeout waiting for the handshake; killed pid $pid";
+        my $app_class = $self->app_class;
+        die "launch() for '${app_class}': timeout waiting for the handshake; killed pid $pid";
         # wait() happens in event loop
     }
 
-    $self->pid($pid);
     return;
 }
 
@@ -100,31 +117,6 @@ sub _waitVariable_with_fail {
     return;
 }
 
-sub is_running {
-    my ($self) = @_;
-
-    my $pid = $self->pid;
-    return unless $pid;
-
-    # Nicked from Proc::Launcher
-    #
-    if ( kill 0 => $pid ) {
-        if ( $!{EPERM} ) {
-            # if process id isn't owned by us, it is assumed to have
-            # been recycled, i.e. our process died and the process id
-            # was assigned to another process.
-            $self->zircon_trace("Process $pid active but owned by someone else");
-        }
-        else {
-            return $pid;
-        }
-    }
-
-    warn "Zircon::ZMap: process $pid has gone away.\n";
-    $self->pid(undef);
-    return;
-}
-
 # protocol server
 
 sub zircon_server_handshake {
@@ -139,7 +131,7 @@ sub send_command {
     my ($self, $command, @args) = @_;
 
     unless ($self->is_running) {
-        my $app_class = $self->_app_class;
+        my $app_class = $self->app_class;
         warn "${app_class}: child has gone, cannot send command '$command'\n";
         return;
     }
@@ -147,13 +139,32 @@ sub send_command {
     return $self->protocol->send_command($command, @args);
 }
 
+# delegated
+
+sub is_running {
+    my ($self) = @_;
+    return $self->_app_forker->is_running;
+}
+
+sub pid {
+    my ($self) = @_;
+    return $self->_app_forker->pid;
+}
+
 # attributes
 
-sub _app_class {
+sub app_class {
     my ($self, @args) = @_;
     ($self->{'_app_class'}) = @args if @args;
-    my $_app_class = $self->{'_app_class'};
-    return $_app_class;
+    my $app_class = $self->{'_app_class'};
+    return $app_class;
+}
+
+sub _app_forker {
+    my ($self, @args) = @_;
+    ($self->{'_app_forker'}) = @args if @args;
+    my $_app_forker = $self->{'_app_forker'};
+    return $_app_forker;
 }
 
 sub app_id {
@@ -172,13 +183,6 @@ sub context {
     my ($self) = @_;
     my $context = $self->{'_context'};
     return $context;
-}
-
-sub pid {
-    my ($self, @args) = @_;
-    ($self->{'_pid'}) = @args if @args;
-    my $pid = $self->{'_pid'};
-    return $pid;
 }
 
 sub handshake_timeout_secs {

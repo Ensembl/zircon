@@ -10,28 +10,28 @@ use Carp;
 use POSIX ();
 use Try::Tiny;
 
+use parent qw( Zircon::Trace );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_APP_TRACE';
+
 sub new {
-    my ($pkg, %arg_hash) = @_;
+    my ($pkg, $program, @arg_list) = @_;
 
     my $new = { };
     bless($new, $pkg);
 
-    $new->_init(\%arg_hash);
-    $new->launch_app;
+    $new->_init($program, \@arg_list);
 
     return $new;
 }
 
 sub _init {
-    my ($self, $arg_hash) = @_;
-    $self->{'_program'} = $arg_hash->{'-program'} or croak "missing -program parameter";
-    $self->{'_arg_list'} = [@{
-        $arg_hash->{'-arg_list'} || []
-    }]; # copy now because list is modified by subclass _init
+    my ($self, $program, $arg_list) = @_;
+    $self->{'_program'}  = $program or croak 'missing program argument';
+    $self->{'_arg_list'} = $arg_list;
     return;
 }
 
-sub fork_app {
+sub launch {
     my ($self) = @_;
 
     my @e = $self->app_command;
@@ -40,6 +40,7 @@ sub fork_app {
     confess "Error: couldn't fork()\n" unless defined $pid;
     if ($pid) { # parent
         warn "Started $e[0], pid $pid\n";
+        $self->pid($pid);
         return $pid;
     }
     { exec @e; }
@@ -53,6 +54,32 @@ sub fork_app {
     POSIX::_exit(127); # avoid triggering DESTROY
 
     return; # unreached, quietens perlcritic
+}
+
+sub is_running {
+    my ($self) = @_;
+
+    my $pid = $self->pid;
+    return unless $pid;
+
+    # Nicked from Proc::Launcher
+    #
+    if ( kill 0 => $pid ) {
+        if ( $!{EPERM} ) {
+            # if process id isn't owned by us, it is assumed to have
+            # been recycled, i.e. our process died and the process id
+            # was assigned to another process.
+            $self->zircon_trace("Process $pid active but owned by someone else");
+        }
+        else {
+            return $pid;
+        }
+    }
+
+    warn __PACKAGE__, ": process $pid has gone away.\n";
+    $self->pid(undef);
+
+    return;
 }
 
 sub app_command {
@@ -75,6 +102,13 @@ sub arg_list {
     my ($self) = @_;
     my $arg_list = $self->{'_arg_list'};
     return $arg_list;
+}
+
+sub pid {
+    my ($self, @args) = @_;
+    ($self->{'pid'}) = @args if @args;
+    my $pid = $self->{'pid'};
+    return $pid;
 }
 
 1;
