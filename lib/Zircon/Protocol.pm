@@ -216,7 +216,10 @@ sub _request {
 
         when ('shutdown') {
 
-            $self->connection->after(sub { CORE::exit; });
+            $self->connection->after(sub {
+                $self->zircon_trace('shutdown: exiting');
+                CORE::exit;
+                                     });
             $self->server->zircon_server_shutdown;
             my $message = "shutting down now!";
 
