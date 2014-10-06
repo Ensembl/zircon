@@ -219,6 +219,8 @@ sub inhibit_timestamps { return 1 }
 sub _init {
     my ($self, $arg_hash) = @_;
     $self->SUPER::_init($arg_hash);
+    $self->{'request_id'} = 0;
+    return;
 }
 
 sub _app_id { return 'Bob' }

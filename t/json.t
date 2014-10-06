@@ -306,6 +306,7 @@ sub _init {
     my ($self, $arg_hash) = @_;
     $self->SUPER::_init($arg_hash);
     $self->_json->pretty->canonical;
+    $self->{'request_id'} = 0;
     return;
 }
 

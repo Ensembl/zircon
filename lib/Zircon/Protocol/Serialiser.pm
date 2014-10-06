@@ -22,6 +22,7 @@ sub new {
 
 sub _init {
     my ($self, $arg_hash) = @_;
+    $self->request_id(1);
     $self->_app_id(    $arg_hash->{'-app_id'}    ) or croak "missing -app_id parameter";
     $self->_connection($arg_hash->{'-connection'}) or croak "missing -connection parameter";
     $self->_app_tag(   $arg_hash->{'-app_tag'} // $ZIRCON_DEFAULT_APP_TAG );
@@ -29,6 +30,13 @@ sub _init {
 }
 
 # attributes
+
+sub request_id {
+    my ($self, @args) = @_;
+    ($self->{'request_id'}) = @args if @args;
+    my $request_id = $self->{'request_id'};
+    return $request_id;
+}
 
 sub _app_id {
     my ($self, @args) = @_;
@@ -67,7 +75,8 @@ sub serialise_request {
         }, $request_body);
     my $app_id = $self->_app_id;
     my $socket_id = $self->_connection->remote_endpoint;
-    my $request_id = $self->{'request_id'}++;
+    my $request_id = $self->request_id;
+    $self->request_id($request_id + 1);
     my $protocol_element = $self->serialise_element(
         $self->_app_tag, {
             'version'      => $ZIRCON_PROTOCOL_VERSION,
