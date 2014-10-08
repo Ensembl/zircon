@@ -6,6 +6,8 @@ package Zircon::Protocol::Server::AppLauncher;
 use strict;
 use warnings;
 
+use feature qw( switch );
+
 use Scalar::Util qw( refaddr );
 use Try::Tiny;
 
@@ -137,6 +139,59 @@ sub send_command {
     }
 
     return $self->protocol->send_command($command, @args);
+}
+
+sub zircon_server_protocol_command {
+    my ($self, $command, $view_id, $request_body) = @_;
+
+    my $view_handler = $self->handler_for_view($view_id);
+
+    my $tag_entity_hash = { };
+    $tag_entity_hash->{$_->[0]} = $_ for @{$request_body};
+
+    if (my $dispatch = $self->command_dispatch($command)) {
+
+        my $key_entity;
+        if (my $key = $dispatch->{key_entity}) {
+            $key_entity = $tag_entity_hash->{$key};
+            unless ($key_entity) {
+                warn "Key entity '$key' not found in command '$command'\n";
+                return $self->protocol->message_command_failed("Key entity '$key' not found");
+            }
+        }
+
+        if (my $required = $dispatch->{required_entities}) {
+            foreach my $key ( @$required ) {
+                unless ($tag_entity_hash->{$key}) {
+                    warn "Entity '$key' not found in command '$command'\n";
+                    return $self->protocol->message_command_failed("Entity '$key' not found");
+                }
+            }
+        }
+
+        my $method = $dispatch->{method};
+        return $self->$method($view_handler, $key_entity, $tag_entity_hash);
+    }
+    else {
+        my $reason = "Unknown protocol command: '${command}'";
+        return $self->protocol->message_command_unknown($reason);
+    }
+
+    return; # never reached, quietens "perlcritic --stern"
+}
+
+# Override as appropriate (optional)
+#
+sub handler_for_view {
+    my ($self, $view_id) = @_;
+    return $view_id;
+}
+
+# Override as appropriate (not going to achive much if not)
+#
+sub command_dispatch {
+    my ($self, $command) = @_;
+    return;
 }
 
 # delegated

@@ -4,8 +4,7 @@ package Zircon::ZMap;
 use strict;
 use warnings;
 
-use feature qw(switch);
-
+use Readonly;
 use Scalar::Util qw( weaken );
 
 use Zircon::ZMap::View;
@@ -161,62 +160,10 @@ sub send_command_and_xml {
 
 # protocol server
 
-sub zircon_server_protocol_command {
-    my ($self, $command, $view_id, $request_body) = @_;
-
+sub handler_for_view {
+    my ($self, $view_id) = @_;
     my $view = $self->_view_from_id($view_id);
-    my $handler = $view->handler;
-
-    my $tag_entity_hash = { };
-    $tag_entity_hash->{$_->[0]} = $_ for @{$request_body};
-
-    for ($command) {
-
-        when ('feature_loading_complete') {
-            my $reply =
-                $self->_command_feature_loading_complete(
-                    $handler, $tag_entity_hash);
-            return $reply;
-        }
-
-        when ('single_select') {
-            my $reply =
-                $self->_command_single_select(
-                    $handler, $tag_entity_hash);
-            return $reply;
-        }
-
-        when ('multiple_select') {
-            my $reply =
-                $self->_command_multiple_select(
-                    $handler, $tag_entity_hash);
-            return $reply;
-        }
-
-        when ('feature_details') {
-            my $reply =
-                $self->_command_feature_details(
-                    $handler, $tag_entity_hash);
-            return $reply;
-        }
-
-        when ('edit') {
-            my $reply =
-                $self->_command_edit(
-                    $handler, $tag_entity_hash);
-            return $reply;
-        }
-
-        default {
-            my $reason = "Unknown ZMap protocol command: '${command}'";
-            my $reply =
-                $self->protocol->message_command_unknown($reason);
-            return $reply;
-        }
-
-    }
-
-    return; # never reached, quietens "perlcritic --stern"
+    return $view->handler;
 }
 
 sub _view_from_id {
@@ -235,20 +182,57 @@ sub _view_from_id {
     return $view;
 }
 
+Readonly my %_dispatch_table => (
+
+    feature_loading_complete => {
+        method            => \&_command_feature_loading_complete,
+        key_entity        => qw( status ),
+        required_entities => [ qw( featureset ) ],
+    },
+
+    single_select => {
+        method            => \&_command_single_select,
+        key_entity        => qw( featureset ),
+    },
+
+    multiple_select => {
+        method            => \&_command_multiple_select,
+        key_entity        => qw( featureset ),
+    },
+
+    feature_details => {
+        method            => \&_command_feature_details,
+        key_entity        => qw( featureset ),
+    },
+
+    edit => {
+        method            => \&_command_edit,
+        key_entity        => qw( featureset ),
+    },
+
+    );
+
+sub command_dispatch {
+    my ($self, $command) = @_;
+    return $_dispatch_table{$command};
+}
+
 sub _command_feature_loading_complete {
-    my ($self, $handler, $tag_entity_hash) = @_;
-    my $status_entity = $tag_entity_hash->{'status'};
-    $status_entity or die "missing status entity";
+    my ($self, $handler, $status_entity, $tag_entity_hash) = @_;
+
     my (undef, $status_attribute_hash, $status_sub_entity_list) = @{$status_entity};
     my $status = $status_attribute_hash->{'value'};
     defined $status or die "missing status";
+
     my $status_sub_entity_hash = { map { $_->[0] => $_ } @{$status_sub_entity_list} };
     my $message_entity = $status_sub_entity_hash->{'message'};
     defined $message_entity or die "missing message entity";
     my $message = $message_entity->[2];
     defined $message or die "missing message";
+
     my $feature_count = $status_attribute_hash->{'features_loaded'};
     defined $feature_count or die "missing feature count";
+
     my $featureset_entity = $tag_entity_hash->{'featureset'};
     $featureset_entity or die "missing featureset entity";
     my $featureset_attribute_hash = $featureset_entity->[1];
@@ -266,17 +250,19 @@ sub _command_feature_loading_complete {
 }
 
 sub _command_single_select {
-    my ($self, $handler, $tag_entity_hash) = @_;
-    my $name_list = _select_name_list($tag_entity_hash);
+    my ($self, $handler, $featureset_entity_hash) = @_;
+
+    my $name_list = _select_name_list($featureset_entity_hash);
     $handler->zircon_zmap_view_single_select($name_list);
+
     my $protocol_message = 'single select received...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
     return $reply;
 }
 
 sub _command_multiple_select {
-    my ($self, $handler, $tag_entity_hash) = @_;
-    my $name_list = _select_name_list($tag_entity_hash);
+    my ($self, $handler, $featureset_entity_hash) = @_;
+    my $name_list = _select_name_list($featureset_entity_hash);
     $handler->zircon_zmap_view_multiple_select($name_list);
     my $protocol_message = 'multiple select received...thanks !';
     my $reply = $self->protocol->message_ok($protocol_message);
@@ -285,8 +271,8 @@ sub _command_multiple_select {
 
 sub _select_name_list {
     # *not* a method
-    my ($tag_entity_hash) = @_;
-    my $feature_entity = _feature_entity($tag_entity_hash);
+    my ($featureset_entity_hash) = @_;
+    my $feature_entity = _feature_from_featureset($featureset_entity_hash);
     my $name = $feature_entity->[1]{'name'};
     defined $name or die "missing name";
     my $name_list = [ $name ];
@@ -294,8 +280,8 @@ sub _select_name_list {
 }
 
 sub _command_feature_details {
-    my ($self, $handler, $tag_entity_hash) = @_;
-    my $feature_entity = _feature_entity($tag_entity_hash);
+    my ($self, $handler, $featureset_entity_hash) = @_;
+    my $feature_entity = _feature_from_featureset($featureset_entity_hash);
     my $name = $feature_entity->[1]{'name'};
     defined $name or die "missing name";
     my $feature_body = $feature_entity->[2];
@@ -313,8 +299,7 @@ sub _command_feature_details {
 }
 
 sub _command_edit {
-    my ($self, $handler, $tag_entity_hash) = @_;
-    my $featureset_entity = _featureset_entity($tag_entity_hash);
+    my ($self, $handler, $featureset_entity) = @_;
     my $style = $featureset_entity->[1]{'name'};
     defined $style or die "missing style";
     my $feature_entity = _feature_from_featureset($featureset_entity);
@@ -339,22 +324,6 @@ sub _command_edit {
         my $reply = $self->protocol->message_command_failed($protocol_message);
         return $reply;
     }
-}
-
-sub _feature_entity {
-    # *not* a method
-    my ($tag_entity_hash) = @_;
-    my $featureset_entity = _featureset_entity($tag_entity_hash);
-    my $feature_entity = _feature_from_featureset($featureset_entity);
-    return $feature_entity;
-}
-
-sub _featureset_entity {
-    # *not* a method
-    my ($tag_entity_hash) = @_;
-    my $featureset_entity = $tag_entity_hash->{'featureset'};
-    $featureset_entity or die "missing featureset entity";
-    return $featureset_entity;
 }
 
 sub _feature_from_featureset {
