@@ -8,6 +8,8 @@ use feature qw( switch );
 use Carp;
 use Scalar::Util qw( weaken );
 
+use Module::Runtime qw( require_module );
+
 use Zircon::Connection;
 use Zircon::Protocol::Result::Reply;
 use Zircon::Protocol::Result::Timeout;
@@ -61,9 +63,7 @@ sub _init {
 
     my $serialiser_class = $arg_hash->{-serialiser} // $DEFAULT_SERIALISER;
     $serialiser_class =~/::/ or $serialiser_class = 'Zircon::Protocol::Serialiser::' . $serialiser_class;
-    unless (eval "require $serialiser_class") {
-        confess "Couldn't load '$serialiser_class': $@";
-    }
+    require_module($serialiser_class);
 
     my $serialiser = $serialiser_class->new(
         -app_id     => $self->app_id,
@@ -89,9 +89,8 @@ sub send_handshake {
         my ($result) = @_;
         if ($result->success) {
             my ($msg, $data, @more) = @{ $result->reply };
-            die "need two handshake reply elements" unless $data && !@more;
-            die "handshake reply data should contain one node"
-              unless 3 == @$data && 1 == @{ $data->[2] };
+            $data       and not @more            or die "need two handshake reply elements";
+            3 == @$data and 1 == @{ $data->[2] } or die "handshake reply data should contain one node";
             my $socket_id = $self->_gotele_peer(@{ $data->[2] });
             $self->zircon_trace('Handshake reply from remote (endpoint %s)', $socket_id);
         }
@@ -247,12 +246,12 @@ sub _request {
 }
 
 sub zircon_connection_reply {
-    my ($self, $reply) = @_;
+    my ($self, $raw_reply) = @_;
     if (my $callback = $self->callback) {
         my ($request_id,
             $command, $return_code, $reason,
             $view, $reply,
-            ) = @{$self->serialiser->parse_reply($reply)};
+            ) = @{$self->serialiser->parse_reply($raw_reply)};
         my $success =
             defined $return_code
             && $return_code eq 'ok';
@@ -266,7 +265,7 @@ sub zircon_connection_reply {
         $self->callback(undef);
     }
     else {
-        $self->zircon_trace("Reply, no callback.  reply=>>>\n%s\n<<<", $reply);
+        $self->zircon_trace("Reply, no callback.  reply=>>>\n%s\n<<<", $raw_reply);
     }
     return;
 }
@@ -366,6 +365,7 @@ sub zircon_trace_prefix {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace;
+    return;
 }
 
 1;
