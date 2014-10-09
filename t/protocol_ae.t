@@ -67,7 +67,7 @@ sub zirpro_tt {
     return unless $pid;
     register_kid($pid);
 
-    my $timeout = AnyEvent->timer(after => 5.000, cb => sub { test_zap('safety timeout') });
+    my $timeout = AnyEvent->timer(after => 10.000, cb => sub { test_zap('safety timeout') });
     $server_cv->recv;
 
     is(scalar @{$server->{_msg}}, 1, 'one event logged by Server')

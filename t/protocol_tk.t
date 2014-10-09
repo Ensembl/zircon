@@ -73,7 +73,7 @@ sub zirpro_tt {
     return unless $pid;
     register_kid($pid);
 
-    my $timeout = $M->after(5000, [ \&main::my_test_zap, 'safety timeout' ]);
+    my $timeout = $M->after(10000, [ \&main::my_test_zap, 'safety timeout' ]);
     $M->waitVariable($server);
 
     is(scalar @$server, 1, 'one event logged by Server')

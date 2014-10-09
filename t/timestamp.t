@@ -29,7 +29,7 @@ sub do_init {
 
     my @id = endpoint_pair;
     $M->clip_ids(@id);
-    $M->after(5000, sub { fail("whole-test timeout"); $M->destroy });
+    $M->after(10000, sub { fail("whole-test timeout"); $M->destroy });
 
     my $handler = init_zircon_conn($M, @id);
     $M->state_bump(new => @id);
