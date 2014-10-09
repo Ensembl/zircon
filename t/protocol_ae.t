@@ -2,10 +2,10 @@
 use strict;
 use warnings;
 
-use AnyEvent::Impl::Perl;       # (try to) ensure pure-perl loop is used
-use AnyEvent;
+# use AnyEvent::Impl::Perl;       # (try to) ensure pure-perl loop is used
+# use AnyEvent;
 
-use Test::More;
+use Test::More skip_all => 'AnyEvent not installed on deskpro';
 use Try::Tiny;
 use POSIX ":sys_wait_h";
 
