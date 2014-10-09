@@ -1,7 +1,6 @@
 package ConnHandler;
 use strict;
 use warnings;
-use Tk;
 
 =head1 NAME
 

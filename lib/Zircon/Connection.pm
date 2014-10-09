@@ -293,6 +293,11 @@ sub state {
     return $self->{'state'};
 }
 
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+}
+
 1;
 
 =head1 NAME - Zircon::Connection
@@ -317,7 +322,7 @@ An opaque object that provides an interface to the transport layer
 and the application's event loop.
 
 Perl/Tk applications create this object by calling
-C<Zircon::TkZMQ::Context-E<gt>new()>.
+C<Zircon::Context::ZMQ::Tk-E<gt>new()>.
 
 =item C<$handler> (mandatory)
 

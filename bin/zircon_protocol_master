@@ -5,43 +5,28 @@ use warnings;
 use feature qw( switch );
 
 use Getopt::Long;
+use POSIX;
 use Try::Tiny;
 use Tk;
 use Zircon::Protocol;
 use Zircon::Context::ZMQ::Tk;
 
-# parse the command line
-my $app_tag;
-my $remote_endpoint;
-my $serialiser;
-GetOptions(
-    'app_tag=s'         => \$app_tag,
-    'remote_endpoint=s' => \$remote_endpoint,
-    'serialiser=s'      => \$serialiser,
-    ) or die 'command line error';
-my $is_child =
-    defined $remote_endpoint
-    && $remote_endpoint ne '';
-
-my $app_id =
-    sprintf 'Zircon Protocol (%s)'
-    , $is_child ? 'child' : 'parent';
+my $app_id = 'Zircon Protocol (Master)';
 
 # create the main window
 my $main_window = Tk::MainWindow->new;
 $main_window->title($app_id);
 
 # create the Zircon connection
-my $server = Server->new;
 my $context = Zircon::Context::ZMQ::Tk->new(
     '-widget' => $main_window);
-my $protocol = Zircon::Protocol->new(
+
+my $server = ServerApp->new(
     '-app_id'       => $app_id,
-    '-app_tag'      => $app_tag,
     '-context'      => $context,
-    '-serialiser'   => $serialiser,
-    '-server'       => $server,
     );
+
+my $protocol = $server->protocol;
 
 # create the GUI
 
@@ -91,7 +76,7 @@ sub goodbye {
     wrap(
         sub {
             $protocol->send_goodbye_exit(
-                sub { CORE::exit; }); # because Perl/Tk overrides exit()
+                sub { POSIX::_exit(0); }); # to avoid triggering DESTROY on ServerApp which will send shutdown.
         });
     return;
 }
@@ -120,29 +105,7 @@ $main_window
     '-relief'       => 'sunken')
     ->pack('-fill' => 'both');
 
-# parent forks child, child sends handshake back to parent
-if ($is_child) {
-    $zircon_message = '';
-    $protocol->send_handshake(
-        $remote_endpoint,
-        sub {
-            my ($result) = @_;
-            $zircon_message =
-                sprintf 'Client: handshake: %s'
-                , _message($result);
-        });
-}
-else {
-    my $endpoint = $protocol->connection->local_endpoint;
-    my $pid = fork;
-    defined $pid
-        or die 'fork() failed';
-    unless ($pid) {
-        # child, so exec()
-        exec $0, @ARGV, '-remote_endpoint' => $endpoint;
-        die 'exec() failed';
-    }
-}
+$server->launch_app;
 
 MainLoop();
 
@@ -164,15 +127,24 @@ sub _message {
     return 'unknown result';
 }
 
-package Server;
+package ServerApp;
 
-use base qw( Zircon::Protocol::Server );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_PM_TRACE';
+
+use base qw(
+   Zircon::Protocol::Server::AppLauncher
+);
 
 sub new {
-    my ($pkg) = @_;
-    my $new = { };
-    bless $new, $pkg;
-    return $new;
+    my ($pkg, %arg_hash) = @_;
+    return $pkg->SUPER::new(
+        -program         => 'zircon_protocol_test',
+        -peer_socket_opt => '--remote_endpoint',
+        -app_tag         => 'zpm',
+        -serialiser      => 'JSON',
+        -arg_list        => [ '--app_tag=zpm', '--serialiser=JSON' ],
+        %arg_hash,
+        );
 }
 
 sub zircon_server_log {
@@ -182,6 +154,7 @@ sub zircon_server_log {
     warn "$zircon_message\n";
     return;
 }
+
 
 =head1 AUTHOR
 

@@ -5,18 +5,24 @@ use strict;
 use warnings;
 
 use feature qw( switch );
+use Carp;
 use Scalar::Util qw( weaken );
+
+use Module::Runtime qw( require_module );
 
 use Zircon::Connection;
 use Zircon::Protocol::Result::Reply;
 use Zircon::Protocol::Result::Timeout;
+use Zircon::Protocol::Serialiser::XML;
 
 use base qw(
-    Zircon::Protocol::XML
     Zircon::Connection::Handler
     Zircon::Trace
     );
 our $ZIRCON_TRACE_KEY = 'ZIRCON_PROTOCOL_TRACE';
+
+use Readonly;
+Readonly my $DEFAULT_SERIALISER => 'XML';
 
 sub new {
     my ($pkg, %arg_hash) = @_;
@@ -30,7 +36,6 @@ sub _init {
     my ($self, $arg_hash) = @_;
 
     $self->{'is_open'} = 1;
-    $self->{'request_id'} = 1;
 
     for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
@@ -56,6 +61,17 @@ sub _init {
     my $connection = Zircon::Connection->new(%connection_args);
     $self->{'connection'} = $connection;
 
+    my $serialiser_class = $arg_hash->{-serialiser} // $DEFAULT_SERIALISER;
+    $serialiser_class =~/::/ or $serialiser_class = 'Zircon::Protocol::Serialiser::' . $serialiser_class;
+    require_module($serialiser_class);
+
+    my $serialiser = $serialiser_class->new(
+        -app_id     => $self->app_id,
+        -app_tag    => $arg_hash->{-app_tag},
+        -connection => $self->connection,
+        );
+    $self->serialiser($serialiser);
+
     $self->zircon_trace('Initialised local (endpoint %s)', $connection->local_endpoint);
 
     return;
@@ -73,9 +89,8 @@ sub send_handshake {
         my ($result) = @_;
         if ($result->success) {
             my ($msg, $data, @more) = @{ $result->reply };
-            die "need two handshake reply elements" unless $data && !@more;
-            die "handshake reply data should contain one node"
-              unless 3 == @$data && 1 == @{ $data->[2] };
+            $data       and not @more            or die "need two handshake reply elements";
+            3 == @$data and 1 == @{ $data->[2] } or die "handshake reply data should contain one node";
             my $socket_id = $self->_gotele_peer(@{ $data->[2] });
             $self->zircon_trace('Handshake reply from remote (endpoint %s)', $socket_id);
         }
@@ -149,21 +164,21 @@ sub send_command {
     my ($self, $command, $view, $request, $callback) = @_;
     $self->is_open or die "the connection is closed\n";
     $self->callback($callback);
-    $self->zircon_trace('send %s #%d', $command, $self->{'request_id'});
-    my $request_xml = $self->request_xml($command, $view, $request);
-    $self->connection->send($request_xml);
+    $self->zircon_trace('send %s #%d', $command, $self->serialiser->request_id);
+    my $serialised = $self->serialiser->serialise_request($command, $view, $request);
+    $self->connection->send($serialised);
     return;
 }
 
 # connection handlers
 
 sub zircon_connection_request {
-    my ($self, $request_xml) = @_;
+    my ($self, $raw_request) = @_;
     my ($request_id, $app_id, $command, $view, $request) =
-        @{$self->request_xml_parse($request_xml)};
+        @{$self->serialiser->parse_request($raw_request)};
     my $reply = $self->_request($command, $view, $request, $app_id);
-    my $reply_xml = $self->reply_xml($request_id, $command, $reply);
-    return $reply_xml;
+    my $serialised = $self->serialiser->serialise_reply($request_id, $command, $reply);
+    return $serialised;
 }
 
 sub _request {
@@ -200,7 +215,10 @@ sub _request {
 
         when ('shutdown') {
 
-            $self->connection->after(sub { CORE::exit; });
+            $self->connection->after(sub {
+                $self->zircon_trace('shutdown: exiting');
+                CORE::exit;
+                                     });
             $self->server->zircon_server_shutdown;
             my $message = "shutting down now!";
 
@@ -228,12 +246,12 @@ sub _request {
 }
 
 sub zircon_connection_reply {
-    my ($self, $reply_xml) = @_;
+    my ($self, $raw_reply) = @_;
     if (my $callback = $self->callback) {
         my ($request_id,
             $command, $return_code, $reason,
             $view, $reply,
-            ) = @{$self->reply_xml_parse($reply_xml)};
+            ) = @{$self->serialiser->parse_reply($raw_reply)};
         my $success =
             defined $return_code
             && $return_code eq 'ok';
@@ -247,7 +265,7 @@ sub zircon_connection_reply {
         $self->callback(undef);
     }
     else {
-        $self->zircon_trace('Reply, no callback.  reply=>>>\n%s\n<<<', $reply_xml);
+        $self->zircon_trace("Reply, no callback.  reply=>>>\n%s\n<<<", $raw_reply);
     }
     return;
 }
@@ -329,12 +347,25 @@ sub callback {
     return $self->{'callback'};
 }
 
+sub serialiser {
+    my ($self, @args) = @_;
+    ($self->{'serialiser'}) = @args if @args;
+    my $serialiser = $self->{'serialiser'};
+    return $serialiser;
+}
+
 
 # tracing
 
 sub zircon_trace_prefix {
     my ($self) = @_;
     return sprintf("Z:Protocol: app_id=%s", $self->app_id);
+}
+
+sub DESTROY {
+    my ($self) = @_;
+    $self->zircon_trace;
+    return;
 }
 
 1;
