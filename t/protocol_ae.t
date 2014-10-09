@@ -4,6 +4,7 @@ use warnings;
 
 use AnyEvent::Impl::Perl;       # (try to) ensure pure-perl loop is used
 use AnyEvent;
+use AnyEvent::Strict;           # for testing, and because it avoids an undiagnosed hang on exit :(
 
 use Test::More;
 use Try::Tiny;
