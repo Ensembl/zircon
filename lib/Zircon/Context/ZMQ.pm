@@ -82,6 +82,7 @@ sub close {
     $self->zircon_trace;
     $self->_request_callback(undef);
     $self->_after_request_callback(undef);
+    $self->disconnect_recv_callback;
     return;
 }
 

@@ -19,6 +19,14 @@ sub _init {
     return $self->SUPER::_init($args);
 }
 
+sub close {
+    my ($self) = @_;
+    $self->zircon_trace;
+    $self->SUPER::close;
+    delete $self->{'widget'};
+    return;
+}
+
 # timeouts
 
 sub timeout {
@@ -59,7 +67,11 @@ sub connect_recv_callback {
 
 sub disconnect_recv_callback {
     my ($self) = @_;
-    $self->widget->fileevent(
+
+    my $w = $self->widget;
+    return unless Tk::Exists($w);
+
+    $w->fileevent(
         $self->recv_fh,
         'readable',
         '',
