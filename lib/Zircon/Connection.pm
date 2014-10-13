@@ -130,8 +130,9 @@ sub _fire_after {
     my ($self) = @_;
     if (my $after = $self->after) {
         $self->zircon_trace;
-        $self->after->();
-        $self->after(undef);
+        my $callback = $self->after;
+        $self->after(undef); # in case it's holding on to a circular reference
+        $callback->();
     }
     return;
 }
