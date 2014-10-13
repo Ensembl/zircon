@@ -311,6 +311,9 @@ sub message_command_failed {
 
 sub close {
     my ($self) = @_;
+    $self->zircon_trace;
+    $self->callback(undef);
+    delete $self->{'connection'};
     $self->{'is_open'} = 0;
     return;
 }
@@ -365,6 +368,7 @@ sub zircon_trace_prefix {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace('%s', $self);
+    $self->close if $self->is_open;
     return;
 }
 
