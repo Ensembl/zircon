@@ -7,6 +7,9 @@ use warnings;
 use Try::Tiny;
 use Scalar::Util qw( weaken );
 
+use base qw( Zircon::Trace );
+our $ZIRCON_TRACE_KEY = 'ZIRCON_ZMAP_TRACE';
+
 sub new {
     my ($pkg, %arg_hash) = @_;
     my $new = { };
@@ -103,6 +106,7 @@ sub name {
 
 sub DESTROY {
     my ($self) = @_;
+    $self->zircon_trace('%s', $self);
     try { $self->zmap->view_destroyed($self); }
     catch { warn $_; };
     return;

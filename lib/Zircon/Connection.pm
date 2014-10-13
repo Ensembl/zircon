@@ -296,7 +296,8 @@ sub state {
 
 sub DESTROY {
     my ($self) = @_;
-    $self->zircon_trace;
+    $self->zircon_trace('%s', $self);
+    return;
 }
 
 1;

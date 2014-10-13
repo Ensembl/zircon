@@ -274,6 +274,7 @@ sub DESTROY {
     }
     $self->{'_destroyed_already'} = 1;
 
+    $self->zircon_trace('%s', $self);
     return unless $self->is_running;
 
     my $wait = 0;

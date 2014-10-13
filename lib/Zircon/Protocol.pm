@@ -364,7 +364,7 @@ sub zircon_trace_prefix {
 
 sub DESTROY {
     my ($self) = @_;
-    $self->zircon_trace;
+    $self->zircon_trace('%s', $self);
     return;
 }
 
