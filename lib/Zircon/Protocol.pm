@@ -313,6 +313,7 @@ sub close {
     my ($self) = @_;
     $self->zircon_trace;
     $self->callback(undef);
+    $self->connection->close if $self->connection;
     delete $self->{'connection'};
     $self->{'is_open'} = 0;
     return;

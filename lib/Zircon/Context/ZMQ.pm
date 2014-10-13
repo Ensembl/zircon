@@ -77,6 +77,14 @@ sub transport_init {
     return;
 }
 
+sub close {
+    my ($self) = @_;
+    $self->zircon_trace;
+    $self->_request_callback(undef);
+    $self->_after_request_callback(undef);
+    return;
+}
+
 sub _send_msg {
     my ($self, $msg, $socket, $flags) = @_;
 
@@ -628,6 +636,7 @@ sub disconnect {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace('%s', $self);
+    $self->close;
     $self->disconnect;
     return;
 }

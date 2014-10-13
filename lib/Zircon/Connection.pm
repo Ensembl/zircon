@@ -80,6 +80,14 @@ sub init {
     return;
 }
 
+sub close {
+    my ($self) = @_;
+    $self->zircon_trace;
+    $self->context->close if ($self->context);
+    delete $self->{'context'};
+    return;
+}
+
 # client
 
 sub send {
@@ -297,6 +305,7 @@ sub state {
 sub DESTROY {
     my ($self) = @_;
     $self->zircon_trace('%s', $self);
+    $self->close if $self->context;
     return;
 }
 
