@@ -228,7 +228,8 @@ sub _request {
         when ('goodbye') {
 
             $self->server->zircon_server_goodbye;
-            $self->close;
+            $self->{'is_open'} = 0;                            # mark us closed
+            $self->connection->after( sub { $self->close; } ); # schedule teardown
             my $message = "goodbye received, goodbye";
 
             return $self->message_ok($message);
