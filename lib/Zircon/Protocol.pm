@@ -217,6 +217,7 @@ sub _request {
 
             $self->connection->after(sub {
                 $self->zircon_trace('shutdown: exiting');
+                $self->close;
                 CORE::exit;
                                      });
             $self->server->zircon_server_shutdown;

@@ -61,6 +61,7 @@ Reads from STDIN, writes to STDOUT.\n" unless 2 == @ARGV;
     warn "Entering MainLoop (pid=$$).\n";
     MainLoop();
     warn "MainLoop finished (pid=$$).\n";
+    $connection->close;
     return 0;
 }
 

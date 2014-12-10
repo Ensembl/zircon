@@ -14,6 +14,8 @@ use Time::HiRes qw( gettimeofday );
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE ZMQ_LINGER EFSM);
 
+use Zircon::Context::ZMQ::Ctx;
+
 use base 'Zircon::Trace';
 our $ZIRCON_TRACE_KEY = 'ZIRCON_CONTEXT_TRACE';
 
@@ -50,11 +52,9 @@ sub transport_init {
     $self->_request_callback($request_callback);
     $self->_after_request_callback($after_callback);
 
-    my $_zmq_context = zmq_ctx_new;
-    $_zmq_context or die "zmq_ctx_new failed: $!";
-    $self->_zmq_context($_zmq_context);
+    $self->_zmq_context(Zircon::Context::ZMQ::Ctx->new); # get a singleton zmq_ctx
 
-    my $responder = zmq_socket($_zmq_context, ZMQ_REP);
+    my $responder = zmq_socket($self->_zmq_context, ZMQ_REP);
     $responder or die "failed to get ZMQ_REP socket: $!";
 
     my $local_endpoint = $self->local_endpoint;
@@ -525,7 +525,7 @@ sub _zmq_context {
     my ($self, @args) = @_;
     ($self->{'_zmq_context'}) = @args if @args;
     my $_zmq_context = $self->{'_zmq_context'};
-    return $_zmq_context;
+    return $_zmq_context ? $_zmq_context->ctx : undef;
 }
 
 sub _zmq_responder {
@@ -624,11 +624,7 @@ sub disconnect {
         zmq_close($responder);
         $self->zircon_trace('...closed');
     }
-    if (my $ctx = $self->_zmq_context) {
-        $self->zircon_trace('context...');
-        zmq_ctx_destroy($ctx);
-        $self->zircon_trace('...destroyed');
-    }
+    $self->_zmq_context(undef);
 
     $self->zircon_trace('disconnected');
     return;
