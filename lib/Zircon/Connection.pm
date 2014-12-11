@@ -105,6 +105,7 @@ sub send {
 
     my $reply;
     my ($rv, $collision) = $self->context->send($request, \$reply, $request_id);
+    $self->my_request_id(++$request_id); # it either worked or failed hard (maybe timed out after retries)
 
     my $collision_result = 'clear';
     if ($collision) {
@@ -118,7 +119,6 @@ sub send {
     if ($rv >= 0) {
         $self->zircon_trace("client got reply '%s'", $reply);
         $self->handler->zircon_connection_reply($reply, $collision_result);
-        $self->my_request_id(++$request_id);
     } else {
         $self->zircon_trace('client timed out after retrying');
         $self->timeout_callback;
