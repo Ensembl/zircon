@@ -7,6 +7,7 @@ our @EXPORT_OK = qw( do_subtests have_display init_zircon_conn mkwidg endpoint_p
 
 use Test::More;
 use Try::Tiny;
+use Net::EmptyPort qw( check_port empty_port );
 
 use ConnHandler;
 
@@ -80,13 +81,24 @@ sub mkwidg {
     return $M;
 }
 
-{
-    my $_port = 55667; # FIXME: dangerous to choose fixed ports
-
-    sub endpoint_pair {
-        my $base = 'tcp://127.0.0.1:';
-        return ( $base . $_port++, $base . $_port++ );
+sub endpoint_pair {
+    my $p1 = empty_port();
+    unless ($p1) {
+        fail("Couldn't find empty first port");
+        return;
     }
+    my $p2 = $p1;
+    while (++$p2) {
+        if ($p2 > 65000) {
+            fail("Couldn't find empty second port");
+            return;
+        }
+        last unless check_port($p2);
+    }
+    note("Ports: $p1, $p2");
+
+    my $base = 'tcp://127.0.0.1:';
+    return ( $base . $p1, $base . $p2 );
 }
 
 {
