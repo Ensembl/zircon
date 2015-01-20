@@ -4,6 +4,7 @@ package Zircon::Protocol::Serialiser::XML;
 use strict;
 use warnings;
 
+no if $] >= 5.018, warnings => "experimental::smartmatch";
 use feature qw( switch );
 
 use parent 'Zircon::Protocol::Serialiser';

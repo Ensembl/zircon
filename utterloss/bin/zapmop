@@ -3,7 +3,9 @@
 use strict;
 use warnings;
 
+no if $] >= 5.018, warnings => "experimental::smartmatch";
 use feature qw( switch );
+
 use Getopt::Long;
 use Tk;
 use Zircon::Protocol;
