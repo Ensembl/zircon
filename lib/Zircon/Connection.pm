@@ -3,7 +3,6 @@ package Zircon::Connection;
 
 use strict;
 use warnings;
-use feature qw( switch );
 
 use Carp;
 use Scalar::Util qw( weaken );

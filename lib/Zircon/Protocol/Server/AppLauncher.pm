@@ -6,8 +6,6 @@ package Zircon::Protocol::Server::AppLauncher;
 use strict;
 use warnings;
 
-use feature qw( switch );
-
 use Scalar::Util qw( refaddr );
 use Try::Tiny;
 
