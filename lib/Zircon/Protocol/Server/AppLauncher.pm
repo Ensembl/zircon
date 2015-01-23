@@ -7,6 +7,7 @@ use strict;
 use warnings;
 
 use Scalar::Util qw( refaddr );
+use Time::HiRes qw( usleep );
 use Try::Tiny;
 
 use Module::Runtime qw( require_module );
@@ -14,9 +15,10 @@ use Module::Runtime qw( require_module );
 use Zircon::Protocol;
 
 use Readonly;
-Readonly my $DEFAULT_APP_CLASS              => 'Zircon::App';
-Readonly my $DEFAULT_HANDSHAKE_TIMEOUT_SECS => 5;
-Readonly my $DEFAULT_PEER_SOCKET_OPT        => '--peer-socket';
+Readonly my $DEFAULT_APP_CLASS                  => 'Zircon::App';
+Readonly my $DEFAULT_HANDSHAKE_TIMEOUT_SECS     => 5;
+Readonly my $DEFAULT_POST_HANDSHAKE_DELAY_MSECS => 0;
+Readonly my $DEFAULT_PEER_SOCKET_OPT            => '--peer-socket';
 
 use parent qw(
     Zircon::Protocol::Server
@@ -38,15 +40,16 @@ sub new {
 sub _init {
     my ($self, $arg_hash) = @_;
 
-    foreach my $k (qw( app_class context handshake_timeout_secs peer_socket_opt )) {
+    foreach my $k (qw( app_class context handshake_timeout_secs post_handshake_delay_msecs peer_socket_opt )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     unless ($self->app_class) {
         $self->app_class($DEFAULT_APP_CLASS);
         $self->zircon_trace("using default app class '%s'", $self->app_class);
     }
-    $self->handshake_timeout_secs($DEFAULT_HANDSHAKE_TIMEOUT_SECS) unless $self->handshake_timeout_secs;
-    $self->peer_socket_opt(       $DEFAULT_PEER_SOCKET_OPT)        unless $self->peer_socket_opt;
+    $self->handshake_timeout_secs(    $DEFAULT_HANDSHAKE_TIMEOUT_SECS    ) unless $self->handshake_timeout_secs;
+    $self->post_handshake_delay_msecs($DEFAULT_POST_HANDSHAKE_DELAY_MSECS) unless $self->post_handshake_delay_msecs;
+    $self->peer_socket_opt(           $DEFAULT_PEER_SOCKET_OPT           ) unless $self->peer_socket_opt;
 
     $self->{'_protocol'} = $self->_new_protocol($arg_hash);
 
@@ -91,6 +94,13 @@ sub launch_app {
         # wait() happens in event loop
     }
 
+    # Give remote a chance to receive our handshake reply before we do anything else
+    my $delay_msecs = $self->post_handshake_delay_msecs;
+    if ($delay_msecs) {
+        usleep( $delay_msecs * 1000 );
+    }
+
+    $self->zircon_trace('launch_app succeeded');
     return;
 }
 
@@ -243,6 +253,13 @@ sub handshake_timeout_secs {
     ($self->{'_handshake_timeout_secs'}) = @args if @args;
     my $handshake_timeout_secs = $self->{'_handshake_timeout_secs'};
     return $handshake_timeout_secs;
+}
+
+sub post_handshake_delay_msecs {
+    my ($self, @args) = @_;
+    ($self->{'_post_handshake_delay_msecs'}) = @args if @args;
+    my $post_handshake_delay_msecs = $self->{'_post_handshake_delay_msecs'};
+    return $post_handshake_delay_msecs;
 }
 
 sub peer_socket_opt {
