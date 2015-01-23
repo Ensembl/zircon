@@ -74,7 +74,6 @@ use warnings;
 
 use Errno qw(EAGAIN);
 use Try::Tiny;
-use Time::HiRes qw( usleep );
 
 
 sub new {
