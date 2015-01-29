@@ -23,7 +23,6 @@ sub new {
 
 sub _init {
     my ($self, $arg_hash) = @_;
-    $self->request_id(1);
     $self->_app_id(    $arg_hash->{'-app_id'}    ) or croak "missing -app_id parameter";
     $self->_connection($arg_hash->{'-connection'}) or croak "missing -connection parameter";
     $self->_app_tag(   $arg_hash->{'-app_tag'} // $ZIRCON_DEFAULT_APP_TAG );
@@ -31,13 +30,6 @@ sub _init {
 }
 
 # attributes
-
-sub request_id {
-    my ($self, @args) = @_;
-    ($self->{'request_id'}) = @args if @args;
-    my $request_id = $self->{'request_id'};
-    return $request_id;
-}
 
 sub _app_id {
     my ($self, @args) = @_;
@@ -66,7 +58,7 @@ sub _app_tag {
 # creation
 
 sub serialise_request {
-    my ($self, $command, $view_id, $request) = @_;
+    my ($self, $command, $view_id, $request, $headers) = @_;
     my $request_body =
         ref $request ? $self->serialise_element(@{$request}) : $request;
     my $request_element = $self->serialise_element(
@@ -76,16 +68,14 @@ sub serialise_request {
         }, $request_body);
     my $app_id = $self->_app_id;
     my $socket_id = $self->_connection->remote_endpoint;
-    my $request_id = $self->request_id;
-    $self->request_id($request_id + 1);
     my $protocol_element = $self->serialise_element(
         $self->_app_tag, {
+            %{ $headers // {} },
             'version'      => $ZIRCON_PROTOCOL_VERSION,
             'type'         => 'request',
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,
-            'request_id'   => $request_id,
-            $self->_timestamp,
+            $self->_timestamp($headers),
         }, $request_element);
     return $self->finalise_element($protocol_element);
 }
@@ -131,11 +121,14 @@ sub finalise_element {
 }
 
 sub _timestamp {
-    my ($self) = @_;
+    my ($self, $headers) = @_;
     return if $self->inhibit_timestamps;
 
-    my $timestamp = Zircon::Timestamp->timestamp;
-    my ($sec, $usec) = @$timestamp{qw( clock_sec clock_usec )};
+    unless (exists $headers->{clock_sec} and exists $headers->{clock_usec}) {
+        $headers = Zircon::Timestamp->timestamp;
+    }
+
+    my ($sec, $usec) = @$headers{qw( clock_sec clock_usec )};
     return ('request_time' => "$sec,$usec");
 }
 

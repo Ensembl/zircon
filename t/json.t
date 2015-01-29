@@ -20,17 +20,17 @@ sub request_tt {
     my $P = MockProtoJSON->new(-app_tag => 'zircon_test');
 
     eq_or_diff
-      ($P->serialise_request(vanish => 'view4'),
+      ($P->serialise_request(vanish => 'view4' => undef, { request_id => 0 }),
        _make_expected_request(0, 'vanish', 'view4', undef),
        'request, empty');
 
     eq_or_diff
-      ($P->serialise_request(smudge => view5 => 'with finger'),
+      ($P->serialise_request(smudge => view5 => 'with finger', { request_id => 1 }),
        _make_expected_request(1, 'smudge', 'view5', '"with finger"'),
        'request, flat');
 
     eq_or_diff
-      ($P->serialise_request(prod => view6 => [ finger => { side => 'left' } ]),
+      ($P->serialise_request(prod => view6 => [ finger => { side => 'left' } ], { request_id => 2}),
        _make_expected_request(2, 'prod', 'view6', <<'__EO_REQ__'),
 {
                "finger" : {
@@ -42,7 +42,7 @@ __EO_REQ__
 
     eq_or_diff
       ($P->serialise_request(prod => view7 => [ finger => { side => 'left' },
-                                          [ speed => {}, 'quick' ] ]),
+                                                [ speed => {}, 'quick' ] ],   { request_id => 3}),
        _make_expected_request(3, 'prod', 'view7', <<'__EO_REQ__'),
 {
                "finger" : {
@@ -241,10 +241,10 @@ sub parse_tt {
     my $req = [ finger => { side => 'left' },
                 undef # optional, but made explicit during parsing
               ];
-    my $json = $P->serialise_request(prod => view6 => $req);
+    my $json = $P->serialise_request(prod => view6 => $req, { request_id => 6 });
 
     eq_or_diff($Q->parse_request($json),
-               [ 0, 'Bob', 'prod', 'view6', [ $req ] ],
+               [ 6, 'Bob', 'prod', 'view6', [ $req ] ],
                'command: prod');
 
     # Is it important that whitespace is stripped, when it was

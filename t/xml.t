@@ -21,13 +21,13 @@ sub request_tt {
     my $P = MockProtoXML->new;
 
     eq_or_diff
-      ($P->serialise_request(vanish => 'view4'),
+      ($P->serialise_request(vanish => 'view4' => undef, { request_id => 0 }),
        q{<zmap app_id="Bob" request_id="0" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="vanish" view_id="view4" />
 </zmap>}, 'request, empty');
 
     eq_or_diff
-      ($P->serialise_request(smudge => view5 => 'with finger'),
+      ($P->serialise_request(smudge => view5 => 'with finger', { request_id => 1 }),
        q{<zmap app_id="Bob" request_id="1" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="smudge" view_id="view5">
 with finger
@@ -35,7 +35,7 @@ with finger
 </zmap>}, 'request, flat');
 
     eq_or_diff
-      ($P->serialise_request(prod => view6 => [ finger => { side => 'left' } ]),
+      ($P->serialise_request(prod => view6 => [ finger => { side => 'left' } ], { request_id => 2}),
        q{<zmap app_id="Bob" request_id="2" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view6">
 <finger side="left" />
@@ -44,7 +44,7 @@ with finger
 
     eq_or_diff
       ($P->serialise_request(prod => view7 => [ finger => { side => 'left' },
-                                          [ speed => {}, 'quick' ] ]),
+                                                [ speed => {}, 'quick' ] ],   { request_id => 3}),
        q{<zmap app_id="Bob" request_id="3" socket_id="endpoint_remote" type="request" version="3.0">
 <request command="prod" view_id="view7">
 <finger side="left">
@@ -156,10 +156,10 @@ sub parse_tt {
     my $req = [ finger => { side => 'left' },
                 undef # optional, but made explicit during parsing
               ];
-    my $xml = $P->serialise_request(prod => view6 => $req);
+    my $xml = $P->serialise_request(prod => view6 => $req, { request_id => 6 });
 
     eq_or_diff($Q->parse_request($xml),
-               [ '0', 'Bob', 'prod', 'view6', [ $req ] ],
+               [ '6', 'Bob', 'prod', 'view6', [ $req ] ],
                'command: prod');
 
 

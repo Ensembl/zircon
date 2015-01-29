@@ -38,6 +38,7 @@ sub _init {
     my ($self, $arg_hash) = @_;
 
     $self->{'is_open'} = 1;
+    $self->request_id(1);
 
     for (qw( app_id context server )) {
         my $attribute = $arg_hash->{"-$_"};
@@ -164,11 +165,22 @@ sub send_goodbye_exit {
 
 sub send_command {
     my ($self, $command, $view, $request, $callback) = @_;
+
     $self->is_open or die "the connection is closed\n";
     $self->callback($callback);
-    $self->zircon_trace('send %s #%d', $command, $self->serialiser->request_id);
-    my $serialised = $self->serialiser->serialise_request($command, $view, $request);
-    $self->connection->send($serialised);
+
+    my $request_id = $self->request_id;
+    my $headers = {
+        %{Zircon::Timestamp->timestamp()},
+        request_id => $request_id,
+    };
+
+    $self->zircon_trace('send %s #%d', $command, $request_id);
+    my $serialised = $self->serialiser->serialise_request($command, $view, $request, $headers);
+    $self->connection->send($serialised, $headers);
+
+    $self->request_id($request_id + 1);
+
     return;
 }
 
@@ -360,6 +372,13 @@ sub serialiser {
     ($self->{'serialiser'}) = @args if @args;
     my $serialiser = $self->{'serialiser'};
     return $serialiser;
+}
+
+sub request_id {
+    my ($self, @args) = @_;
+    ($self->{'request_id'}) = @args if @args;
+    my $request_id = $self->{'request_id'};
+    return $request_id;
 }
 
 
