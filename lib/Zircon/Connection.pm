@@ -90,21 +90,21 @@ sub close {
 # client
 
 sub send {
-    my ($self, $request, $request_id) = @_;
+    my ($self, $request, $header) = @_;
 
-    if ($request_id) {
+    if (my $request_id = $header->{request_id}) {
         $request_id >= $self->my_request_id
             or die sprintf('request_id [%d] out of sync, exp [%d]', $request_id, $self->my_request_id);
         $self->my_request_id($request_id);
     } else {
-        $request_id = $self->my_request_id;
+        $header->{request_id} = $self->my_request_id;
     }
 
     $self->zircon_trace("start");
 
     my $reply;
-    my ($rv, $collision) = $self->context->send($request, \$reply, $request_id);
-    $self->my_request_id(++$request_id); # it either worked or failed hard (maybe timed out after retries)
+    my ($rv, $collision) = $self->context->send($request, \$reply, $header);
+    $self->my_request_id(++$header->{request_id}); # it either worked or failed hard (maybe timed out after retries)
 
     my $collision_result = 'clear';
     if ($collision) {

@@ -259,7 +259,7 @@ sub _process_server_request {
 sub platform { return 'ZMQ'; }
 
 sub _collision_handler {
-    my ($self, $my_sec, $my_usec) = @_;
+    my ($self, $our_header) = @_;
 
     $self->zircon_trace("collision detected!");
 
@@ -269,10 +269,10 @@ sub _collision_handler {
         return;
     }
 
-    my $h = $self->_parse_request_header;
-    my $cmp = ($my_sec               <=> $h->{clock_sec}
+    my $their_header = $self->_parse_request_header;
+    my $cmp = ($our_header->{clock_sec}  <=> $their_header->{clock_sec}
                ||
-               $my_usec              <=> $h->{clock_usec}
+               $our_header->{clock_usec} <=> $their_header->{clock_usec}
                ||
                $self->local_endpoint cmp $self->remote_endpoint);
     if ($cmp < 0) {
@@ -286,15 +286,15 @@ sub _collision_handler {
 }
 
 sub send {
-    my ($self, $request, $reply_ref, $request_id) = @_;
+    my ($self, $request, $reply_ref, $conn_header) = @_;
 
     my $error = 'unset';
     my $zerr;
 
     my ($sec, $usec) = gettimeofday;
     my $header = {
+        %$conn_header,
         msg_type   => 'REQUEST',
-        request_id => $request_id,
         clock_sec  => $sec,
         clock_usec => $usec,
     };
@@ -327,8 +327,8 @@ sub send {
             socket  => $requester,
             events  => ZMQ_POLLIN,
             callback => sub {
-                my ($header, $error);
-                ($header, $reply_msg, $error) = $self->_get_two_part($requester);
+                my ($reply_header, $error);
+                ($reply_header, $reply_msg, $error) = $self->_get_two_part($requester);
                 warn "Zircon::Context::ZMQ::send: zmq_recvmsg failed: $error" if $error;
                 return;
             },
@@ -336,7 +336,7 @@ sub send {
         my %server_request_pollitem = (
             socket  => $responder,
             events  => ZMQ_POLLIN,
-            callback => sub { return $self->_collision_handler($sec, $usec); },
+            callback => sub { return $self->_collision_handler($header); },
             );
 
         $self->zircon_trace('waiting for reply');
