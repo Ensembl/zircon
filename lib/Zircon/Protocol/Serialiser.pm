@@ -6,7 +6,8 @@ use warnings;
 
 use Carp;
 use Scalar::Util qw( weaken );
-use Time::HiRes  qw( gettimeofday );
+
+use Zircon::Timestamp;
 
 use Readonly;
 Readonly my $ZIRCON_PROTOCOL_VERSION => '3.0';
@@ -133,7 +134,8 @@ sub _timestamp {
     my ($self) = @_;
     return if $self->inhibit_timestamps;
 
-    my ($sec, $usec) = gettimeofday;
+    my $timestamp = Zircon::Timestamp->timestamp;
+    my ($sec, $usec) = @$timestamp{qw( clock_sec clock_usec )};
     return ('request_time' => "$sec,$usec");
 }
 

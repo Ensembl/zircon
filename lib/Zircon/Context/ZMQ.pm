@@ -9,11 +9,11 @@ use feature 'state';
 use Carp qw( croak );
 use Errno qw( EAGAIN ENODATA );
 use Readonly;
-use Time::HiRes qw( gettimeofday );
 
 use ZMQ::LibZMQ3;
 use ZMQ::Constants qw(ZMQ_REP ZMQ_REQ ZMQ_LAST_ENDPOINT ZMQ_POLLIN ZMQ_FD ZMQ_DONTWAIT ZMQ_SNDMORE ZMQ_LINGER EFSM);
 
+use Zircon::Timestamp;
 use Zircon::Context::ZMQ::Ctx;
 
 use base 'Zircon::Trace';
@@ -238,13 +238,12 @@ sub _process_server_request {
     my $reply = $self->_request_callback->($self->_request_body, $request_header, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
-    my ($sec, $usec) = gettimeofday;
+    my $timestamp = Zircon::Timestamp->timestamp;
     my $reply_header = {
         msg_type        => 'REPLY',
         request_id      => $request_header->{request_id},
         request_attempt => $request_header->{request_attempt},
-        clock_sec       => $sec,
-        clock_usec      => $usec,
+        %$timestamp,
     };
 
     if (my $e = $self->_send_two_part($self->_zmq_responder, $reply_header, $reply // '')) {
@@ -291,12 +290,15 @@ sub send {
     my $error = 'unset';
     my $zerr;
 
-    my ($sec, $usec) = gettimeofday;
+    my $timestamp = {};
+    unless (exists $conn_header->{clock_sec} and exists $conn_header->{clock_usec}) {
+        $timestamp = Zircon::Timestamp->timestamp;
+    }
+
     my $header = {
         %$conn_header,
+        %$timestamp,
         msg_type   => 'REQUEST',
-        clock_sec  => $sec,
-        clock_usec => $usec,
     };
 
     my $responder = $self->_zmq_responder;
