@@ -134,7 +134,7 @@ sub _timestamp {
     return if $self->inhibit_timestamps;
 
     my ($sec, $usec) = gettimeofday;
-    return ('request_time' => "$sec.$usec");
+    return ('request_time' => "$sec,$usec");
 }
 
 # Override in child class to turn off timestamps (in xml.t, for example).
