@@ -188,11 +188,16 @@ sub send_command {
 
 sub zircon_connection_request {
     my ($self, $raw_request) = @_;
+
     my ($request_id, $app_id, $command, $view, $request) =
         @{$self->serialiser->parse_request($raw_request)};
+
     my $reply = $self->_request($command, $view, $request, $app_id);
-    my $serialised = $self->serialiser->serialise_reply($request_id, $command, $reply);
-    return $serialised;
+
+    my $timestamp = Zircon::Timestamp->timestamp;
+    my $serialised = $self->serialiser->serialise_reply($request_id, $command, $reply, $timestamp);
+
+    return ($serialised, $timestamp);
 }
 
 sub _request {

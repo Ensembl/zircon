@@ -235,10 +235,16 @@ sub _process_server_request {
 
     my $request_header = $self->_parse_request_header;
 
-    my $reply = $self->_request_callback->($self->_request_body, $request_header, $collision_result);
+    my ($reply, $headers) = $self->_request_callback->($self->_request_body, $request_header, $collision_result);
     $self->zircon_trace("reply:   '%s'", $reply // '<undef>');
 
-    my $timestamp = Zircon::Timestamp->timestamp;
+    my $timestamp = {};
+    if (exists $headers->{clock_sec} and exists $headers->{clock_usec}) {
+        map { $timestamp->{$_} = $headers->{$_} } qw( clock_sec clock_usec );
+    } else {
+        $timestamp = Zircon::Timestamp->timestamp;
+    }
+
     my $reply_header = {
         msg_type        => 'REPLY',
         request_id      => $request_header->{request_id},

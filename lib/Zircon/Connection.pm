@@ -155,7 +155,7 @@ sub _server_callback {
     $self->zircon_trace('start (req %d/%d, collision: %s)', $request_id, $attempt, $collision_result // 'none');
     $self->zircon_trace("request: '%s'", $request);
 
-    my $reply;
+    my ($reply, $headers);
 
     my $rrid = $self->remote_request_id;
     if ($attempt > 1 and $rrid and $rrid == $request_id and $self->last_reply) {
@@ -165,14 +165,14 @@ sub _server_callback {
     } else {
         # Not seen this request before
         warn "Out of sequence: last ${rrid}, this ${request_id}" if ($rrid and $request_id <= $rrid);
-        $reply = $self->handler->zircon_connection_request($request, $collision_result);
+        ($reply, $headers) = $self->handler->zircon_connection_request($request, $collision_result);
         $self->remote_request_id($request_id);
         $self->last_reply($reply);
     }
 
     $self->zircon_trace('finish');
 
-    return $reply;
+    return ($reply, $headers);
 }
 
 # endpoints

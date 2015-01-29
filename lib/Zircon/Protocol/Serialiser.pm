@@ -81,7 +81,7 @@ sub serialise_request {
 }
 
 sub serialise_reply {
-    my ($self, $request_id, $command, $reply) = @_;
+    my ($self, $request_id, $command, $reply, $timestamp) = @_;
     my ($status, @reply_body) = @{$reply};
     my ($return_code, $reason) =
         defined $status ? @{$status} : ( 'ok' );
@@ -109,7 +109,7 @@ sub serialise_reply {
             'app_id'       => $app_id,
             'socket_id'    => $socket_id,
             'request_id'   => $request_id,
-            $self->_timestamp,
+            $self->_timestamp($timestamp),
         }, $reply_element);
     return $self->finalise_element($protocol_element);
 }
