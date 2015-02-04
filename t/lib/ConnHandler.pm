@@ -28,7 +28,7 @@ sub new {
 sub zconn {
     my ($self, @arg) = @_;
     ($self->{zconn}) = @arg if @arg;
-    return $self->{zconn} or
+    return $self->{zconn} ||
       die "Need zconn set now";
 }
 
