@@ -40,7 +40,8 @@ sub new {
 sub _init {
     my ($self, $arg_hash) = @_;
 
-    foreach my $k (qw( app_class context handshake_timeout_secs post_handshake_delay_msecs peer_socket_opt )) {
+    foreach my $k (qw( app_class context program arg_list
+                       handshake_timeout_secs post_handshake_delay_msecs peer_socket_opt )) {
         $self->{"_$k"} = $arg_hash->{"-$k"}; # value may be undef
     }
     unless ($self->app_class) {
@@ -59,8 +60,8 @@ sub _init {
 
     require_module($self->app_class);
     my $app = $self->app_class->new(
-        $arg_hash->{-program},
-        @{$arg_hash->{-arg_list}},
+        $self->program,
+        @{$self->arg_list},
         $peer_arg,
         );
     $self->_app_forker($app);
@@ -89,8 +90,8 @@ sub launch_app {
     $self->_waitVariable_with_fail(\ $wait);
     if ($wait ne 'ok') {
         kill 'TERM', $pid; # can't talk to it -> don't want it
-        my $app_class = $self->app_class;
-        die "launch() for '${app_class}': timeout waiting for the handshake; killed pid $pid";
+        my $trace_tag = $self->trace_tag;
+        die "launch() for '${trace_tag}': timeout waiting for the handshake; killed pid $pid";
         # wait() happens in event loop
     }
 
@@ -141,8 +142,8 @@ sub send_command {
     my ($self, $command, @args) = @_;
 
     unless ($self->is_running) {
-        my $app_class = $self->app_class;
-        warn "${app_class}: child has gone, cannot send command '$command'\n";
+        my $trace_tag = $self->trace_tag;
+        warn "${trace_tag}: child has gone, cannot send command '$command'\n";
         return;
     }
 
@@ -246,6 +247,25 @@ sub context {
     my ($self) = @_;
     my $context = $self->{'_context'};
     return $context;
+}
+
+sub program {
+    my ($self, @args) = @_;
+    ($self->{'_program'}) = @args if @args;
+    my $program = $self->{'_program'};
+    return $program;
+}
+
+sub trace_tag {
+    my ($self) = @_;
+    return sprintf "%s:%s", $self->app_class, $self->program;
+}
+
+sub arg_list {
+    my ($self, @args) = @_;
+    ($self->{'_arg_list'}) = @args if @args;
+    my $arg_list = $self->{'_arg_list'};
+    return $arg_list;
 }
 
 sub handshake_timeout_secs {
