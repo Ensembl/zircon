@@ -32,10 +32,17 @@ sub get_mark {
     my $hash = $result->reply->[0][1];
     my $start = abs($hash->{'start'});
     my $end   = abs($hash->{'end'});
-    if ($end < $start) {
+    my $strand = 1;
+    if ($start > $end) {
+        $strand = -1;
         ($start, $end) = ($end, $start);
     }
-    return ($start, $end);
+
+    return {
+        start   => $start,
+        end     => $end,
+        strand  => $strand,
+    };
 }
 
 sub load_features {
