@@ -135,6 +135,7 @@ sub _send_two_part {
     }
     $self->zircon_trace('sent header');
 
+    $self->zircon_trace("body:\n%s", $request);
     if (my $e = $self->_send_msg($request, $socket)) {
         return "$e (body)";
     }
@@ -169,7 +170,7 @@ sub _get_two_part {
             return undef, undef, "_recv_msg(body) error: '$error'";
         }
     }
-    $self->zircon_trace("body: '%s'", $body);
+    $self->zircon_trace("body:\n%s", $body);
 
     return $header, $body;
 }
