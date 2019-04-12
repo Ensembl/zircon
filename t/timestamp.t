@@ -19,6 +19,7 @@ sub main {
     plan tests => 7;
     my $handler = do_init();
     # hold the ref to prevent garbage collection
+    print STDERR "AARRRGGG\n";
     MainLoop();
 
     return 0;
@@ -31,9 +32,11 @@ sub do_init {
     $M->clip_ids(@id);
     $M->after(10000, sub { fail("whole-test timeout"); $M->destroy });
 
+    print STDERR "GGG\n";
     my $handler = init_zircon_conn($M, @id);
     $M->state_bump(new => @id);
 
+    print STDERR "RRRGGG\n";
     return $handler;
 }
 

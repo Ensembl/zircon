@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+use Carp;
 use IO::Handle;
 use Getopt::Long;
 use Tk;
@@ -129,8 +130,10 @@ sub zconn {
         ($self->{zconn}) = @arg;
         $self->try_send; # may have been postponed due to lack of zconn
     }
-    return $self->{zconn} ||
-      die "Need zconn set now";
+    if (!$self->{zconn}) {
+      confess "Need zconn set now";
+    }
+    return $self->{zconn};
 }
 
 
@@ -261,8 +264,11 @@ sub new {
 sub zconn {
     my ($self, @arg) = @_;
     ($self->{zconn}) = @arg if @arg;
-    return $self->{zconn} ||
-      die "Need zconn set now";
+
+    if (!$self->{zconn}) {
+      confess "Need zconn set now";
+    }
+    return $self->{zconn};
 }
 
 sub on_timeout {
